@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -26,9 +26,7 @@ export default function UsersPage() {
   const fetchUsers = async () => {
     try {
       const token = localStorage.getItem('token');
-      const { data } = await axios.get('http://localhost:5000/api/users', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const { data } = await api.get('/users');
       setUsers(data);
     } catch (error) {
       console.error(error);
@@ -42,9 +40,7 @@ export default function UsersPage() {
   const handleCreate = async () => {
     try {
       const token = localStorage.getItem('token');
-      await axios.post('http://localhost:5000/api/users', formData, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      await api.post('/users', formData);
       setIsOpen(false);
       fetchUsers();
     } catch (error) {
@@ -56,9 +52,7 @@ export default function UsersPage() {
     if(!confirm('Are you sure?')) return;
     try {
       const token = localStorage.getItem('token');
-      await axios.delete(`http://localhost:5000/api/users/${id}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      await api.delete(`/users/${id}`);
       fetchUsers();
     } catch (error) {
       console.error(error);

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -20,9 +20,7 @@ export default function TasksPage() {
   const fetchTasks = async () => {
     try {
       const token = localStorage.getItem('token');
-      const { data } = await axios.get('http://localhost:5000/api/tasks', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const { data } = await api.get('/tasks');
       setTasks(data);
     } catch (error) {
       console.error(error);
@@ -32,9 +30,8 @@ export default function TasksPage() {
   const updateStatus = async (id: string, status: string) => {
     try {
       const token = localStorage.getItem('token');
-      await axios.put(`http://localhost:5000/api/tasks/${id}`, 
-        { status },
-        { headers: { Authorization: `Bearer ${token}` } }
+      await api.put(`/tasks/${id}`, 
+        { status }
       );
       fetchTasks();
     } catch (error) {

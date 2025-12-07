@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '@/lib/api';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -14,9 +14,7 @@ export default function LeaderboardPage() {
     const fetchLeaderboard = async () => {
       try {
         const token = localStorage.getItem('token');
-        const { data } = await axios.get('http://localhost:5000/api/users/leaderboard', {
-          headers: { Authorization: `Bearer ${token}` }
-        });
+        const { data } = await api.get('/users/leaderboard');
         setUsers(data);
       } catch (error) {
         console.error(error);

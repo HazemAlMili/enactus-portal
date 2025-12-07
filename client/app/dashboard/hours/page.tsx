@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -23,9 +23,7 @@ export default function HoursPage() {
   const fetchHours = async () => {
     try {
       const token = localStorage.getItem('token');
-      const { data } = await axios.get('http://localhost:5000/api/hours', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const { data } = await api.get('/hours');
       setHours(data);
     } catch (error) {
       console.error(error);
@@ -36,9 +34,8 @@ export default function HoursPage() {
     e.preventDefault();
     try {
       const token = localStorage.getItem('token');
-      await axios.post('http://localhost:5000/api/hours', 
-        { amount: Number(amount), description },
-        { headers: { Authorization: `Bearer ${token}` } }
+      await api.post('/hours', 
+        { amount: Number(amount), description }
       );
       setAmount('');
       setDescription('');
@@ -51,9 +48,8 @@ export default function HoursPage() {
   const handleApprove = async (id: string) => {
     try {
       const token = localStorage.getItem('token');
-      await axios.put(`http://localhost:5000/api/hours/${id}`, 
-        { status: 'Approved' },
-        { headers: { Authorization: `Bearer ${token}` } }
+      await api.put(`/hours/${id}`, 
+        { status: 'Approved' }
       );
       fetchHours();
     } catch (error) {
