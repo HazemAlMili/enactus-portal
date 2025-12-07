@@ -33,6 +33,12 @@ mongoose.connect(MONGO_URI)
 .then(() => console.log('MongoDB Connected'))
 .catch(err => console.error(err));
 
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+// Export app for Vercel
+export default app;
+
+// Only listen if not running on Vercel (or similar serverless platform)
+if (!process.env.VERCEL) {
+  app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+  });
+}
