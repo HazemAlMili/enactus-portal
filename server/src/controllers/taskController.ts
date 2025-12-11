@@ -1,65 +1,85 @@
+// Import express types
 import { Request, Response } from 'express';
+// Import Task model
 import Task from '../models/Task';
 
-// Create Task
+/**
+ * Controller to create a new task.
+ * Route: POST /api/tasks
+ * Access: Private (Heads/VP/HR)
+ */
 export const createTask = async (req: Request, res: Response) => {
   try {
+    // Destructure task details from request body
     const { title, description, assignedTo, scoreValue, dueDate } = req.body;
     
+    // Create a new task in the database
     const task = await Task.create({
       title,
       description,
       assignedTo,
-      assignedBy: (req.user as any)?._id,
+      assignedBy: (req.user as any)?._id, // Set the creator (current user) as assigner
       scoreValue,
       dueDate
     });
 
+    // Return the created task with 201 Created status
     res.status(201).json(task);
   } catch (error) {
+    // Handle server errors
     res.status(500).json({ message: 'Server Error' });
   }
 };
 
-// Get Tasks
+/**
+ * Controller to get a list of tasks based on user role.
+ * Route: GET /api/tasks
+ * Access: Private
+ */
 export const getTasks = async (req: Request, res: Response) => {
   try {
     let query = {};
-    // If member, only see assigned tasks
-    if (req.user?.role === 'Member') {
-      query = { assignedTo: (req.user as any)._id };
-    } 
-    // If Head/VP, see department tasks (Need to filter users by dept first or store dept on task, 
-    // but easier to just filter tasks where assignedTo user is in dept? 
-    // For simplicity, let's assume Head can see all tasks they assigned OR tasks for their dept members).
-    // The PRD says "Head... Ability to assign and review tasks".
-    // I'll filter by assignedBy for Heads for now, or all tasks if they want to see what others assigned?
-    // Let's create a simpler logic: Heads see tasks they created + tasks assigned to them?
-    
-    // Better: Filter by Department of the user assignedTo? 
-    // That requires a join. 
-    // Let's just return all for HR/GP, and for others filter by assignedTo = me OR assignedBy = me.
-    else if (req.user?.role === 'Head' || req.user?.role === 'Vice Head') {
-       query = { $or: [{ assignedBy: (req.user as any)._id }, { assignedTo: (req.user as any)._id }] };
-    }
+    const userRole = req.user?.role;
+    const userId = (req.user as any)._id;
 
-    const tasks = await Task.find(query).populate('assignedTo', 'name email').populate('assignedBy', 'name');
+    // Logic to determine which tasks to return based on role
+    if (userRole === 'Member') {
+      // Members only see tasks assigned to them
+      query = { assignedTo: userId };
+    } 
+    else if (userRole === 'Head' || userRole === 'Vice Head') {
+       // Heads/VPs see tasks they assigned OR tasks assigned to them
+       query = { $or: [{ assignedBy: userId }, { assignedTo: userId }] };
+    }
+    // Note: Other roles (e.g. HR, GP) might see all tasks or default to empty query (seeing all) depending on implementation details not fully specified here, effectively showing all if query remains {}.
+
+    // Retrieve tasks, populating assignee and assigner details
+    const tasks = await Task.find(query)
+      .populate('assignedTo', 'name email')
+      .populate('assignedBy', 'name');
+      
     res.json(tasks);
   } catch (error) {
     res.status(500).json({ message: 'Server Error' });
   }
 };
 
-// Update Task (Submit / Approve)
+/**
+ * Controller to update a task (e.g. for submission or approval/status change).
+ * Route: PUT /api/tasks/:id
+ * Access: Private
+ */
 export const updateTask = async (req: Request, res: Response) => {
   try {
+    // Find task by ID
     const task = await Task.findById(req.params.id);
     if (!task) return res.status(404).json({ message: 'Task not found' });
 
-    // Updates
+    // Update fields if they are present in the request body
     if (req.body.status) task.status = req.body.status;
     if (req.body.submissionLink) task.submissionLink = req.body.submissionLink;
 
+    // Save the updated task
     await task.save();
     res.json(task);
   } catch (error) {
