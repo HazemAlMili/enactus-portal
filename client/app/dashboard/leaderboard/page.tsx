@@ -1,19 +1,25 @@
 "use client";
 
+// Import hooks and API
 import { useState, useEffect } from 'react';
 import api from '@/lib/api';
+// Import UI components
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Trophy } from 'lucide-react';
 
+// Define Leaderboard Component
 export default function LeaderboardPage() {
+  // State for user list (sorted by points)
   const [users, setUsers] = useState<any[]>([]);
 
+  // Effect to fetch leaderboard on mount
   useEffect(() => {
     const fetchLeaderboard = async () => {
       try {
         const token = localStorage.getItem('token');
+        // GET /users/leaderboard (Assumed to return sorted list)
         const { data } = await api.get('/users/leaderboard');
         setUsers(data);
       } catch (error) {
@@ -45,16 +51,18 @@ export default function LeaderboardPage() {
               {users.map((user, index) => (
                 <TableRow key={user._id} className="border-b border-primary/10 hover:bg-primary/5">
                   <TableCell className="font-bold text-white">
+                    {/* Top 3 Stylized Ranking Badges */}
                     {index + 1 <= 3 ? (
                       <span className={`
                         inline-flex items-center justify-center w-8 h-8 rounded-full 
-                        ${index === 0 ? 'bg-yellow-500 text-black' : 
-                          index === 1 ? 'bg-gray-400 text-black' : 
-                          'bg-amber-700 text-white'}
+                        ${index === 0 ? 'bg-yellow-500 text-black' : // Gold
+                          index === 1 ? 'bg-gray-400 text-black' : // Silver
+                          'bg-amber-700 text-white'} // Bronze
                       `}>
                         {index + 1}
                       </span>
                     ) : (
+                      // Standard ranking number for others
                       <span className="text-gray-500 pl-3">#{index + 1}</span>
                     )}
                   </TableCell>
