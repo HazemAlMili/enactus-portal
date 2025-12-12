@@ -6,6 +6,7 @@ import User from '../models/User';
 import jwt from 'jsonwebtoken';
 // Import bcryptjs for secure password hashing and comparison
 import bcrypt from 'bcryptjs';
+import dbConnect from '../lib/dbConnect';
 
 // Helper function to generate a JSON Web Token (JWT) for a user
 const generateToken = (id: string) => {
@@ -21,6 +22,7 @@ const generateToken = (id: string) => {
  * Access: Public
  */
 export const loginUser = async (req: Request, res: Response) => {
+  await dbConnect();
   try {
     // Destructure email and password from the request body
     const { email, password } = req.body;
@@ -57,6 +59,7 @@ export const loginUser = async (req: Request, res: Response) => {
  * Access: Private (Requires Auth Middleware)
  */
 export const getMe = async (req: Request, res: Response) => {
+  await dbConnect();
   // Find the user by ID, which is attached to the request object by the auth middleware
   const user = await User.findById((req as any).user?._id);
   

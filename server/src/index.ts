@@ -44,9 +44,12 @@ app.get('/', (req, res) => {
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/enactus_portal';
 
 // Connect to MongoDB
+// MOVED TO lib/dbConnect.ts for Serverless/Vercel support
+/*
 mongoose.connect(MONGO_URI)
 .then(() => console.log('MongoDB Connected'))
 .catch(err => console.error(err));
+*/
 
 // Export app instance (useful for testing or serverless deployment like Vercel)
 export default app;
