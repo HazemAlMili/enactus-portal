@@ -7,26 +7,26 @@ import { usePathname, useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 // Import UI components and icons
 import { Button } from '@/components/ui/button';
-import { LayoutDashboard, Clock, CheckSquare, Trophy, Users, LogOut } from 'lucide-react';
+import { LayoutDashboard, Clock, CheckSquare, Trophy, Users, LogOut, Building } from 'lucide-react';
 
-// Define Sidebar Component which receives the current user as a prop
-export function Sidebar({ user }: { user: any }) {
-  // Get current path to highlight active link
+// Define Sidebar Component
+export function Sidebar({ user, className }: { user: any, className?: string }) {
+  // Get current path... (hooks)
   const pathname = usePathname();
-  // Get router for navigation actions (logout)
   const router = useRouter();
 
   // Define static navigation links
   const links = [
     { href: '/dashboard', label: 'Overview', icon: LayoutDashboard },
-    { href: '/dashboard/hours', label: 'Hours', icon: Clock },
     { href: '/dashboard/tasks', label: 'Tasks', icon: CheckSquare },
-    { href: '/dashboard/leaderboard', label: 'Leaderboard', icon: Trophy },
   ];
 
-  // Dynamically add 'Users' link for HR or President roles
-  if (user?.role === 'HR' || user?.role === 'General President') {
-    links.push({ href: '/dashboard/users', label: 'Users', icon: Users });
+  // Management Links for Leaders (Head, Vice Head, HR, General President)
+  if (user && ['Head', 'Vice Head', 'HR', 'General President'].includes(user.role)) {
+    links.push({ href: '/dashboard/hours', label: 'Hours', icon: Clock });
+    links.push({ href: '/dashboard/leaderboard', label: 'Leaderboard', icon: Trophy });
+    links.push({ href: '/dashboard/users', label: 'Squad', icon: Users });
+    links.push({ href: '/dashboard/departments', label: 'Departments', icon: Building });
   }
 
   // Handle Logout Logic
@@ -40,7 +40,7 @@ export function Sidebar({ user }: { user: any }) {
 
   return (
     // Fixed width side navigation container
-    <div className="flex flex-col h-screen w-64 bg-card border-r border-primary/50">
+    <div className={cn("flex flex-col h-screen w-64 bg-card border-r border-primary/50", className)}>
       {/* Brand Logo Section */}
       <div className="p-6">
         <h1 className="text-2xl font-bold bg-gradient-to-r from-secondary to-accent bg-clip-text text-transparent">

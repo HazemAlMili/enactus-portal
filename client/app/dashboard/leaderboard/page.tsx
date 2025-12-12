@@ -1,81 +1,93 @@
 "use client";
 
-// Import hooks and API
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
-// Import UI components
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Trophy } from 'lucide-react';
 
-// Define Leaderboard Component
 export default function LeaderboardPage() {
-  // State for user list (sorted by points)
   const [users, setUsers] = useState<any[]>([]);
+  const router = useRouter();
+  const [loading, setLoading] = useState(true);
 
-  // Effect to fetch leaderboard on mount
   useEffect(() => {
+    const userStr = localStorage.getItem('user');
+    if (userStr) {
+       const user = JSON.parse(userStr);
+       // Allow Heads, Vice Heads, HR, GP
+       if (!['Head', 'Vice Head', 'HR', 'General President'].includes(user.role)) {
+          router.push('/dashboard'); // Redirect unauthorized
+          return;
+       }
+    } else {
+       router.push('/');
+       return;
+    }
+
     const fetchLeaderboard = async () => {
       try {
-        const token = localStorage.getItem('token');
-        // GET /users/leaderboard (Assumed to return sorted list)
         const { data } = await api.get('/users/leaderboard');
         setUsers(data);
       } catch (error) {
         console.error(error);
+      } finally {
+        setLoading(false);
       }
     };
     fetchLeaderboard();
-  }, []);
+  }, [router]);
+
+  if (loading) return null;
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-3 mb-6">
-        <Trophy className="h-8 w-8 text-secondary" />
-        <h2 className="text-3xl font-bold text-white">Leaderboard</h2>
+      <div className="flex items-center gap-3 mb-6 bg-card p-6 border-b-4 border-b-secondary pixel-corners">
+        <Trophy className="h-8 w-8 text-secondary animate-pulse" />
+        <h2 className="text-3xl pixel-font text-white text-glow">LEADERBOARD</h2>
       </div>
 
-      <Card className="bg-card border-none">
-        <CardContent className="p-0">
+      <Card className="bg-card border-2 border-primary pixel-corners">
+        <CardContent className="p-0 overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow className="border-b border-primary/30 hover:bg-transparent">
-                <TableHead className="text-gray-400 w-[100px]">Rank</TableHead>
-                <TableHead className="text-gray-400">User</TableHead>
-                <TableHead className="text-gray-400">Department</TableHead>
-                <TableHead className="text-right text-gray-400">Points</TableHead>
+                <TableHead className="text-primary pixel-font text-xs w-[100px]">RANK</TableHead>
+                <TableHead className="text-primary pixel-font text-xs">PLAYER</TableHead>
+                <TableHead className="text-primary pixel-font text-xs">GUILD</TableHead>
+                <TableHead className="text-right text-primary pixel-font text-xs">SCORE</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {users.map((user, index) => (
                 <TableRow key={user._id} className="border-b border-primary/10 hover:bg-primary/5">
-                  <TableCell className="font-bold text-white">
+                  <TableCell className="font-bold text-white pixel-font">
                     {/* Top 3 Stylized Ranking Badges */}
                     {index + 1 <= 3 ? (
-                      <span className={`
-                        inline-flex items-center justify-center w-8 h-8 rounded-full 
+                      <div className={`
+                        flex items-center justify-center w-8 h-8 pixel-corners text-xs
                         ${index === 0 ? 'bg-yellow-500 text-black' : // Gold
                           index === 1 ? 'bg-gray-400 text-black' : // Silver
                           'bg-amber-700 text-white'} // Bronze
                       `}>
                         {index + 1}
-                      </span>
+                      </div>
                     ) : (
-                      // Standard ranking number for others
-                      <span className="text-gray-500 pl-3">#{index + 1}</span>
+                      <span className="text-gray-500 pl-2">#{index + 1}</span>
                     )}
                   </TableCell>
                   <TableCell>
                     <div className="flex flex-col">
-                      <span className="text-white font-medium">{user.name}</span>
-                      <span className="text-xs text-gray-500">{user.role}</span>
+                      <span className="text-white font-medium pixel-font text-xs">{user.name}</span>
+                      <span className="text-[10px] text-gray-500 font-mono uppercase">{user.role}</span>
                     </div>
                   </TableCell>
                   <TableCell>
-                    <Badge variant="outline" className="text-accent border-accent/50">{user.department || 'N/A'}</Badge>
+                    <Badge variant="outline" className="text-accent border-accent/50 pixel-corners pixel-font text-[10px]">{user.department || 'N/A'}</Badge>
                   </TableCell>
-                  <TableCell className="text-right font-mono text-secondary text-lg">
+                  <TableCell className="text-right pixel-font text-secondary text-sm">
                     {user.points} XP
                   </TableCell>
                 </TableRow>

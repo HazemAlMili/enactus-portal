@@ -5,6 +5,8 @@ import { Inter } from "next/font/google";
 // Import global CSS styles
 import "./globals.css";
 
+import CloudBackground from "@/components/layout/CloudBackground";
+
 // Initialize the Inter font with the 'latin' subset
 const inter = Inter({ subsets: ["latin"] });
 
@@ -25,7 +27,10 @@ export default function RootLayout({
     <html lang="en">
       {/* Apply the Inter font class to the body and render child components */}
       <body className={inter.className}>
-        {children}
+        <CloudBackground />
+        <main className="relative z-10">
+          {children}
+        </main>
       </body>
     </html>
   );

@@ -20,6 +20,9 @@ export default function UsersPage() {
   const [users, setUsers] = useState<any[]>([]);
   // State for controlling the 'Add Member' modal visibility
   const [isOpen, setIsOpen] = useState(false);
+  // State for Delete Confirmation Modal
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  
   // State for the new user form data
   const [formData, setFormData] = useState({
     name: '',
@@ -61,14 +64,14 @@ export default function UsersPage() {
   };
 
   // Handler for deleting a user by ID
-  const handleDelete = async (id: string) => {
-    // Confirm deletion with the user
-    if(!confirm('Are you sure?')) return;
+  const confirmDelete = async () => {
+    if (!deleteId) return;
     try {
       const token = localStorage.getItem('token');
       // DELETE request
-      await api.delete(`/users/${id}`);
+      await api.delete(`/users/${deleteId}`);
       fetchUsers();
+      setDeleteId(null); // Close modal
     } catch (error) {
       console.error(error);
     }
@@ -76,40 +79,40 @@ export default function UsersPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center bg-card p-6 rounded-lg border-l-4 border-l-accent">
-        <h2 className="text-3xl font-bold text-white">Squad Management</h2>
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-card p-6 border-l-4 border-l-accent pixel-corners">
+        <h2 className="text-3xl text-white pixel-font text-glow">SQUAD ROSTER</h2>
         
         {/* Add Member Dialog (Modal) */}
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
           <DialogTrigger asChild>
-            <Button className="bg-secondary text-secondary-foreground hover:bg-yellow-500">
+            <Button className="w-full md:w-auto bg-secondary text-secondary-foreground hover:bg-yellow-500 pixel-corners pixel-font">
               <UserPlus className="mr-2 h-4 w-4" />
-              Recruit Member
+              RECRUIT PLAYER
             </Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="pixel-corners border-2 border-primary bg-card">
             <DialogHeader>
-              <DialogTitle>Add New Member</DialogTitle>
+              <DialogTitle className="pixel-font text-primary">NEW PLAYER ENTRY</DialogTitle>
             </DialogHeader>
             <div className="space-y-4 py-4">
-              {/* Form Fields: Name, Email, Password, Role, Department */}
-              <div className="space-y-2">
-                <Label>Name</Label>
-                <Input value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
+               {/* ... (Existing Form Code) ... */}
+               <div className="space-y-2">
+                <Label className="pixel-font text-xs">PLAYER NAME</Label>
+                <Input className="pixel-corners bg-background/50 border-primary" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
               </div>
               <div className="space-y-2">
-                <Label>Email</Label>
-                <Input value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
+                <Label className="pixel-font text-xs">EMAIL</Label>
+                <Input className="pixel-corners bg-background/50 border-primary" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
               </div>
               <div className="space-y-2">
-                <Label>Password</Label>
-                <Input type="password" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} />
+                <Label className="pixel-font text-xs">PASSWORD</Label>
+                <Input className="pixel-corners bg-background/50 border-primary" type="password" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} />
               </div>
               <div className="space-y-2">
-                <Label>Role</Label>
+                <Label className="pixel-font text-xs">CLASS (ROLE)</Label>
                 <Select onValueChange={v => setFormData({...formData, role: v})} defaultValue={formData.role}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
+                  <SelectTrigger className="pixel-corners border-primary bg-background/50"><SelectValue /></SelectTrigger>
+                  <SelectContent className="pixel-corners border-primary bg-card">
                     <SelectItem value="Member">Member</SelectItem>
                     <SelectItem value="Vice Head">Vice Head</SelectItem>
                     <SelectItem value="Head">Head</SelectItem>
@@ -118,46 +121,63 @@ export default function UsersPage() {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>Department</Label>
+                <Label className="pixel-font text-xs">GUILD (DEPT)</Label>
                 <Select onValueChange={v => setFormData({...formData, department: v})} defaultValue={formData.department}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
+                  <SelectTrigger className="pixel-corners border-primary bg-background/50"><SelectValue /></SelectTrigger>
+                  <SelectContent className="pixel-corners border-primary bg-card">
                     {['IT','HR','PM','PR','FR','Logistics','Organization','Marketing','Multi-Media','Presentation'].map(d => (
                       <SelectItem key={d} value={d}>{d}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
-              <Button onClick={handleCreate} className="w-full">Confirm Recruit</Button>
+              <Button onClick={handleCreate} className="w-full pixel-corners pixel-font">CONFIRM RECRUIT</Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Delete Confirmation Modal */}
+        <Dialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>
+          <DialogContent className="pixel-corners border-2 border-destructive bg-card max-w-sm text-center">
+            <DialogHeader>
+              <DialogTitle className="pixel-font text-destructive text-xl animate-pulse">WARNING!</DialogTitle>
+            </DialogHeader>
+            <div className="py-4 text-white/80 font-mono text-sm">
+              <p>DELETE THIS PLAYER?</p>
+              <p className="text-xs text-white/50 mt-1">THIS ACTION CANNOT BE UNDONE.</p>
+            </div>
+            <div className="flex gap-4 justify-center mt-2">
+               <Button variant="ghost" onClick={() => setDeleteId(null)} className="pixel-corners text-white/60">CANCEL</Button>
+               <Button variant="destructive" onClick={confirmDelete} className="pixel-corners pixel-font">DESTROY</Button>
             </div>
           </DialogContent>
         </Dialog>
       </div>
 
       {/* Users List Table */}
-      <Card className="bg-card/50 border-primary/20">
-        <CardContent className="p-0">
+      <Card className="bg-card border-2 border-primary pixel-corners">
+        <CardContent className="p-0 overflow-x-auto">
           <Table>
             <TableHeader>
-              <TableRow>
-                <TableHead className="text-gray-400">Name</TableHead>
-                <TableHead className="text-gray-400">Role</TableHead>
-                <TableHead className="text-gray-400">Department</TableHead>
-                <TableHead className="text-gray-400">XP</TableHead>
+              <TableRow className="hover:bg-transparent border-b border-primary/20">
+                <TableHead className="text-primary pixel-font text-xs">PLAYER NAME</TableHead>
+                <TableHead className="text-primary pixel-font text-xs">CLASS</TableHead>
+                <TableHead className="text-primary pixel-font text-xs">GUILD</TableHead>
+                <TableHead className="text-primary pixel-font text-xs">XP</TableHead>
                 <TableHead className="text-gray-400"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {/* Map through users array */}
               {users.map((u) => (
-                <TableRow key={u._id}>
-                  <TableCell className="text-white font-medium">{u.name}</TableCell>
-                  <TableCell className="text-gray-300">{u.role}</TableCell>
-                  <TableCell><Badge variant="outline">{u.department}</Badge></TableCell>
-                  <TableCell className="text-secondary">{u.points}</TableCell>
+                <TableRow key={u._id} className="hover:bg-primary/10 border-b border-primary/10">
+                  <TableCell className="text-white font-medium pixel-font text-sm">{u.name}</TableCell>
+                  <TableCell className="text-gray-300 font-mono text-xs uppercase">{u.role}</TableCell>
+                  <TableCell><Badge variant="outline" className="pixel-corners border-accent text-accent">{u.department}</Badge></TableCell>
+                  <TableCell className="text-secondary pixel-font">{u.points} XP</TableCell>
                   <TableCell className="text-right">
                     {/* Delete Button */}
-                    <Button variant="ghost" size="sm" onClick={() => handleDelete(u._id)} className="text-red-500 hover:text-red-600 hover:bg-red-900/20">
+                    <Button variant="ghost" size="sm" onClick={() => setDeleteId(u._id)} className="text-destructive hover:text-white hover:bg-destructive pixel-corners">
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   </TableCell>
