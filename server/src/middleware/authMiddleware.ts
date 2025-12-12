@@ -34,9 +34,13 @@ export const protect = async (req: Request, res: Response, next: NextFunction) =
       const user = await User.findById(decoded.id).select('-password');
       console.log('User found in DB:', user);
       
+      if (!user) {
+        return res.status(401).json({ message: 'Not authorized, user not found' });
+      }
+
       // Attach user to request object (using @ts-ignore to bypass Express type definition extension issue)
       // @ts-ignore
-      req.user = user || undefined;
+      req.user = user;
       
       // Proceed to next middleware/controller
       next();

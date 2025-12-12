@@ -10,6 +10,7 @@ export interface ITask extends Document {
   status: 'Pending' | 'Submitted' | 'Completed'; // Current status of the task
   scoreValue: number; // Points awarded for completing the task
   dueDate?: Date; // Optional deadline
+  resourcesLink?: string; // Link provided by assigner
   submissionLink?: string; // Link provided by the assignee upon submission
 }
 
@@ -26,6 +27,7 @@ const TaskSchema: Schema = new Schema({
   },
   scoreValue: { type: Number, default: 10 }, // Default points value is 10
   dueDate: { type: Date }, // Due date is optional
+  resourcesLink: { type: String }, // Link provided by the assigner (Head)
   submissionLink: { type: String } // Submission link (filled when status becomes Submitted)
 }, { timestamps: true }); // Automatically manage createdAt and updatedAt timestamps
 

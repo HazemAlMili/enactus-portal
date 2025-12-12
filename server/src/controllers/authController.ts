@@ -58,7 +58,7 @@ export const loginUser = async (req: Request, res: Response) => {
  */
 export const getMe = async (req: Request, res: Response) => {
   // Find the user by ID, which is attached to the request object by the auth middleware
-  const user = await User.findById((req.user as any)?._id);
+  const user = await User.findById((req as any).user?._id);
   
   // If the user is found in the database
   if (user) {

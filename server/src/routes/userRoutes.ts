@@ -13,12 +13,12 @@ router.get('/leaderboard', protect, getLeaderboard); // Fetch Top Users
 
 // Route: /api/users (User Management)
 router.route('/')
-  .get(protect, authorize('HR', 'General President'), getUsers) // Get All Users (HR/GP only)
-  .post(protect, authorize('HR', 'General President'), createUser); // Create New User (HR/GP only)
+  .get(protect, authorize('HR', 'General President', 'Head', 'Vice Head'), getUsers) // Get All Users (HR/GP/Heads only)
+  .post(protect, authorize('HR', 'General President', 'Head', 'Vice Head'), createUser); // Create New User (HR/GP/Heads only)
 
 // Route: /api/users/:id
 router.route('/:id')
-  .delete(protect, authorize('HR', 'General President'), deleteUser); // Delete User (HR/GP only)
+  .delete(protect, authorize('HR', 'General President', 'Head', 'Vice Head'), deleteUser); // Delete User (HR/GP/Heads only)
 
 // Export Router
 export default router;

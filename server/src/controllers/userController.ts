@@ -32,10 +32,33 @@ export const getLeaderboard = async (req: Request, res: Response) => {
  */
 export const getUsers = async (req: Request, res: Response) => {
   try {
-    // Return all users excluding the password field for security
-    const users = await User.find({}).select('-password');
+    let query: any = {};
+    const currentUser = (req as any).user;
+
+    // 1. Head / Vice Head: See only their Department members
+    if (currentUser?.role === 'Head' || currentUser?.role === 'Vice Head') {
+      query = { department: currentUser.department };
+    }
+    // 2. HR Logic
+    else if (currentUser?.role === 'HR') {
+      const email = currentUser.email || '';
+      const hrMatch = email.match(/^hr-(.+)@/); 
+      
+      if (hrMatch) {
+         const targetDept = hrMatch[1].toUpperCase().replace('MULTIMEDIA', 'Multi-Media');
+         const validDepts = ['IT','HR','PM','PR','FR','Logistics','Organization','Marketing','Multi-Media','Presentation'];
+         const deptName = validDepts.find(d => d.replace(/[^a-zA-Z]/g, '').toLowerCase() === targetDept.replace(/[^a-zA-Z]/g, '').toLowerCase()) || targetDept;
+         
+         query = { department: deptName };
+      }
+      // General HR sees all (query remains {})
+    }
+    // General President sees all
+
+    const users = await User.find(query).select('-password').sort({ name: 1 });
     res.json(users);
   } catch (error) {
+    console.error(error);
     res.status(500).json({ message: 'Server Error' });
   }
 };

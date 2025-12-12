@@ -11,22 +11,34 @@ import Task from '../models/Task';
 export const createTask = async (req: Request, res: Response) => {
   try {
     // Destructure task details from request body
-    const { title, description, assignedTo, scoreValue, dueDate } = req.body;
-    
-    // Create a new task in the database
-    const task = await Task.create({
-      title,
-      description,
-      assignedTo,
-      assignedBy: (req.user as any)?._id, // Set the creator (current user) as assigner
-      scoreValue,
-      dueDate
+    const { title, description, resourcesLink } = req.body;
+    const currentUser = (req as any).user;
+
+    // Find all 'Member' users in the creator's department
+    const members = await User.find({ 
+      department: currentUser.department, 
+      role: 'Member' 
     });
 
-    // Return the created task with 201 Created status
-    res.status(201).json(task);
+    if (!members || members.length === 0) {
+      return res.status(400).json({ message: 'No members found in your department to assign tasks to.' });
+    }
+    
+    // Create a task for each member
+    const tasks = await Promise.all(members.map(member => Task.create({
+      title,
+      description,
+      assignedTo: member._id,
+      assignedBy: currentUser._id,
+      scoreValue: 50, // Default XP Reward
+      resourcesLink
+    })));
+
+    // Return the created tasks
+    res.status(201).json(tasks);
   } catch (error) {
     // Handle server errors
+    console.error(error);
     res.status(500).json({ message: 'Server Error' });
   }
 };
@@ -39,8 +51,8 @@ export const createTask = async (req: Request, res: Response) => {
 export const getTasks = async (req: Request, res: Response) => {
   try {
     let query = {};
-    const userRole = req.user?.role;
-    const userId = (req.user as any)._id;
+    const userRole = (req as any).user?.role;
+    const userId = (req as any).user?._id;
 
     // Logic to determine which tasks to return based on role
     if (userRole === 'Member') {
@@ -69,17 +81,28 @@ export const getTasks = async (req: Request, res: Response) => {
  * Route: PUT /api/tasks/:id
  * Access: Private
  */
+import User from '../models/User';
+
+// ... (existing imports)
+
 export const updateTask = async (req: Request, res: Response) => {
   try {
-    // Find task by ID
     const task = await Task.findById(req.params.id);
     if (!task) return res.status(404).json({ message: 'Task not found' });
 
-    // Update fields if they are present in the request body
+    // Check if status is changing to Completed
+    if (req.body.status === 'Completed' && task.status !== 'Completed') {
+       const user = await User.findById(task.assignedTo);
+       if (user) {
+         user.tasksCompleted += 1;
+         user.points += (task.scoreValue || 0);
+         await user.save();
+       }
+    }
+
     if (req.body.status) task.status = req.body.status;
     if (req.body.submissionLink) task.submissionLink = req.body.submissionLink;
 
-    // Save the updated task
     await task.save();
     res.json(task);
   } catch (error) {
