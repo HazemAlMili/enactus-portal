@@ -39,6 +39,9 @@ export const loginUser = async (req: Request, res: Response) => {
         email: user.email,      // User Email
         role: user.role,        // User Role (e.g., Member, Head)
         department: user.department, // User Department
+        points: user.points,
+        hoursApproved: user.hoursApproved,
+        tasksCompleted: user.tasksCompleted,
         token: generateToken(user._id.toString()), // Generated JWT Token
       });
     } else {
@@ -53,18 +56,39 @@ export const loginUser = async (req: Request, res: Response) => {
   }
 };
 
+// Import Task model for stats synchronization
+import Task from '../models/Task';
+
 /**
  * Controller to get the current authenticated user's profile.
  * Route: GET /api/auth/me
  * Access: Private (Requires Auth Middleware)
+ * MODIFIED: Performs strict synchronization of stats from Task history.
  */
 export const getMe = async (req: Request, res: Response) => {
   await dbConnect();
-  // Find the user by ID, which is attached to the request object by the auth middleware
+  // Find the user by ID
   const user = await User.findById((req as any).user?._id);
   
-  // If the user is found in the database
   if (user) {
+    // --- SELF HEALING SYNC LOGIC ---
+    // Recalculate stats based on actual Task records to ensure accuracy
+    const completedTasks = await Task.find({ 
+        assignedTo: user._id, 
+        status: 'Completed' 
+    });
+
+    const realCount = completedTasks.length;
+    const realPoints = completedTasks.reduce((sum, task) => sum + (task.scoreValue || 50), 0);
+    
+    // Update if different (or just always update to be safe and simple)
+    if (user.tasksCompleted !== realCount || user.points !== realPoints) {
+        user.tasksCompleted = realCount;
+        user.points = realPoints;
+        await user.save();
+    }
+    // -------------------------------
+
     // Respond with the user's profile information
     res.json({
       _id: user._id,
@@ -72,9 +96,11 @@ export const getMe = async (req: Request, res: Response) => {
       email: user.email,
       role: user.role,
       department: user.department,
+      points: user.points,
+      hoursApproved: user.hoursApproved,
+      tasksCompleted: user.tasksCompleted,
     });
   } else {
-    // If the user isn't found (unlikely if token is valid), return 404 Not Found
     res.status(404).json({ message: 'User not found' });
   }
 };

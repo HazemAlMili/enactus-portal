@@ -15,7 +15,7 @@ router.route('/')
 
 // Route: /api/hours/:id
 router.route('/:id')
-  .put(protect, authorize('HR', 'General President', 'Head', 'Vice Head'), updateHourStatus); // Approve/Reject hours (Leaders only)
+  .put(protect, authorize('HR', 'General President', 'Vice President'), updateHourStatus); // Approve/Reject hours (HR/GP/VP only)
 
 // Export Router
 export default router;

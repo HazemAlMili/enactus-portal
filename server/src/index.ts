@@ -19,8 +19,9 @@ app.use(cors({
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], // Allowed HTTP methods
   allowedHeaders: ['Content-Type', 'Authorization'] // Allowed headers
 }));
-// Parse incoming JSON requests
-app.use(express.json());
+// Parse incoming JSON requests with increased limit for Base64 images
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 // Import Route Handlers
 import authRoutes from './routes/authRoutes';
@@ -54,9 +55,17 @@ mongoose.connect(MONGO_URI)
 // Export app instance (useful for testing or serverless deployment like Vercel)
 export default app;
 
+import dbConnect from './lib/dbConnect';
+
+// ...
+
 // Server Startup
-// Only listen on specific port if not running in a serverless environment (detected via VERCEL env var)
 if (!process.env.VERCEL) {
+  // Connect to DB immediately on startup
+  dbConnect().then(() => {
+    // console.log('MongoDB Connected via Startup'); // Already logged inside dbConnect
+  });
+
   app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
   });

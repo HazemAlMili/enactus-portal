@@ -7,11 +7,14 @@ export interface IUser extends Document {
   name: string;
   email: string;
   password?: string;
-  role: 'General President' | 'HR' | 'Head' | 'Vice Head' | 'Member'; // Enum for user roles
-  department?: 'IT' | 'HR' | 'PM' | 'PR' | 'FR' | 'Logistics' | 'Organization' | 'Marketing' | 'Multi-Media' | 'Presentation'; // Enum for departments
+  role: 'General President' | 'Vice President' | 'Operation Director' | 'Creative Director' | 'HR' | 'Head' | 'Vice Head' | 'Member';
+  title?: string; // Custom title like 'Vice President', 'Creative Director'
+  department?: 'General' | 'IT' | 'HR' | 'PM' | 'PR' | 'FR' | 'Logistics' | 'Organization' | 'Marketing' | 'Multi-Media' | 'Presentation'; // Enum for departments
   hoursApproved: number; // Tracking approved volunteer hours
   tasksCompleted: number; // Tracking number of tasks completed
   points: number; // Gamification points
+  avatar?: string; // URL or Base64 string of user avatar
+  warnings?: { reason: string; date: Date; issuer: string }[];
 }
 
 // Create the Mongoose Schema corresponding to the IUser interface
@@ -21,16 +24,22 @@ const UserSchema: Schema = new Schema({
   password: { type: String, required: true }, // Hashed password
   role: { 
     type: String, 
-    enum: ['General President', 'HR', 'Head', 'Vice Head', 'Member'], // Restrict values to specific roles
-    default: 'Member' // Default role is Member
+    enum: ['General President', 'Vice President', 'Operation Director', 'Creative Director', 'HR', 'Head', 'Vice Head', 'Member'], 
+    default: 'Member' 
   },
+  title: { type: String },
   department: { 
     type: String, 
-    enum: ['IT', 'HR', 'PM', 'PR', 'FR', 'Logistics', 'Organization', 'Marketing', 'Multi-Media', 'Presentation'] // Restrict values to specific departments
+    enum: ['General', 'IT', 'HR', 'PM', 'PR', 'FR', 'Logistics', 'Organization', 'Marketing', 'Multi-Media', 'Presentation'] // Restrict values to specific departments
   },
   hoursApproved: { type: Number, default: 0 }, // Initialize hours to 0
   tasksCompleted: { type: Number, default: 0 }, // Initialize tasks completed to 0
   points: { type: Number, default: 0 }, // Initialize points to 0
+  warnings: [{
+    reason: { type: String },
+    date: { type: Date, default: Date.now },
+    issuer: { type: String }
+  }],
 }, { timestamps: true }); // Automatically add createdAt and updatedAt fields
 
 // Export the Mongoose model based on the schema and interface

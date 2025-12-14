@@ -7,7 +7,9 @@ export interface ITask extends Document {
   description: string;
   assignedTo: mongoose.Types.ObjectId; // User ID of the assignee
   assignedBy: mongoose.Types.ObjectId; // User ID of the assigner (e.g., Head)
-  status: 'Pending' | 'Submitted' | 'Completed'; // Current status of the task
+  deadline?: Date;
+  department?: string;
+  status: 'Pending' | 'Submitted' | 'Completed' | 'Rejected'; // Current status of the task
   scoreValue: number; // Points awarded for completing the task
   dueDate?: Date; // Optional deadline
   resourcesLink?: string; // Link provided by assigner
@@ -16,17 +18,19 @@ export interface ITask extends Document {
 
 // Create the Mongoose Schema for Tasks
 const TaskSchema: Schema = new Schema({
-  title: { type: String, required: true }, // Task title
+  title: { type: String, default: 'General Task' }, // Task title
   description: { type: String, required: true }, // Detailed task description
-  assignedTo: { type: Schema.Types.ObjectId, ref: 'User', required: true }, // Reference to the User model (Assignee)
-  assignedBy: { type: Schema.Types.ObjectId, ref: 'User', required: true }, // Reference to the User model (Assigner)
+  assignedTo: { type: mongoose.Schema.Types.ObjectId, ref: 'User', index: true },
+  assignedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', index: true },
+  deadline: { type: Date },
+  department: { type: String, index: true }, // Department of the task
   status: { 
     type: String, 
-    enum: ['Pending', 'Submitted', 'Completed'], // Allowed status values
-    default: 'Pending' // Default status is Pending
+    enum: ['Pending', 'Submitted', 'Completed', 'Rejected'], // Allowed status values
+    default: 'Pending',
+    index: true 
   },
   scoreValue: { type: Number, default: 10 }, // Default points value is 10
-  dueDate: { type: Date }, // Due date is optional
   resourcesLink: { type: String }, // Link provided by the assigner (Head)
   submissionLink: { type: String } // Submission link (filled when status becomes Submitted)
 }, { timestamps: true }); // Automatically manage createdAt and updatedAt timestamps

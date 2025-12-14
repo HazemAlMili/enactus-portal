@@ -20,8 +20,10 @@ export const submitHours = async (req: Request, res: Response) => {
       date,
     };
 
-    // Check if Leaders are assigning hours to others
-    if (targetUserId && ['Head', 'Vice Head', 'HR', 'General President'].includes(currentUser.role)) {
+    // Check if Leaders are assigning hours to others (Restricted to HR Only or Board)
+    const canGiveHours = ['HR', 'General President', 'Vice President'].includes(currentUser.role) || currentUser.department === 'HR';
+
+    if (targetUserId && canGiveHours) {
        logData.user = targetUserId;
        logData.status = 'Approved';
        logData.approvedBy = currentUser._id;
@@ -37,8 +39,8 @@ export const submitHours = async (req: Request, res: Response) => {
        // Regular submission for self
        logData.user = currentUser._id;
        
-       // Auto-approve for Leaders logging their own hours
-       if (['Head', 'Vice Head', 'HR', 'General President'].includes(currentUser.role)) {
+       // Auto-approve for Leaders logging their own hours (Only HR/Board)
+       if (['HR', 'General President', 'Vice President'].includes(currentUser.role)) {
           logData.status = 'Approved';
           logData.approvedBy = currentUser._id;
           
@@ -83,7 +85,17 @@ export const getHours = async (req: Request, res: Response) => {
       const deptUsers = await User.find({ department: currentUser.department }).select('_id');
       query = { user: { $in: deptUsers.map(u => u._id) } };
     }
-    // 3. HR Logic
+    // 3. Operation Director
+    else if (currentUser?.role === 'Operation Director') {
+         const deptUsers = await User.find({ department: { $in: ['PR', 'FR', 'Logistics', 'PM'] } }).select('_id');
+         query = { user: { $in: deptUsers.map(u => u._id) } };
+    }
+    // 4. Creative Director
+    else if (currentUser?.role === 'Creative Director') {
+         const deptUsers = await User.find({ department: { $in: ['Marketing', 'Multi-Media', 'Presentation', 'Organization'] } }).select('_id');
+         query = { user: { $in: deptUsers.map(u => u._id) } };
+    }
+    // 5. HR Logic
     else if (currentUser?.role === 'HR') {
       // Check if this is a specific HR Coordinator (e.g., hr-it@enactus.com)
       const email = currentUser.email || '';
@@ -114,8 +126,8 @@ export const getHours = async (req: Request, res: Response) => {
          }
       }
     }
-    // 4. General President: Sees ALL
-    else if (currentUser?.role === 'General President') {
+    // 6. General President / VP: Sees ALL
+    else if (['General President', 'Vice President'].includes(currentUser?.role)) {
       const { department } = req.query;
       if (department && department !== 'All') {
         const deptUsers = await User.find({ department }).select('_id');
