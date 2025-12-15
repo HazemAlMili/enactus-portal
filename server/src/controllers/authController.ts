@@ -2,6 +2,7 @@
 import { Request, Response } from 'express';
 // Import User model for database operations involving users
 import User from '../models/User';
+import HighBoard from '../models/HighBoard';
 // Import jsonwebtoken to handle JWT generation and verification
 import jwt from 'jsonwebtoken';
 // Import bcryptjs for secure password hashing and comparison
@@ -27,8 +28,27 @@ export const loginUser = async (req: Request, res: Response) => {
     // Destructure email and password from the request body
     const { email, password } = req.body;
 
+    // DEBUG: Log incoming request
+    if (process.env.NODE_ENV === 'development') {
+      console.log('📧 Login attempt:', { email, passwordLength: password?.length, bodyKeys: Object.keys(req.body) });
+    }
+
+    // Validate that email and password are strings (not objects after sanitization)
+    if (typeof email !== 'string' || typeof password !== 'string') {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('❌ Validation failed:', { emailType: typeof email, passwordType: typeof password });
+      }
+      return res.status(400).json({ message: 'Invalid email or password format' });
+    }
+
     // Check if a user with the provided email exists in the database
-    const user = await User.findOne({ email });
+    // Default to User model (Members)
+    let user: any = await User.findOne({ email });
+
+    // If not found in User, check HighBoard (Heads, Board)
+    if (!user) {
+      user = await HighBoard.findOne({ email });
+    }
 
     // Validate the user exists, has a password, and the provided password matches the hashed password
     if (user && user.password && (await bcrypt.compare(password, user.password))) {
@@ -42,6 +62,7 @@ export const loginUser = async (req: Request, res: Response) => {
         points: user.points,
         hoursApproved: user.hoursApproved,
         tasksCompleted: user.tasksCompleted,
+        title: user.title, // Include Title (Important for HR Coordinators)
         token: generateToken(user._id.toString()), // Generated JWT Token
       });
     } else {
@@ -68,7 +89,13 @@ import Task from '../models/Task';
 export const getMe = async (req: Request, res: Response) => {
   await dbConnect();
   // Find the user by ID
-  const user = await User.findById((req as any).user?._id);
+  // Try User first
+  let user: any = await User.findById((req as any).user?._id);
+
+  // If not found, try HighBoard
+  if (!user) {
+    user = await HighBoard.findById((req as any).user?._id);
+  }
   
   if (user) {
     // --- SELF HEALING SYNC LOGIC ---
@@ -99,6 +126,7 @@ export const getMe = async (req: Request, res: Response) => {
       points: user.points,
       hoursApproved: user.hoursApproved,
       tasksCompleted: user.tasksCompleted,
+      title: user.title // Include Title
     });
   } else {
     res.status(404).json({ message: 'User not found' });

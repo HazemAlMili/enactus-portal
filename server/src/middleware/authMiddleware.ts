@@ -4,6 +4,7 @@ import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 // Import User model
 import User from '../models/User';
+import HighBoard from '../models/HighBoard';
 
 // Define Interface for Decoded JWT Token
 interface DecodedToken {
@@ -31,7 +32,12 @@ export const protect = async (req: Request, res: Response, next: NextFunction) =
       console.log('Decoded Token:', decoded);
 
       // Find user associated with token ID, excluding password field
-      const user = await User.findById(decoded.id).select('-password');
+      let user: any = await User.findById(decoded.id).select('-password');
+
+      // If not found in User, check HighBoard
+      if (!user) {
+        user = await HighBoard.findById(decoded.id).select('-password');
+      }
       console.log('User found in DB:', user);
       
       if (!user) {
@@ -64,7 +70,19 @@ export const authorize = (...roles: string[]) => {
   return (req: Request, res: Response, next: NextFunction) => {
     // Check if user is logged in (from protect middleware) and has allowed role
     // @ts-ignore
-    if (!req.user || !roles.includes(req.user.role)) {
+    const user = req.user;
+    
+    // Check if user is HR Coordinator (Member, HR, Title starts with HR Coordinator)
+    const isHRCoordinator = user?.role === 'Member' && user?.department === 'HR' && user?.title?.startsWith('HR Coordinator');
+    
+    // If user is HR Coordinator, allow them potentially? 
+    // The authorize middleware is generic. We need to know if the route INTENDS to allow HR Coordinators.
+    // However, since HR Coordinators are "like Heads", maybe we just treat them as authorized if 'Head' or 'HR' is in the allowed roles?
+    // Let's assume if 'HR' or 'Head' is allowed, then HR Coordinator is allowed.
+    const isAllowedRole = roles.includes(user?.role || '');
+    const isAllowedHRCoord = isHRCoordinator && (roles.includes('HR') || roles.includes('Head'));
+
+    if (!user || (!isAllowedRole && !isAllowedHRCoord)) {
       // @ts-ignore
       return res.status(403).json({ message: `User role ${req.user?.role} is not authorized to access this route` });
     }

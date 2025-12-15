@@ -12,7 +12,7 @@ import User from '../models/User';
 export const createTask = async (req: Request, res: Response) => {
   try {
     // Destructure task details from request body
-    const { title, description, resourcesLink, deadline } = req.body;
+    const { title, description, resourcesLink, deadline, taskHours } = req.body;
     const currentUser = (req as any).user;
 
     if (!currentUser.department) {
@@ -37,10 +37,12 @@ export const createTask = async (req: Request, res: Response) => {
       description,
       assignedTo: member._id,
       assignedBy: currentUser._id,
+      assignedByModel: ['Head', 'Vice Head', 'General President', 'Vice President', 'Operation Director', 'Creative Director'].includes(currentUser.role) ? 'HighBoard' : 'User',
       department: currentUser.department,
       scoreValue: 50, // Default XP Reward
-      resourcesLink,
-      deadline
+      resourcesLink: resourcesLink || [], // Multiple resource links
+      deadline,
+      taskHours: taskHours || 0 // Hours awarded on completion (hidden from members)
     })));
 
     // Return the created tasks
@@ -96,9 +98,11 @@ export const getTasks = async (req: Request, res: Response) => {
 
     // Retrieve tasks, populating assignee and assigner details
     const tasks = await Task.find(query)
+      .select('title description status assignedTo assignedBy department deadline scoreValue resourcesLink submissionLink createdAt')
       .populate('assignedTo', 'name email')
       .populate('assignedBy', 'name')
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .lean(); // ⚡ Returns plain objects - faster than Mongoose docs
       
     res.json(tasks);
   } catch (error) {
@@ -122,19 +126,28 @@ export const updateTask = async (req: Request, res: Response) => {
         
         // If Approved (Completed)
         if (req.body.status === 'Completed' && task.status !== 'Completed') {
-             // Logic for completion: just update status. 
-             // Scores are NOT added automatically as per request.
+             // ✨ AUTOMATIC HOURS REWARD
+             // When Head approves task, member automatically gets hours
+             if (task.taskHours && task.taskHours > 0) {
+               const member = await User.findById(task.assignedTo);
+               if (member) {
+                 member.hoursApproved += task.taskHours;
+                 member.points += task.taskHours * 10; // 10 points per hour
+                 await member.save();
+                 console.log(`✅ Auto-rewarded ${task.taskHours} hours to ${member.name}`);
+               }
+             }
         }
         
         // If Rejected
         if (req.body.status === 'Rejected') {
-             // Logic for rejection
+             // Logic for rejection - no hours awarded
         }
 
         task.status = req.body.status;
     }
 
-    if (req.body.submissionLink) task.submissionLink = req.body.submissionLink;
+    if (req.body.submissionLink) task.submissionLink = req.body.submissionLink; // Can be array
 
     await task.save();
     res.json(task);

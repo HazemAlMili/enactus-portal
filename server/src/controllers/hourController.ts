@@ -21,15 +21,44 @@ export const submitHours = async (req: Request, res: Response) => {
     };
 
     // Check if Leaders are assigning hours to others (Restricted to HR Only or Board)
-    const canGiveHours = ['HR', 'General President', 'Vice President'].includes(currentUser.role) || currentUser.department === 'HR';
+    // Check if Leaders are assigning hours to others (Restricted to HR Only or Board)
+    // Also HR Coordinators (Members in HR dept with title 'HR Coordinator - DEPT')
+    const isHRCoordinator = currentUser.role === 'Member' && currentUser.department === 'HR' && currentUser.title?.startsWith('HR Coordinator');
+    const canGiveHours = ['HR', 'General President', 'Vice President'].includes(currentUser.role) || currentUser.department === 'HR' || isHRCoordinator;
 
-    if (targetUserId && canGiveHours) {
+     if (targetUserId && canGiveHours) {
+       // Validate: If target user is in HR department, ONLY HR Head can add approved hours for them
+       const targetUser = await User.findById(targetUserId);
+       
+       if (targetUser && targetUser.department === 'HR' && currentUser.role !== 'Head' && currentUser.department === 'HR') {
+           // If the current user is NOT the HR Head (e.g. is an HR Coordinator/Member), they cannot APPROVE hours for other HR members/themselves directly
+           // But actually the user request says: "HR head ONLY Add hours for his department members"
+           // This implies HR Coordinators cannot add hours for themselves or each other? 
+           // Or does it mean ONLY HR head can add for HR members, preventing other HR coordinators from adding for HR members?
+           
+           // Based on "HRs coordinator don't have who added them houres":
+           // This means HR Coordinators need someone to add hours for them. That someone is the HR Head.
+           
+           // So if target is HR department, current user MUST be HR Head (or Board/President).
+           if (currentUser.role !== 'Head' && currentUser.role !== 'General President' && currentUser.role !== 'Vice President') {
+               return res.status(403).json({ message: 'Only the HR Head can add hours for HR Department members.' });
+           }
+       }
+       
+       // HR Coordinator Check: Can only add hours for THEIR specific department
+       if (isHRCoordinator) {
+           // Parse department from title: "HR Coordinator - IT" -> "IT"
+           const coordDept = currentUser.title.split(' - ')[1];
+           if (coordDept && targetUser && targetUser.department !== coordDept) {
+               return res.status(403).json({ message: `You are authorized to add hours only for the ${coordDept} department.` });
+           }
+       }
+
        logData.user = targetUserId;
        logData.status = 'Approved';
        logData.approvedBy = currentUser._id;
        
        // Update the Target User's stats immediately
-       const targetUser = await User.findById(targetUserId);
        if (targetUser) {
          targetUser.hoursApproved += Number(amount);
          targetUser.points += Number(amount) * 10;
@@ -126,7 +155,24 @@ export const getHours = async (req: Request, res: Response) => {
          }
       }
     }
-    // 6. General President / VP: Sees ALL
+    // 6. HR Member (Coordinator) Logic
+    else if (currentUser?.department === 'HR' && currentUser?.role === 'Member') {
+         // Check title for responsibility
+         if (currentUser.title?.startsWith('HR Coordinator')) {
+             const coordDept = currentUser.title.split(' - ')[1];
+             if (coordDept) {
+                 const deptUsers = await User.find({ department: coordDept }).select('_id');
+                 query = { user: { $in: deptUsers.map(u => u._id) } };
+             } else {
+                 // Fallback: See own hours
+                 query = { user: currentUser._id };
+             }
+         } else {
+             // Regular HR member (if any): See own hours
+             query = { user: currentUser._id };
+         }
+    }
+    // 7. General President / VP: Sees ALL
     else if (['General President', 'Vice President'].includes(currentUser?.role)) {
       const { department } = req.query;
       if (department && department !== 'All') {
@@ -136,7 +182,10 @@ export const getHours = async (req: Request, res: Response) => {
     }
 
     // Fetch logs, populating user details
-    const logs = await HourLog.find(query).populate('user', 'name role department').sort({ createdAt: -1 });
+    const logs = await HourLog.find(query)
+      .populate('user', 'name role department')
+      .sort({ createdAt: -1 })
+      .lean(); // ⚡ Plain objects - faster
     res.json(logs);
   } catch (error) {
     console.error(error);

@@ -7,13 +7,15 @@ export interface ITask extends Document {
   description: string;
   assignedTo: mongoose.Types.ObjectId; // User ID of the assignee
   assignedBy: mongoose.Types.ObjectId; // User ID of the assigner (e.g., Head)
+  assignedByModel: 'User' | 'HighBoard'; // Model of the assigner
   deadline?: Date;
   department?: string;
   status: 'Pending' | 'Submitted' | 'Completed' | 'Rejected'; // Current status of the task
   scoreValue: number; // Points awarded for completing the task
   dueDate?: Date; // Optional deadline
-  resourcesLink?: string; // Link provided by assigner
-  submissionLink?: string; // Link provided by the assignee upon submission
+  resourcesLink?: string[]; // Links provided by assigner (multiple)
+  submissionLink?: string[]; // Links provided by the assignee (multiple)
+  taskHours?: number; // Hours awarded when task is completed (hidden from members)
 }
 
 // Create the Mongoose Schema for Tasks
@@ -21,7 +23,8 @@ const TaskSchema: Schema = new Schema({
   title: { type: String, default: 'General Task' }, // Task title
   description: { type: String, required: true }, // Detailed task description
   assignedTo: { type: mongoose.Schema.Types.ObjectId, ref: 'User', index: true },
-  assignedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', index: true },
+  assignedBy: { type: mongoose.Schema.Types.ObjectId, refPath: 'assignedByModel', index: true },
+  assignedByModel: { type: String, required: true, enum: ['User', 'HighBoard'], default: 'User' },
   deadline: { type: Date },
   department: { type: String, index: true }, // Department of the task
   status: { 
@@ -31,9 +34,16 @@ const TaskSchema: Schema = new Schema({
     index: true 
   },
   scoreValue: { type: Number, default: 10 }, // Default points value is 10
-  resourcesLink: { type: String }, // Link provided by the assigner (Head)
-  submissionLink: { type: String } // Submission link (filled when status becomes Submitted)
+  resourcesLink: [{ type: String }], // Links provided by the assigner (Head) - multiple
+  submissionLink: [{ type: String }], // Submission links (filled when status becomes Submitted) - multiple
+  taskHours: { type: Number, default: 0 } // Hours awarded on completion (hidden from members)
 }, { timestamps: true }); // Automatically manage createdAt and updatedAt timestamps
+
+// ⚡ PERFORMANCE INDEXES - Compound indexes for common queries
+TaskSchema.index({ assignedTo: 1, status: 1 }); // Member's tasks by status (most common)
+TaskSchema.index({ department: 1, status: 1 }); // Head's department tasks
+TaskSchema.index({ createdAt: -1 }); // Recent tasks sorting
+TaskSchema.index({ assignedBy: 1, status: 1 }); // Creator's tasks by status
 
 // Export the Task model
 export default mongoose.model<ITask>('Task', TaskSchema);

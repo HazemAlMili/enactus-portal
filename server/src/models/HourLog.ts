@@ -25,5 +25,10 @@ const HourLogSchema: Schema = new Schema({
   approvedBy: { type: Schema.Types.ObjectId, ref: 'User' }
 }, { timestamps: true });
 
+// ⚡ PERFORMANCE INDEXES - For hour tracking queries
+HourLogSchema.index({ user: 1, status: 1 }); // User's hours by status
+HourLogSchema.index({ status: 1, createdAt: -1 }); // Pending queue sorted by date
+HourLogSchema.index({ createdAt: -1 }); // Recent logs
+
 // Export Model
 export default mongoose.model<IHourLog>('HourLog', HourLogSchema);
