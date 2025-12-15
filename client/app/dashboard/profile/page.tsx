@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { User, Shield, Briefcase, Mail, Star, Clock, Trophy, Hash } from 'lucide-react';
-import axios from 'axios';
+import api from '@/lib/api';
 
 interface UserProfile {
   _id: string;
@@ -32,9 +32,7 @@ export default function ProfilePage() {
         if (!token) return;
 
         // Fetch fresh user data from /api/auth/me to ensures stats are up to date
-        const res = await axios.get('http://localhost:5000/api/auth/me', {
-           headers: { Authorization: `Bearer ${token}` }
-        });
+        const res = await api.get('/auth/me');
         setProfile(res.data);
       } catch (err) {
         console.error("Failed to fetch profile", err);
@@ -60,10 +58,7 @@ export default function ProfilePage() {
     reader.onloadend = async () => {
       try {
         const base64 = reader.result as string;
-        const token = localStorage.getItem('token');
-        const res = await axios.put('http://localhost:5000/api/users/avatar', { avatar: base64 }, {
-           headers: { Authorization: `Bearer ${token}` }
-        });
+        const res = await api.put('/users/avatar', { avatar: base64 });
         setProfile(res.data); 
       } catch (err) {
         console.error("Upload failed", err);
