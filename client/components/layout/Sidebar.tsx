@@ -23,8 +23,19 @@ export function Sidebar({ user, className }: { user: any, className?: string }) 
   ];
 
   // Management Links for Leaders (Head, Vice Head, HR, General President)
-  if (user && ['Head', 'Vice Head', 'HR', 'General President'].includes(user.role)) {
+  // Also HR Coordinators (Member, HR Dept, Title starts with HR Coordinator)
+  const isHRCoordinator = user?.role === 'Member' && user?.department === 'HR' && user?.title?.startsWith('HR Coordinator');
+  
+  if (user && (['Head', 'Vice Head', 'HR', 'General President'].includes(user.role) || isHRCoordinator)) {
     links.push({ href: '/dashboard/hours', label: 'Hours', icon: Clock });
+    // Leaderboard might be redundant here if it's open to everyone, but standard users see it via different link? 
+    // Wait, regular members DON'T see leaderboard in the sidebar from previous code? 
+    // The previous code block was:
+    // if (user && ['Head', 'Vice Head', 'HR', 'General President'].includes(user.role)) { ... }
+    // Regular members only saw Overview, Tasks, Identity.
+    // If you want everyone to see Leaderboard, move it out.
+    // But for now, let's just enable these for HR Coord as requested "make anything like head".
+    
     links.push({ href: '/dashboard/leaderboard', label: 'Leaderboard', icon: Trophy });
     links.push({ href: '/dashboard/users', label: 'Squad', icon: Users });
     links.push({ href: '/dashboard/departments', label: 'Departments', icon: Building });

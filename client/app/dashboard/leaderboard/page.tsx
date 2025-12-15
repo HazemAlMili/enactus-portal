@@ -18,7 +18,10 @@ export default function LeaderboardPage() {
     if (userStr) {
        const user = JSON.parse(userStr);
        // Allow Heads, Vice Heads, HR, GP
-       if (!['Head', 'Vice Head', 'HR', 'General President'].includes(user.role)) {
+       // Also ALLOW HR Coordinators (Member, HR, Title check)
+       const isHRCoordinator = user.role === 'Member' && user.department === 'HR' && user.title?.startsWith('HR Coordinator');
+       
+       if (!['Head', 'Vice Head', 'HR', 'General President'].includes(user.role) && !isHRCoordinator) {
           router.push('/dashboard'); // Redirect unauthorized
           return;
        }
@@ -30,7 +33,7 @@ export default function LeaderboardPage() {
     const fetchLeaderboard = async () => {
       try {
         const { data } = await api.get('/users/leaderboard');
-        // Filter to show ONLY Members
+        // Filter to show ONLY Members (Redundant check but safe)
         setUsers(data.filter((u: any) => u.role === 'Member'));
       } catch (error) {
         console.error(error);
@@ -58,7 +61,7 @@ export default function LeaderboardPage() {
                 <TableHead className="text-primary pixel-font text-xs w-[100px]">RANK</TableHead>
                 <TableHead className="text-primary pixel-font text-xs">PLAYER</TableHead>
                 <TableHead className="text-primary pixel-font text-xs">GUILD</TableHead>
-                <TableHead className="text-right text-primary pixel-font text-xs">SCORE</TableHead>
+                <TableHead className="text-right text-primary pixel-font text-xs">HOURS</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -89,7 +92,7 @@ export default function LeaderboardPage() {
                     <Badge variant="outline" className="text-accent border-accent/50 pixel-corners pixel-font text-[10px]">{user.department || 'N/A'}</Badge>
                   </TableCell>
                   <TableCell className="text-right pixel-font text-secondary text-sm">
-                    {user.points} XP
+                    {user.hoursApproved !== undefined ? user.hoursApproved : 0} HRS
                   </TableCell>
                 </TableRow>
               ))}

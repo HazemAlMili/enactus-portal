@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import api from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -18,16 +18,17 @@ export default function TasksPage() {
 
   // Create Task State
   const [description, setDescription] = useState('');
-  const [resourceLink, setResourceLink] = useState('');
+  const [resourceLinks, setResourceLinks] = useState<string[]>(['']); // Multiple resource links
   const [deadline, setDeadline] = useState('');
+  const [taskHours, setTaskHours] = useState(''); // Hours awarded on completion
   const [isCreating, setIsCreating] = useState(false);
 
   // Selected Task for Details
   const [selectedTask, setSelectedTask] = useState<any>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
-  // Submission State
-  const [submissionLink, setSubmissionLink] = useState('');
+  // Submission State - Multiple links
+  const [submissionLinks, setSubmissionLinks] = useState<string[]>(['']);
   
   useEffect(() => {
     const u = JSON.parse(localStorage.getItem('user') || '{}');
@@ -51,16 +52,21 @@ export default function TasksPage() {
     e.preventDefault();
     setIsCreating(true);
     try {
+      // Filter out empty links
+      const filteredLinks = resourceLinks.filter(link => link.trim() !== '');
+      
       // Backend auto-generates title or uses default
       await api.post('/tasks', { 
         description, 
-        resourcesLink: resourceLink,
-        deadline: deadline ? new Date(deadline) : undefined
+        resourcesLink: filteredLinks, // Send array of links
+        deadline: deadline ? new Date(deadline) : undefined,
+        taskHours: taskHours ? Number(taskHours) : 0 // Hours auto-awarded on completion
       });
       // Reset form
       setDescription('');
-      setResourceLink('');
+      setResourceLinks(['']); // Reset to one empty field
       setDeadline('');
+      setTaskHours(''); // Reset hours
       // Refresh list
       fetchTasks();
     } catch (err: any) { 
@@ -72,13 +78,85 @@ export default function TasksPage() {
     }
   };
 
-  const updateStatus = async (id: string, status: string, link?: string) => {
+  // Helper functions for managing resource links
+  const addResourceLink = () => {
+    setResourceLinks([...resourceLinks, '']);
+  };
+
+  const removeResourceLink = (index: number) => {
+    if (resourceLinks.length > 1) {
+      setResourceLinks(resourceLinks.filter((_, i) => i !== index));
+    }
+  };
+
+  const updateResourceLink = (index: number, value: string) => {
+    const newLinks = [...resourceLinks];
+    newLinks[index] = value;
+    
+    // Auto-remove if emptied (except last field) - INSTANT removal
+    if (value.trim() === '' && resourceLinks.length > 1 && index !== resourceLinks.length - 1) {
+      // Remove this field immediately
+      setResourceLinks(resourceLinks.filter((_, i) => i !== index));
+      return; // Don't set the value, just remove
+    }
+    
+    setResourceLinks(newLinks);
+    
+    // Auto-add new field if last field is filled
+    if (index === resourceLinks.length - 1 && value.trim() !== '') {
+      setResourceLinks([...newLinks, '']);
+    }
+  };
+
+  const updateStatus = async (id: string, status: string, links?: string[]) => {
     try {
-      await api.put(`/tasks/${id}`, { status, submissionLink: link });
+      // Filter out empty links
+      const filteredLinks = links?.filter(link => link.trim() !== '') || [];
+      
+      await api.put(`/tasks/${id}`, { 
+        status, 
+        submissionLink: filteredLinks.length > 0 ? filteredLinks : undefined 
+      });
       setIsDialogOpen(false); // Close dialog on success
-      setSubmissionLink(''); // Reset submission link
+      setSubmissionLinks(['']); // Reset to one empty field
       fetchTasks();
     } catch (error) { console.error(error); }
+  };
+
+  // Helper functions for managing submission links
+  const addSubmissionLink = () => {
+    setSubmissionLinks([...submissionLinks, '']);
+  };
+
+  const removeSubmissionLink = (index: number) => {
+    if (submissionLinks.length > 1) {
+      setSubmissionLinks(submissionLinks.filter((_, i) => i !== index));
+    }
+  };
+
+  const updateSubmissionLink = (index: number, value: string) => {
+    const newLinks = [...submissionLinks];
+    newLinks[index] = value;
+    
+    // Auto-remove if emptied (except last field) - INSTANT removal
+    if (value.trim() === '' && submissionLinks.length > 1 && index !== submissionLinks.length - 1) {
+      // Remove this field immediately
+      setSubmissionLinks(submissionLinks.filter((_, i) => i !== index));
+      return; // Don't set the value, just remove
+    }
+    
+    setSubmissionLinks(newLinks);
+    
+    // Auto-add new field if last field is filled
+    if (index === submissionLinks.length - 1 && value.trim() !== '') {
+      setSubmissionLinks([...newLinks, '']);
+    }
+  };
+
+  // No longer needed - removal is instant on onChange
+  // Keeping for backward compatibility if needed elsewhere
+  const handleSubmissionLinkBlur = (index: number) => {
+    // This function is now optional/deprecated
   };
 
   const boardRoles = ['General President', 'Vice President', 'Operation Director', 'Creative Director'];
@@ -87,39 +165,35 @@ export default function TasksPage() {
   const isMember = user && ['Member', 'HR'].includes(user.role); 
   const isStrictMember = user && user.role === 'Member'; // For gamification/messages only
   
-  const getStatusColor = (status: string) => {
+  // ⚡ MEMOIZED - Prevents recreation on every render
+  const getStatusColor = useCallback((status: string) => {
       switch(status) {
           case 'Completed': return 'text-green-500 border-green-500 bg-green-500/10';
           case 'Rejected': return 'text-red-500 border-red-500 bg-red-500/10';
           case 'Submitted': return 'text-yellow-500 border-yellow-500 bg-yellow-500/10';
           default: return 'text-gray-400 border-gray-400 bg-gray-400/10';
       }
-  };
+  }, []); // No dependencies - never changes
 
-  // UNIVERSAL SMART GROUPING LOGIC
-  // 1. "My Work" (Assigned TO me) is never grouped (I must do it).
-  // 2. "Delegated Work" (Assigned to others) is grouped if Status is 'Pending' to avoid clutter.
-  // UNIVERSAL SMART GROUPING LOGIC
-  // 1. "My Work" (Assigned TO me) is never grouped (I must do it).
-  // 2. "Delegated Work" (Assigned to others) is grouped if Status is 'Pending' to avoid clutter.
+  // UPDATED LOGIC: Show ALL tasks individually - no grouping
+  // Members need to see their own tasks
+  // Heads need to see ALL individual submissions from each member
   const processedTasks = useMemo(() => {
       if (!user) return [];
 
       const myWork = tasks.filter(t => t.assignedTo?._id === user._id);
-      const othersWork = tasks.filter(t => t.assignedTo?._id !== user._id); // Tasks I assigned or Dept tasks
+      const othersWork = tasks.filter(t => t.assignedTo?._id !== user._id);
 
-      // Group 'Pending' tasks from others to show a summary
-      const othersNonPending = othersWork.filter(t => t.status !== 'Pending');
-      const othersPending = othersWork.filter(t => t.status === 'Pending');
-      
-      const uniqueOthersPending = othersPending.filter((task, index, self) => 
-        index === self.findIndex((t) => (
-          t.title === task.title && t.description === task.description
-        ))
-      );
-      
-      // Sort: My Work first, then Actionable Delegated (Submitted), then Pending Delegated
-      return [...myWork, ...othersNonPending, ...uniqueOthersPending];
+      // NO GROUPING - Show each task individually so members can all submit
+      // Sort: My Work first, then others by status priority
+      return [
+          ...myWork,
+          ...othersWork.sort((a, b) => {
+              // Prioritize: Submitted > Pending > Rejected > Completed
+              const priority: any = { Submitted: 1, Pending: 2, Rejected: 3, Completed: 4 };
+              return priority[a.status] - priority[b.status];
+          })
+      ];
   }, [tasks, user]);
 
   // Helper to check overdue
@@ -191,33 +265,69 @@ export default function TasksPage() {
 
                {/* Row 2: Resources & Action & Deadline */}
                <div className="flex flex-col md:flex-row gap-4 items-end">
-                   <div className="space-y-2 flex-1 w-full">
-                     <Label htmlFor="link" className="pixel-font text-xs text-secondary flex items-center gap-2">
-                        <LinkIcon className="w-3 h-3" />
-                        INTELLIGENCE LINK (OPTIONAL)
-                     </Label>
-                     <Input 
-                       id="link"
-                       value={resourceLink}
-                       onChange={e => setResourceLink(e.target.value)}
-                       placeholder="https://drive.google.com/..."
-                       className="bg-black/20 border-secondary/30 focus:border-secondary pixel-corners font-mono text-sm"
-                     />
-                   </div>
+                    {/* Three fields in one row - compact layout */}
+                    <div className="flex flex-wrap gap-3 w-full">
+                      {/* Intelligence Links - Multiple */}
+                       <div className="space-y-2 flex-1 min-w-[200px]">
+                         <Label className="pixel-font text-[10px] text-secondary flex items-center gap-1.5">
+                            <LinkIcon className="w-2.5 h-2.5" />
+                            INTEL LINKS
+                         </Label>
+                         <div className="space-y-1.5">
+                           {resourceLinks.map((link, index) => (
+                             <div key={index} className="flex gap-1.5">
+                               <Input 
+                                 value={link}
+                                 onChange={e => updateResourceLink(index, e.target.value)}
+                                 placeholder={`Link ${index + 1}: https://drive.google.com/...`}
+                                 className="bg-black/20 border-secondary/30 focus:border-secondary pixel-corners font-mono text-xs h-8"
+                               />
+                               {resourceLinks.length > 1 && (
+                                 <Button
+                                   type="button"
+                                   onClick={() => removeResourceLink(index)}
+                                   className="h-8 w-8 p-0 bg-red-500/20 hover:bg-red-500/40 border border-red-500/50 pixel-corners"
+                                 >
+                                   ✕
+                                 </Button>
+                               )}
+                             </div>
+                           ))}
+                         </div>
+                       </div>
 
-                   <div className="space-y-2 w-full md:w-48">
-                     <Label htmlFor="deadline" className="pixel-font text-xs text-red-400 flex items-center gap-2">
-                        <Clock className="w-3 h-3" />
-                        DEADLINE
-                     </Label>
-                     <Input 
-                       id="deadline"
-                       type="date"
-                       value={deadline}
-                       onChange={e => setDeadline(e.target.value)}
-                       className="bg-black/20 border-red-500/30 focus:border-red-500 pixel-corners font-mono text-sm text-white [color-scheme:dark]"
-                     />
-                   </div>
+                      {/* Deadline */}
+                      <div className="space-y-1.5 w-36">
+                        <Label htmlFor="deadline" className="pixel-font text-[10px] text-red-400 flex items-center gap-1.5">
+                           <Clock className="w-2.5 h-2.5" />
+                           DEADLINE
+                        </Label>
+                        <Input 
+                          id="deadline"
+                          type="date"
+                          value={deadline}
+                          onChange={e => setDeadline(e.target.value)}
+                          className="bg-black/20 border-red-500/30 focus:border-red-500 pixel-corners font-mono text-xs text-white [color-scheme:dark] h-9"
+                        />
+                      </div>
+                      
+                      {/* Auto Hours */}
+                      <div className="space-y-1.5 w-28">
+                        <Label htmlFor="taskHours" className="pixel-font text-[10px] text-accent flex items-center gap-1.5">
+                           ⏰ HOURS
+                        </Label>
+                        <Input 
+                          id="taskHours"
+                          type="number"
+                          min="0"
+                          step="0.5"
+                          value={taskHours}
+                          onChange={e => setTaskHours(e.target.value)}
+                          placeholder="0"
+                          className="bg-black/20 border-accent/30 focus:border-accent pixel-corners font-mono text-xs h-9"
+                        />
+                      </div>
+                    </div>
                    
                    <Button 
                       type="submit" 
@@ -248,7 +358,7 @@ export default function TasksPage() {
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {incomingSubmissions.map((task) => (
-                  <TaskItem key={task._id} task={task} canCreate={canCreate} isHeadView={isHeadView} isStrictMember={isStrictMember} getStatusColor={getStatusColor} user={user} updateStatus={updateStatus} selectedTask={selectedTask} setSelectedTask={setSelectedTask} submissionLink={submissionLink} setSubmissionLink={setSubmissionLink} />
+                  <TaskItem key={task._id} task={task} canCreate={canCreate} isHeadView={isHeadView} isStrictMember={isStrictMember} getStatusColor={getStatusColor} user={user} updateStatus={updateStatus} selectedTask={selectedTask} setSelectedTask={setSelectedTask} submissionLinks={submissionLinks} setSubmissionLinks={setSubmissionLinks} updateSubmissionLink={updateSubmissionLink} removeSubmissionLink={removeSubmissionLink} handleSubmissionLinkBlur={handleSubmissionLinkBlur} />
                 ))}
               </div>
           </div>
@@ -259,7 +369,7 @@ export default function TasksPage() {
           <h2 className="text-xl pixel-font text-blue-400 border-b border-blue-400/20 pb-2">ACTIVE DEPLOYMENTS</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {activeDeployments.map((task) => (
-               <TaskItem key={task._id} task={task} canCreate={canCreate} isHeadView={isHeadView} isStrictMember={isStrictMember} getStatusColor={getStatusColor} user={user} updateStatus={updateStatus} selectedTask={selectedTask} setSelectedTask={setSelectedTask} submissionLink={submissionLink} setSubmissionLink={setSubmissionLink} />
+               <TaskItem key={task._id} task={task} canCreate={canCreate} isHeadView={isHeadView} isStrictMember={isStrictMember} getStatusColor={getStatusColor} user={user} updateStatus={updateStatus} selectedTask={selectedTask} setSelectedTask={setSelectedTask} submissionLinks={submissionLinks} setSubmissionLinks={setSubmissionLinks} updateSubmissionLink={updateSubmissionLink} removeSubmissionLink={removeSubmissionLink} handleSubmissionLinkBlur={handleSubmissionLinkBlur} />
             ))}
             {activeDeployments.length === 0 && (
                 <div className="col-span-full text-center py-10 opacity-30 font-mono text-sm">
@@ -278,7 +388,7 @@ export default function TasksPage() {
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 opacity-90">
                 {expiredMissions.map((task) => (
-                  <TaskItem key={task._id} task={task} canCreate={canCreate} isHeadView={isHeadView} isStrictMember={isStrictMember} getStatusColor={getStatusColor} user={user} updateStatus={updateStatus} selectedTask={selectedTask} setSelectedTask={setSelectedTask} submissionLink={submissionLink} setSubmissionLink={setSubmissionLink} />
+                  <TaskItem key={task._id} task={task} canCreate={canCreate} isHeadView={isHeadView} isStrictMember={isStrictMember} getStatusColor={getStatusColor} user={user} updateStatus={updateStatus} selectedTask={selectedTask} setSelectedTask={setSelectedTask} submissionLinks={submissionLinks} setSubmissionLinks={setSubmissionLinks} updateSubmissionLink={updateSubmissionLink} removeSubmissionLink={removeSubmissionLink} handleSubmissionLinkBlur={handleSubmissionLinkBlur} />
                 ))}
               </div>
           </div>
@@ -290,7 +400,7 @@ export default function TasksPage() {
               <h2 className="text-xl pixel-font text-white/50 border-b border-white/10 pb-2">MISSION LOGS & HISTORY</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 opacity-80 hover:opacity-100 transition-opacity">
                 {missionHistory.map((task) => (
-                  <TaskItem key={task._id} task={task} canCreate={canCreate} isHeadView={isHeadView} isStrictMember={isStrictMember} getStatusColor={getStatusColor} user={user} updateStatus={updateStatus} selectedTask={selectedTask} setSelectedTask={setSelectedTask} submissionLink={submissionLink} setSubmissionLink={setSubmissionLink} />
+                  <TaskItem key={task._id} task={task} canCreate={canCreate} isHeadView={isHeadView} isStrictMember={isStrictMember} getStatusColor={getStatusColor} user={user} updateStatus={updateStatus} selectedTask={selectedTask} setSelectedTask={setSelectedTask} submissionLinks={submissionLinks} setSubmissionLinks={setSubmissionLinks} updateSubmissionLink={updateSubmissionLink} removeSubmissionLink={removeSubmissionLink} handleSubmissionLinkBlur={handleSubmissionLinkBlur} />
                 ))}
               </div>
           </div>
@@ -354,6 +464,46 @@ const TaskItem = ({ task, canCreate, isHeadView, isStrictMember, getStatusColor,
                     <CardTitle className="text-white pixel-font text-sm pt-2 truncate leading-tight">
                         {task.title || 'Department Task'}
                     </CardTitle>
+                    
+                    {/* Show Submitter Name Prominently for Submitted Tasks */}
+                    {task.status === 'Submitted' && (
+                        <div className="mt-2 flex items-center gap-2">
+                            <div className="px-2 py-1 bg-yellow-500/20 border border-yellow-500/50 pixel-corners flex items-center gap-1.5">
+                                <span className="text-yellow-500 pixel-font text-[10px] font-bold tracking-wider">SUBMITTED BY:</span>
+                                <span className="text-yellow-300 pixel-font text-[10px] font-bold">{task.assignedTo?.name}</span>
+                            </div>
+                        </div>
+                    )}
+                    
+                    {/* Show Assignee Name for Pending Tasks */}
+                    {task.status === 'Pending' && canCreate && (
+                        <div className="mt-2 flex items-center gap-2">
+                            <div className="px-2 py-1 bg-blue-500/10 border border-blue-500/30 pixel-corners flex items-center gap-1.5">
+                                <span className="text-blue-400 pixel-font text-[10px] font-bold tracking-wider">ASSIGNED TO:</span>
+                                <span className="text-blue-300 pixel-font text-[10px] font-bold">{task.assignedTo?.name}</span>
+                            </div>
+                        </div>
+                    )}
+                    
+                    {/* Show Rejected Task in Red */}
+                    {task.status === 'Rejected' && canCreate && (
+                        <div className="mt-2 flex items-center gap-2">
+                            <div className="px-2 py-1 bg-red-500/20 border border-red-500/50 pixel-corners flex items-center gap-1.5">
+                                <span className="text-red-500 pixel-font text-[10px] font-bold tracking-wider">REJECTED:</span>
+                                <span className="text-red-300 pixel-font text-[10px] font-bold">{task.assignedTo?.name}</span>
+                            </div>
+                        </div>
+                    )}
+                    
+                    {/* Show Completer Name for Completed Tasks */}
+                    {task.status === 'Completed' && canCreate && (
+                        <div className="mt-2 flex items-center gap-2">
+                            <div className="px-2 py-1 bg-green-500/20 border border-green-500/50 pixel-corners flex items-center gap-1.5">
+                                <span className="text-green-500 pixel-font text-[10px] font-bold tracking-wider">COMPLETED BY:</span>
+                                <span className="text-green-300 pixel-font text-[10px] font-bold">{task.assignedTo?.name}</span>
+                            </div>
+                        </div>
+                    )}
                 </CardHeader>
                 <CardContent className="pl-6 text-sm text-gray-400 font-mono h-[60px] overflow-hidden relative">
                         <div className="absolute inset-0 bg-gradient-to-t from-card to-transparent pointer-events-none" />

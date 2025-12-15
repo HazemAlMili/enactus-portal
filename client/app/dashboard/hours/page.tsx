@@ -50,7 +50,10 @@ export default function HoursPage() {
     setUser(u);
     
     // Restrict Access: Only Leaders can access Hours Page
-    if (!['Head', 'Vice Head', 'HR', 'General President'].includes(u.role)) {
+    // Also ALLOW HR Coordinators (Member, HR, Title check)
+    const isHRCoordinator = u.role === 'Member' && u.department === 'HR' && u.title?.startsWith('HR Coordinator');
+
+    if (!['Head', 'Vice Head', 'HR', 'General President'].includes(u.role) && !isHRCoordinator) {
        router.push('/dashboard');
        return;
     }
@@ -58,7 +61,7 @@ export default function HoursPage() {
     fetchHours(); // initial fetch without filter
     
     // If Leader, fetch users for assignment
-    if (['Head', 'Vice Head', 'HR', 'General President'].includes(u.role)) {
+    if (['Head', 'Vice Head', 'HR', 'General President'].includes(u.role) || isHRCoordinator) {
        fetchAssignableUsers();
     }
   }, [router]);
@@ -129,7 +132,7 @@ export default function HoursPage() {
     }
   };
 
-  const canGrant = user && (user.role === 'HR' || user.department === 'HR'); // HR Role or Dept
+  const canGrant = user && (user.role === 'HR' || user.department === 'HR' || (user.role === 'Member' && user.department === 'HR' && user.title?.startsWith('HR Coordinator'))); // HR check includes Coord
   const isMember = user && user.role === 'Member';
   
   // Show form if canGrant (HR) OR isMember (Self-Log)

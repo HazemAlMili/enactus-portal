@@ -37,7 +37,9 @@ export default function UsersPage() {
     email: '',
     password: '',
     role: 'Member',
-    department: 'IT'
+    department: 'IT',
+    hrResponsibility: '', // New field for HR Head
+    title: '' // New field for Title
   });
 
   // Function to fetch all users from the backend
@@ -57,6 +59,37 @@ export default function UsersPage() {
     fetchUsers();
     api.get('/auth/me').then(res => setCurrentUser(res.data)).catch(console.error);
   }, []);
+
+  // Effect to reset form and set defaults when Modal opens
+  useEffect(() => {
+     if (isOpen) {
+         // Check HR Roles
+         const isHRHead = currentUser?.role === 'Head' && currentUser?.department === 'HR';
+         // Check HR Coordinator
+         const isHRCoordinator = currentUser?.role === 'Member' && currentUser?.department === 'HR' && currentUser?.title?.startsWith('HR Coordinator');
+         
+         let defaultDept = 'IT';
+         if (isHRHead) defaultDept = 'HR';
+         else if (isHRCoordinator) {
+             // Parse department from title "HR Coordinator - [Dept]"
+             const coordDept = currentUser?.title?.split(' - ')[1];
+             if (coordDept) defaultDept = coordDept;
+         } else if (currentUser?.department) {
+             // Fallback to user department (e.g. Head of IT -> IT)
+             defaultDept = currentUser.department;
+         }
+
+         setFormData({
+             name: '',
+             email: '',
+             password: '',
+             role: 'Member', 
+             department: defaultDept,
+             hrResponsibility: '',
+             title: ''
+         });
+     }
+  }, [isOpen, currentUser]);
 
   // Filtered Users
   const filteredUsers = users.filter(u => {
@@ -84,7 +117,23 @@ export default function UsersPage() {
     try {
       const token = localStorage.getItem('token');
       // POST to /users with form data
-      await api.post('/users', formData);
+      let payload = { ...formData };
+      
+      // LOGIC: If Creating HR Member and Responsibility is set
+      if (formData.department === 'HR' && formData.role !== 'Head' && formData.hrResponsibility) {
+          // User requested: "name and email and password in DB the same thinng which written"
+          // We will NOT override name or email.
+          // We WILL store the responsibility in the 'title' so we know what they do.
+          payload.title = `HR Coordinator - ${formData.hrResponsibility}`;
+      }
+
+      // VALIDATION: If HR Head recruiting HR Member, REQUIRE Responsibility
+      if (currentUser?.role === 'Head' && currentUser?.department === 'HR' && formData.department === 'HR' && !formData.hrResponsibility && formData.role !== 'Head') {
+         alert("YOU MUST ASSIGN A RESPONSIBILITY TO THIS NEW HR MEMBER.");
+         return;
+      }
+
+      await api.post('/users', payload);
       // Close modal and refresh list
       setIsOpen(false);
       fetchUsers();
@@ -104,8 +153,10 @@ export default function UsersPage() {
       await api.delete(`/users/${deleteId}`);
       fetchUsers();
       setDeleteId(null); // Close modal
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
+      const msg = error.response?.data?.message || "Delete failed";
+      alert(`DELETE ERROR: ${msg}`);
     }
   };
 
@@ -142,19 +193,43 @@ export default function UsersPage() {
               </div>
               <div className="space-y-2">
                 <Label className="pixel-font text-xs">CLASS (ROLE)</Label>
-                <Select onValueChange={v => setFormData({...formData, role: v})} defaultValue={formData.role}>
+                <Select 
+                    onValueChange={v => setFormData({...formData, role: v})} 
+                    defaultValue={formData.role}
+                    // HR HEAD LOCKED TO MEMBER
+                    // HR COORDINATOR LOCKED TO MEMBER
+                    disabled={
+                        (currentUser?.role === 'Head' && currentUser?.department === 'HR') ||
+                        (currentUser?.role === 'Member' && currentUser?.department === 'HR' && currentUser?.title?.startsWith('HR Coordinator'))
+                    }
+                >
                   <SelectTrigger className="pixel-corners border-primary bg-background/50"><SelectValue /></SelectTrigger>
                   <SelectContent className="pixel-corners border-primary bg-card">
                     <SelectItem value="Member">Member</SelectItem>
-                    <SelectItem value="Vice Head">Vice Head</SelectItem>
-                    <SelectItem value="Head">Head</SelectItem>
-                    <SelectItem value="HR">HR</SelectItem>
+                    {/* Only show other options if NOT HR Head */}
+                    {!(currentUser?.role === 'Head' && currentUser?.department === 'HR') && (
+                        <>
+                            <SelectItem value="Vice Head">Vice Head</SelectItem>
+                            <SelectItem value="Head">Head</SelectItem>
+                            <SelectItem value="HR">HR</SelectItem>
+                        </>
+                    )}
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-2">
                 <Label className="pixel-font text-xs">GUILD (DEPT)</Label>
-                <Select onValueChange={v => setFormData({...formData, department: v})} defaultValue={formData.department}>
+                <Select 
+                    onValueChange={v => setFormData({...formData, department: v})} 
+                    // Default Logic handled in useEffect
+                    defaultValue={formData.department}
+                    // HR HEAD LOCKED TO HR
+                    // HR COORDINATOR LOCKED TO THEIR DEPT (Set in useEffect)
+                    disabled={
+                        (currentUser?.role === 'Head' && currentUser?.department === 'HR') ||
+                        (currentUser?.role === 'Member' && currentUser?.department === 'HR' && currentUser?.title?.startsWith('HR Coordinator'))
+                    }
+                >
                   <SelectTrigger className="pixel-corners border-primary bg-background/50"><SelectValue /></SelectTrigger>
                   <SelectContent className="pixel-corners border-primary bg-card">
                     {['IT','HR','PM','PR','FR','Logistics','Organization','Marketing','Multi-Media','Presentation'].map(d => (
@@ -162,7 +237,34 @@ export default function UsersPage() {
                     ))}
                   </SelectContent>
                 </Select>
+                {currentUser?.role === 'Head' && currentUser?.department === 'HR' && (
+                    <p className="text-[10px] text-gray-500 font-mono mt-1">HR HEADS RECRUIT FOR HR ONLY</p>
+                )}
               </div>
+
+               {/* SPECIAL HR HEAD DROPDOWN: Coordinator Responsibility */}
+               {/* 
+                 Show if:
+                 1. Department selected is HR (formData.department === 'HR')
+                 2. Role selected is Member (formData.role === 'Member')
+                 3. Current User is HR Head or Board (allowed to recruit HR)
+               */}
+               {formData.department === 'HR' && formData.role === 'Member' && 
+                currentUser && ['Head', 'General President', 'Vice President'].includes(currentUser.role) && 
+                currentUser.department === 'HR' && (
+                  <div className="space-y-2 animate-in fade-in slide-in-from-top-2">
+                    <Label className="pixel-font text-xs text-yellow-400">ASSIGN RESPONSIBILITY (HR COORD)</Label>
+                    <Select onValueChange={v => setFormData({...formData, hrResponsibility: v})}>
+                      <SelectTrigger className="pixel-corners border-yellow-500 bg-background/50"><SelectValue placeholder="Select Dept to Manage" /></SelectTrigger>
+                      <SelectContent className="pixel-corners border-yellow-500 bg-card">
+                        {['IT','PM','PR','FR','Logistics','Organization','Marketing','Multi-Media','Presentation'].map(d => (
+                          <SelectItem key={d} value={d}>{d}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-[10px] text-gray-400 font-mono">* This will set their recruiting permissions.</p>
+                  </div>
+               )}
               <Button onClick={handleCreate} className="w-full pixel-corners pixel-font">CONFIRM RECRUIT</Button>
             </div>
           </DialogContent>
@@ -232,8 +334,11 @@ export default function UsersPage() {
                   <TableCell><Badge variant="outline" className="pixel-corners border-accent text-accent">{u.department}</Badge></TableCell>
                   <TableCell className="text-secondary pixel-font">{u.points} XP</TableCell>
                   <TableCell className="text-right flex items-center justify-end gap-2">
-                    {/* Warning Button (HR Only, Members Only) */}
-                    {currentUser?.role === 'HR' && u.role === 'Member' && (
+                    {/* Warning Button (HR Only, Members Only, or HEAD) */}
+                    {/* Allow HR Coordinator (Member + HR Dept + Title check) */}
+                    {(currentUser?.role === 'HR' || 
+                      (currentUser?.role === 'Member' && currentUser?.department === 'HR' && currentUser?.title?.startsWith('HR Coordinator'))
+                     ) && u.role === 'Member' && (
                         <Button 
                             variant="ghost" 
                             size="sm" 
