@@ -30,7 +30,8 @@ export default function LeaderboardPage() {
     const fetchLeaderboard = async () => {
       try {
         const { data } = await api.get('/users/leaderboard');
-        setUsers(data);
+        // Filter to show ONLY Members
+        setUsers(data.filter((u: any) => u.role === 'Member'));
       } catch (error) {
         console.error(error);
       } finally {
