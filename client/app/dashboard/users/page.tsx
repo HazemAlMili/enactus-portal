@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Trash2, UserPlus } from 'lucide-react';
+import { Trash2, UserPlus, AlertTriangle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
@@ -22,6 +22,14 @@ export default function UsersPage() {
   const [isOpen, setIsOpen] = useState(false);
   // State for Delete Confirmation Modal
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  
+
+  // State for Filtration and Warnings (HR Feature)
+  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [nameFilter, setNameFilter] = useState('');
+  const [deptFilter, setDeptFilter] = useState('ALL');
+  const [warningTarget, setWarningTarget] = useState<any>(null); // User to warn
+  const [warningReason, setWarningReason] = useState('');
   
   // State for the new user form data
   const [formData, setFormData] = useState({
@@ -44,10 +52,32 @@ export default function UsersPage() {
     }
   };
 
-  // Fetch users on component mount
+  // Fetch users AND current profile on component mount
   useEffect(() => {
     fetchUsers();
+    api.get('/auth/me').then(res => setCurrentUser(res.data)).catch(console.error);
   }, []);
+
+  // Filtered Users
+  const filteredUsers = users.filter(u => {
+      const matchName = u.name.toLowerCase().includes(nameFilter.toLowerCase());
+      const matchDept = deptFilter === 'ALL' || u.department === deptFilter;
+      return matchName && matchDept;
+  });
+
+  // Warning Handler
+  const issueWarning = async () => {
+      if (!warningTarget) return;
+      try {
+          await api.post(`/users/${warningTarget._id}/warning`, { reason: warningReason });
+          alert(`USER WARNED: ${warningTarget.name}`);
+          setWarningTarget(null);
+          setWarningReason('');
+      } catch (err: any) {
+          console.error(err);
+          alert(err.response?.data?.message || "Failed to issue warning.");
+      }
+  };
 
   // Handler for creating a new user
   const handleCreate = async () => {
@@ -58,8 +88,10 @@ export default function UsersPage() {
       // Close modal and refresh list
       setIsOpen(false);
       fetchUsers();
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
+      const msg = error.response?.data?.message || 'Failed to recruit player.';
+      alert(`RECRUITMENT ERROR: ${msg}`);
     }
   };
 
@@ -154,6 +186,30 @@ export default function UsersPage() {
         </Dialog>
       </div>
 
+       
+      {/* FILTERS & TOOLS */}
+      <div className="flex flex-col md:flex-row gap-4">
+          <Input 
+              placeholder="SEARCH BY NAME..." 
+              value={nameFilter}
+              onChange={e => setNameFilter(e.target.value)}
+              className="md:w-64 pixel-corners bg-background/50 border-primary/50"
+          />
+          {currentUser && ['HR', 'General President', 'Vice President'].includes(currentUser.role) && (
+              <Select onValueChange={setDeptFilter} defaultValue="ALL">
+                 <SelectTrigger className="md:w-48 pixel-corners bg-background/50 border-primary/50">
+                     <SelectValue placeholder="FILTER DEPT" />
+                 </SelectTrigger>
+                 <SelectContent className="pixel-corners bg-card border-primary">
+                     <SelectItem value="ALL">ALL DEPTS</SelectItem>
+                     {['IT','HR','PM','PR','FR','Logistics','Organization','Marketing','Multi-Media','Presentation'].map(d => (
+                         <SelectItem key={d} value={d}>{d}</SelectItem>
+                     ))}
+                 </SelectContent>
+              </Select>
+          )}
+      </div>
+
       {/* Users List Table */}
       <Card className="bg-card border-2 border-primary pixel-corners">
         <CardContent className="p-0 overflow-x-auto">
@@ -169,13 +225,26 @@ export default function UsersPage() {
             </TableHeader>
             <TableBody>
               {/* Map through users array */}
-              {users.map((u) => (
+              {filteredUsers.map((u) => (
                 <TableRow key={u._id} className="hover:bg-primary/10 border-b border-primary/10">
                   <TableCell className="text-white font-medium pixel-font text-sm">{u.name}</TableCell>
                   <TableCell className="text-gray-300 font-mono text-xs uppercase">{u.role}</TableCell>
                   <TableCell><Badge variant="outline" className="pixel-corners border-accent text-accent">{u.department}</Badge></TableCell>
                   <TableCell className="text-secondary pixel-font">{u.points} XP</TableCell>
-                  <TableCell className="text-right">
+                  <TableCell className="text-right flex items-center justify-end gap-2">
+                    {/* Warning Button (HR Only, Members Only) */}
+                    {currentUser?.role === 'HR' && u.role === 'Member' && (
+                        <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            onClick={() => setWarningTarget(u)}
+                            className="text-yellow-500 hover:text-yellow-400 hover:bg-yellow-500/10 pixel-corners"
+                            title="Issue Warning"
+                        >
+                            <AlertTriangle className="h-4 w-4" />
+                        </Button>
+                    )}
+
                     {/* Delete Button */}
                     <Button variant="ghost" size="sm" onClick={() => setDeleteId(u._id)} className="text-destructive hover:text-white hover:bg-destructive pixel-corners">
                       <Trash2 className="h-4 w-4" />
@@ -187,6 +256,35 @@ export default function UsersPage() {
           </Table>
         </CardContent>
       </Card>
+      
+      {/* Warning Dialog */}
+      <Dialog open={!!warningTarget} onOpenChange={(open) => !open && setWarningTarget(null)}>
+          <DialogContent className="pixel-corners border-2 border-yellow-500 bg-card">
+              <DialogHeader>
+                  <DialogTitle className="pixel-font text-yellow-500 flex items-center gap-2">
+                      <AlertTriangle className="w-5 h-5 animate-pulse" />
+                      ISSUE WARNING
+                  </DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                  <div className="p-3 bg-yellow-500/10 border border-yellow-500/30 pixel-corners text-sm text-yellow-200 font-mono">
+                      TARGET: <span className="font-bold">{warningTarget?.name}</span> ({warningTarget?.department})
+                  </div>
+                  <div className="space-y-2">
+                      <Label className="pixel-font text-xs">REASON FOR WARNING</Label>
+                      <Input 
+                        value={warningReason}
+                        onChange={e => setWarningReason(e.target.value)}
+                        placeholder="e.g. Inactivity, violation of rules..."
+                        className="pixel-corners bg-background/50 border-white/20"
+                      />
+                  </div>
+                  <Button onClick={issueWarning} className="w-full bg-yellow-600 hover:bg-yellow-500 text-black pixel-corners pixel-font font-bold">
+                      CONFIRM WARNING
+                  </Button>
+              </div>
+          </DialogContent>
+      </Dialog>
     </div>
   );
 }

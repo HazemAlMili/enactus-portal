@@ -23,6 +23,9 @@ export default function LoginForm() {
     e.preventDefault();
     try {
       // POST request to login endpoint
+      // Ensure we're hitting the correct endpoint. If /api/auth/login is the standard, 
+      // api.post('/auth/login') assumes baseURL includes /api or / is relative correctly.
+      // Based on previous files, api instance likely handles baseURL.
       const { data } = await api.post('/auth/login', { email, password });
       
       // Store token and user data in local storage
@@ -38,19 +41,23 @@ export default function LoginForm() {
   };
 
   return (
-    // Centered Container
-    <div className="flex items-center justify-center min-h-screen bg-background">
+    // Centered Container - Removed bg-background to let body pattern show
+    <div className="flex items-center justify-center min-h-screen p-4">
       {/* Login Card */}
-      <Card className="w-[350px] border-primary shadow-lg shadow-purple-900/50">
+      <Card className="w-[350px] border-primary shadow-lg shadow-purple-900/50 bg-card/95 backdrop-blur-sm">
         <CardHeader>
-          <CardTitle className="text-2xl text-center text-primary-foreground">Enactus Login</CardTitle>
-          <CardDescription className="text-center text-gray-400">Enter your credentials to access the portal</CardDescription>
+          <CardTitle className="text-2xl text-center pixel-font bg-gradient-to-r from-secondary to-accent bg-clip-text text-transparent pb-2">
+            WELCOME TO ENACTUS PORTAL
+          </CardTitle>
+          <CardDescription className="text-center text-gray-400 font-sans">
+            Enter your credentials to access the portal
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleLogin} className="space-y-4">
             {/* Email Input */}
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email" className="pixel-font text-xs text-primary">EMAIL</Label>
               <Input 
                 id="email" 
                 type="email" 
@@ -58,26 +65,35 @@ export default function LoginForm() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
+                className="bg-background/50 border-primary/50 focus:border-primary"
               />
             </div>
             {/* Password Input */}
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password" className="pixel-font text-xs text-primary">PASSWORD</Label>
               <Input 
                 id="password" 
                 type="password" 
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
+                className="bg-background/50 border-primary/50 focus:border-primary"
               />
             </div>
             
             {/* Error Message Display */}
-            {error && <p className="text-red-500 text-sm">{error}</p>}
+            {error && (
+              <div className="text-red-500 text-xs pixel-font text-center bg-red-900/20 p-2 border border-red-500/50">
+                {error}
+              </div>
+            )}
             
             {/* Submit Button */}
-            <Button type="submit" className="w-full bg-secondary text-secondary-foreground hover:bg-yellow-500">
-              Start Game
+            <Button 
+              type="submit" 
+              className="w-full bg-secondary text-secondary-foreground hover:bg-yellow-500 pixel-corners pixel-font mt-4 text-sm font-bold tracking-widest"
+            >
+              START GAME
             </Button>
           </form>
         </CardContent>

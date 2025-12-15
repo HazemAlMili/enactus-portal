@@ -1,10 +1,12 @@
-    "use client";
+"use client";
 
 import { useState, useEffect } from 'react';
 import api from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+
+import LoadingSpinner from '@/components/ui/loading-spinner';
 
 interface User {
   _id: string;
@@ -18,10 +20,25 @@ export default function DepartmentsPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [groupedUsers, setGroupedUsers] = useState<Record<string, User[]>>({});
   const [selectedDept, setSelectedDept] = useState<string>('All');
+  const [user, setUser] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    const storedUser = localStorage.getItem('user');
+    if (storedUser) {
+        const u = JSON.parse(storedUser);
+        setUser(u);
+        // If Head/Vice Head, force selection to their department
+        if (['Head', 'Vice Head'].includes(u.role) && u.department) {
+            setSelectedDept(u.department);
+        }
+    }
     fetchUsers();
   }, []);
+
+  const isHead = user && ['Head', 'Vice Head'].includes(user.role);
+
+  // ... (keep fetchUsers logic)
 
   const fetchUsers = async () => {
     try {
@@ -40,6 +57,8 @@ export default function DepartmentsPage() {
       setGroupedUsers(groups);
     } catch (error) {
       console.error("Failed to fetch guild data", error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -51,6 +70,10 @@ export default function DepartmentsPage() {
   // Generate department list for dropdown (Static List to ensure all are visible)
   const allDepartments = ['IT','HR','PM','PR','FR','Logistics','Organization','Marketing','Multi-Media','Presentation'];
 
+  if (isLoading) {
+    return <LoadingSpinner />;
+  }
+
   return (
     <div className="space-y-8 w-full max-w-full overflow-hidden">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-card p-6 border-b-4 border-b-primary pixel-corners">
@@ -59,30 +82,32 @@ export default function DepartmentsPage() {
           <p className="text-gray-400 font-mono text-xs mt-2">VIEW ACTIVE AGENTS AND STATS</p>
         </div>
         
-        {/* Department Filter */}
-        <div className="w-full md:w-48 shrink-0">
-            <Select value={selectedDept} onValueChange={setSelectedDept}>
-              <SelectTrigger className="pixel-corners border-secondary bg-background/50 text-xs pixel-font h-10 w-full">
-                <SelectValue placeholder="FILTER GUILD" />
-              </SelectTrigger>
-                <SelectContent className="pixel-corners bg-card border-secondary">
-                  <SelectItem value="All">ALL GUILDS</SelectItem>
-                  {allDepartments.map(dept => {
-                    const shortName = {
-                      'Organization': 'ORG',
-                      'Marketing': 'MKT',
-                      'Multi-Media': 'MM',
-                      'Presentation': 'PRES',
-                      'Logistics': 'LOG'
-                    }[dept] || dept;
+        {/* Department Filter - Only for Non-Heads (e.g. GP, HR) */}
+        {!isHead && (
+            <div className="w-full md:w-48 shrink-0">
+                <Select value={selectedDept} onValueChange={setSelectedDept}>
+                <SelectTrigger className="pixel-corners border-secondary bg-background/50 text-xs pixel-font h-10 w-full">
+                    <SelectValue placeholder="FILTER GUILD" />
+                </SelectTrigger>
+                    <SelectContent className="pixel-corners bg-card border-secondary">
+                    <SelectItem value="All">ALL GUILDS</SelectItem>
+                    {allDepartments.map(dept => {
+                        const shortName = {
+                        'Organization': 'ORG',
+                        'Marketing': 'MKT',
+                        'Multi-Media': 'MM',
+                        'Presentation': 'PRES',
+                        'Logistics': 'LOG'
+                        }[dept] || dept;
 
-                    return (
-                      <SelectItem key={dept} value={dept}>{shortName} GUILD</SelectItem>
-                    );
-                  })}
-                </SelectContent>
-            </Select>
-        </div>
+                        return (
+                        <SelectItem key={dept} value={dept}>{shortName} GUILD</SelectItem>
+                        );
+                    })}
+                    </SelectContent>
+                </Select>
+            </div>
+        )}
       </div>
 
       <div className="space-y-8 pb-8">

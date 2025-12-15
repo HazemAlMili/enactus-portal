@@ -1,39 +1,65 @@
 "use client";
 
-// Import React hooks
 import { useEffect, useState } from 'react';
-// Import navigation router
 import { useRouter } from 'next/navigation';
-// Import UI components from shadcn/ui library
+import api from '@/lib/api';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+
+// Define User Interface
+interface User {
+  name: string;
+  email: string;
+  department?: string;
+  role: string;
+  points?: number;
+  hoursApproved?: number;
+  tasksCompleted?: number;
+}
 
 // Define Dashboard Component
 export default function Dashboard() {
   const router = useRouter();
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<User | null>(null);
 
   // Effect to protect the route and load user data
   useEffect(() => {
     const storedUser = localStorage.getItem('user');
     if (!storedUser) {
-      // Redirect to login if not authenticated
       router.push('/');
-    } else {
-      setUser(JSON.parse(storedUser));
+      return;
     }
+    
+    // Set initial user from local storage to avoid flashing
+    setUser(JSON.parse(storedUser));
+
+    // Fetch fresh user data
+    const fetchUserData = async () => {
+      try {
+        const { data } = await api.get('/auth/me');
+        setUser(data);
+        // Optionally update local storage
+        localStorage.setItem('user', JSON.stringify(data));
+      } catch (error) {
+        console.error("Failed to fetch fresh user data", error);
+        // If auth fails, maybe redirect? For now, keep local version or let interceptors handle it
+      }
+    };
+
+    fetchUserData();
   }, [router]);
 
   // Show loading state while checking user
   if (!user) return <div className="text-white">Loading...</div>;
 
   return (
-    <div className="p-8 space-y-8">
+    <div className="p-8 space-y-8 min-h-[85vh] flex flex-col">
       {/* Header Section: Gamified Welcome */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-4xl text-primary pixel-font mb-2 drop-shadow-md">
-            WELCOME, {user.name}
+          <h1 className="text-3xl text-primary pixel-font mb-2 drop-shadow-md">
+            WELCOME,<br />
+            <span className="mt-1 text-3xl">{user.name.toUpperCase()}</span>
           </h1>
           <div className="flex items-center gap-2 text-white/80 font-mono text-sm">
             <span className="bg-primary/20 px-2 py-1 rounded-none border border-primary pixel-corners">
@@ -43,6 +69,8 @@ export default function Dashboard() {
               {user.role}
             </span>
           </div>
+          
+
         </div>
         <Button 
           variant="destructive" 
@@ -57,67 +85,160 @@ export default function Dashboard() {
         </Button>
       </div>
 
+      <div className="flex-1 flex flex-col justify-center space-y-8">
       {/* Level Progress Section */}
       <Card className="bg-card border-2 border-primary pixel-corners">
         <CardContent className="p-6">
-          <div className="flex justify-between items-end mb-2">
-             <div>
-                <h3 className="text-secondary pixel-font text-xl">LEVEL {Math.floor((user.points || 0) / 100) + 1}</h3>
-                <p className="text-xs text-white/60 font-mono mt-1">NEXT REWARD AT {(Math.floor((user.points || 0) / 100) + 1) * 100} XP</p>
-             </div>
-             <span className="text-white pixel-font text-sm">{user.points || 0} XP</span>
-          </div>
-          {/* XP Bar */}
-          <div className="h-6 w-full bg-black border-2 border-white/20 relative">
-            <div 
-              className="h-full bg-gradient-to-r from-primary to-accent transition-all duration-1000"
-              style={{ width: `${(user.points || 0) % 100}%` }}
-            />
-          </div>
+          {(() => {
+             const isBoss = ['Head', 'Vice Head', 'General President', 'HR'].includes(user.role);
+             const xpForNextLevel = 100;
+             const rawLevel = Math.floor((user.points || 0) / xpForNextLevel) + 1;
+             const displayLevel = isBoss ? "99+" : rawLevel;
+             const progress = isBoss ? 100 : ((user.points || 0) % xpForNextLevel) / xpForNextLevel * 100;
+
+             return (
+               <>
+                  <div className="flex justify-between items-end mb-2">
+                     <div>
+                        <h3 className="text-secondary pixel-font text-xl">{isBoss ? "BOSS LEVEL" : `LEVEL ${displayLevel}`}</h3>
+                        <p className="text-xs text-white/60 font-mono mt-1">
+                           {isBoss ? "MAXIMUM CLEARANCE" : `NEXT REWARD AT ${(Math.floor((user.points || 0) / xpForNextLevel) + 1) * xpForNextLevel} XP`}
+                        </p>
+                     </div>
+                     <span className="text-white pixel-font text-sm">{user.points || 0} XP</span>
+                  </div>
+                  {/* XP Bar */}
+                  <div className="h-6 w-full bg-black border-2 border-white/20 relative">
+                    <div 
+                      className="h-full bg-gradient-to-r from-primary to-accent transition-all duration-1000"
+                      style={{ width: `${progress}%` }}
+                    />
+                    {/* Tick marks */}
+                    <div className="absolute inset-0 flex justify-evenly pointer-events-none">
+                       {[...Array(9)].map((_, i) => (
+                          <div key={i} className="h-full w-[1px] bg-black/20" />
+                       ))}
+                    </div>
+                  </div>
+               </>
+             );
+          })()}
         </CardContent>
       </Card>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Hours Card */}
-        <Card className="bg-card border-2 border-secondary pixel-corners hover:scale-105 transition-transform">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-secondary pixel-font text-sm">HOURS PLAYED</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-4xl font-bold text-white pixel-font">{user.hoursApproved || 0}</p>
-            <p className="text-xs text-white/50 mt-1">APPROVED TIME</p>
-          </CardContent>
-        </Card>
 
-        {/* Tasks Card */}
-        <Card className="bg-card border-2 border-accent pixel-corners hover:scale-105 transition-transform">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-accent pixel-font text-sm">MISSIONS DONE</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-4xl font-bold text-white pixel-font">{user.tasksCompleted || 0}</p>
-            <p className="text-xs text-white/50 mt-1">COMPLETED TASKS</p>
-          </CardContent>
-        </Card>
 
-        {/* Points Card */}
-        <Card className="bg-card border-2 border-primary pixel-corners hover:scale-105 transition-transform">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-primary pixel-font text-sm">TOTAL SCORE</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-4xl font-bold text-white pixel-font">{user.points || 0}</p>
-            <p className="text-xs text-white/50 mt-1">LIFETIME XP</p>
-          </CardContent>
-        </Card>
-      </div>
+      {/* Stats Grid - ONLY FOR MEMBERS */}
+      {user.role === 'Member' && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {/* Hours Card */}
+          <Card className="bg-card border-2 border-secondary pixel-corners hover:scale-105 transition-transform">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-secondary pixel-font text-sm">HOURS PLAYED</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-4xl font-bold text-white pixel-font">{user.hoursApproved || 0}</p>
+              <p className="text-xs text-white/50 mt-1">APPROVED TIME</p>
+            </CardContent>
+          </Card>
 
-      {/* Quick Actions Note */}
-      <div className="mt-8 text-center">
-        <p className="text-white/40 text-sm pixel-font animate-pulse">
-          PRESS START ON "TASKS" TO BEGIN MISSION...
+          {/* Tasks Card */}
+          <Card className="bg-card border-2 border-accent pixel-corners hover:scale-105 transition-transform">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-accent pixel-font text-sm">MISSIONS DONE</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-4xl font-bold text-white pixel-font">{user.tasksCompleted || 0}</p>
+              <p className="text-xs text-white/50 mt-1">COMPLETED TASKS</p>
+            </CardContent>
+          </Card>
+
+          {/* Points Card */}
+          <Card className="bg-card border-2 border-primary pixel-corners hover:scale-105 transition-transform">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-primary pixel-font text-sm">TOTAL SCORE</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-4xl font-bold text-white pixel-font">{user.points || 0}</p>
+              <p className="text-xs text-white/50 mt-1">LIFETIME XP</p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Quote Footer (Replacing Press Start) */}
+      <div className="mt-8 text-center max-w-2xl mx-auto">
+        <p className="text-white/40 text-xl pixel-font animate-pulse italic">
+          "{(() => {
+             const quotes: Record<string, string[]> = {
+                 'IT': [
+                     "Building the future, pixel by pixel.",
+                     "Talk is cheap. Show me the code.",
+                     "It's not a bug, it's a feature.",
+                     "Code is poetry written in logic."
+                 ],
+                 'HR': [
+                     "Human potential, unlocked.",
+                     "Hire character. Train skill.",
+                     "Building the team that builds the dream.",
+                     "People are not resources, they are possibilities."
+                 ],
+                 'PM': [
+                     "Vision needs execution.",
+                     "Plans are nothing; planning is everything.",
+                     "Leading the way, one milestone at a time.",
+                     "Turning chaos into roadmap."
+                 ],
+                 'PR': [
+                     "Stories that shape the world.",
+                     "Everything you do is public relations.",
+                     "Perception is reality.",
+                     "Words have power. Use them wisely."
+                 ],
+                 'FR': [
+                     "Fueling the impossible.",
+                     "Resources drive the mission.",
+                     "Investing in impact.",
+                     "Every coin counts towards the cause."
+                 ],
+                 'Logistics': [
+                     "The backbone of operations.",
+                     "Amateurs talk strategy. Professionals talk logistics.",
+                     "Efficiency is doing better what is already being done.",
+                     "Moving mountains, on schedule."
+                 ],
+                 'Organization': [
+                     "Order creates opportunity.",
+                     "Structure allows creativity to flow.",
+                     "A place for everything, and everything in its place.",
+                     "The foundation of success is organization."
+                 ],
+                 'Marketing': [
+                     "Ideas that spread, win.",
+                     "Marketing is no longer about the stuff that you make, but about the stories you tell.",
+                     "Creativity is intelligence having fun.",
+                     "Inspiring action through connection."
+                 ],
+                 'Multi-Media': [
+                     "Reality, reimagined.",
+                     "A picture is worth a thousand lines of code.",
+                     "Capturing the spirit of the moment.",
+                     "Visuals speak louder than words."
+                 ],
+                 'Presentation': [
+                     "Impact through expression.",
+                     "The art of communication is the language of leadership.",
+                     "Speak to influence.",
+                     "Your stage, your story."
+                 ]
+             };
+             
+             const deptQuotes = quotes[user.department || ''] || ["Making the world better, one action at a time."];
+             const randomIndex = Math.floor(Math.random() * deptQuotes.length);
+             return deptQuotes[randomIndex];
+          })()}"
         </p>
+      </div>
       </div>
     </div>
   );

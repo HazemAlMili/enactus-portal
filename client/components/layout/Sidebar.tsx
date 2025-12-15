@@ -7,7 +7,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 // Import UI components and icons
 import { Button } from '@/components/ui/button';
-import { LayoutDashboard, Clock, CheckSquare, Trophy, Users, LogOut, Building } from 'lucide-react';
+import { LayoutDashboard, Clock, CheckSquare, Trophy, Users, LogOut, Building, User } from 'lucide-react';
 
 // Define Sidebar Component
 export function Sidebar({ user, className }: { user: any, className?: string }) {
@@ -19,6 +19,7 @@ export function Sidebar({ user, className }: { user: any, className?: string }) 
   const links = [
     { href: '/dashboard', label: 'Overview', icon: LayoutDashboard },
     { href: '/dashboard/tasks', label: 'Tasks', icon: CheckSquare },
+    { href: '/dashboard/profile', label: 'Identity', icon: User },
   ];
 
   // Management Links for Leaders (Head, Vice Head, HR, General President)
