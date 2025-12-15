@@ -58,14 +58,33 @@ export default function ProfilePage() {
     reader.onloadend = async () => {
       try {
         const base64 = reader.result as string;
+        console.log('📤 Uploading avatar, size:', base64.length, 'chars');
+        
         const res = await api.put('/users/avatar', { avatar: base64 });
-        setProfile(res.data); 
-      } catch (err) {
-        console.error("Upload failed", err);
-        alert("Upload failed.");
+        console.log('✅ Avatar uploaded successfully');
+        
+        setProfile(res.data);
+        
+        // Update localStorage with new avatar
+        const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
+        storedUser.avatar = res.data.avatar;
+        localStorage.setItem('user', JSON.stringify(storedUser));
+        
+        alert('Avatar updated successfully!');
+      } catch (err: any) {
+        console.error("❌ Upload failed:", err);
+        console.error("Error response:", err.response?.data);
+        
+        const errorMsg = err.response?.data?.message || err.message || 'Upload failed';
+        alert(`Upload failed: ${errorMsg}`);
       } finally {
         setUploading(false);
       }
+    };
+    reader.onerror = () => {
+      console.error('❌ Failed to read file');
+      alert('Failed to read image file');
+      setUploading(false);
     };
     reader.readAsDataURL(file);
   };
