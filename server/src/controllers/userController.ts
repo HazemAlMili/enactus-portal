@@ -296,7 +296,11 @@ export const updateAvatar = async (req: Request, res: Response) => {
     // @ts-ignore
     const userId = req.user.id; 
 
+    console.log('🖼️ Avatar upload request from user:', userId);
+    console.log('Avatar data length:', avatar?.length || 0, 'chars');
+
     if (!avatar) {
+      console.log('❌ No avatar data provided');
       return res.status(400).json({ message: 'Avatar data is required' });
     }
 
@@ -307,6 +311,7 @@ export const updateAvatar = async (req: Request, res: Response) => {
     );
 
     if (!user) {
+       console.log('🔍 User not found in User collection, checking HighBoard...');
        user = await HighBoard.findByIdAndUpdate(
         userId,
         { avatar },
@@ -315,13 +320,15 @@ export const updateAvatar = async (req: Request, res: Response) => {
     }
 
     if (!user) {
+      console.log('❌ User not found in either collection');
       return res.status(404).json({ message: 'User not found' });
     }
 
+    console.log('✅ Avatar updated successfully for:', user.name);
     res.json(user);
 
   } catch (error) {
-    console.error('Update avatar error:', error);
+    console.error('❌ Update avatar error:', error);
     res.status(500).json({ message: 'Server error updating avatar' });
   }
 };

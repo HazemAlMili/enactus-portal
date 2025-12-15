@@ -35,6 +35,7 @@ const UserSchema: Schema = new Schema({
   hoursApproved: { type: Number, default: 0 }, // Initialize hours to 0
   tasksCompleted: { type: Number, default: 0 }, // Initialize tasks completed to 0
   points: { type: Number, default: 0 }, // Initialize points to 0
+  avatar: { type: String }, // Profile picture (Base64 or URL)
   warnings: [{
     reason: { type: String },
     date: { type: Date, default: Date.now },
