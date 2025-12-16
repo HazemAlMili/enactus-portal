@@ -16,13 +16,20 @@ import dbConnect from '../lib/dbConnect';
 export const getLeaderboard = async (req: Request, res: Response) => {
   await dbConnect();
   try {
-    // Find users, select specific fields to minimize data transfer
+    // Find users from BOTH collections, select specific fields to minimize data transfer
     // Filter strictly for Members, as requested
-    const users = await User.find({ role: 'Member' })
+    const usersFromUser = await User.find({ role: 'Member' })
       .select('name points hoursApproved department role') // Only needed fields
-      .sort({ hoursApproved: -1 }) // Sort by hoursApproved descending (highest first)
-      .limit(50) // Limit to top 50 users (Optimization)
       .lean(); // ⚡ Plain objects for speed
+      
+    const usersFromHighBoard = await HighBoard.find({ role: 'Member' })
+      .select('name points hoursApproved department role')
+      .lean();
+      
+    // Combine and sort by hoursApproved
+    const users = [...usersFromUser, ...usersFromHighBoard]
+      .sort((a, b) => (b.hoursApproved || 0) - (a.hoursApproved || 0))
+      .slice(0, 50); // Top 50
       
     res.json(users);
   } catch (error) {
@@ -39,20 +46,20 @@ export const getLeaderboard = async (req: Request, res: Response) => {
 export const getUsers = async (req: Request, res: Response) => {
   await dbConnect();
   try {
-    let query: any = {};
+    let query: any = { role: 'Member' }; // Only show Members in Squad page
     const currentUser = (req as any).user;
 
     // 1. Head / Vice Head: See only their Department members
     if (currentUser?.role === 'Head' || currentUser?.role === 'Vice Head') {
-      query = { department: currentUser.department };
+      query = { department: currentUser.department, role: 'Member' };
     }
     // 2. Operation Director
     else if (currentUser?.role === 'Operation Director') {
-        query = { department: { $in: ['PR', 'FR', 'Logistics', 'PM'] } };
+        query = { department: { $in: ['PR', 'FR', 'Logistics', 'PM'] }, role: 'Member' };
     }
     // 3. Creative Director
     else if (currentUser?.role === 'Creative Director') {
-        query = { department: { $in: ['Marketing', 'Multi-Media', 'Presentation', 'Organization'] } };
+        query = { department: { $in: ['Marketing', 'Multi-Media', 'Presentation', 'Organization'] }, role: 'Member' };
     }
     // 2. HR Logic
     else if (currentUser?.role === 'HR') {
@@ -64,7 +71,7 @@ export const getUsers = async (req: Request, res: Response) => {
          const validDepts = ['IT','HR','PM','PR','FR','Logistics','Organization','Marketing','Multi-Media','Presentation'];
          const deptName = validDepts.find(d => d.replace(/[^a-zA-Z]/g, '').toLowerCase() === targetDept.replace(/[^a-zA-Z]/g, '').toLowerCase()) || targetDept;
          
-         query = { department: deptName };
+         query = { department: deptName, role: 'Member' };
       }
       // General HR sees all (query remains {})
     }
@@ -73,16 +80,19 @@ export const getUsers = async (req: Request, res: Response) => {
         // "HR Coordinator - IT" -> See IT members
         const coordDept = currentUser.title.split(' - ')[1];
         if (coordDept) {
-            query = { department: coordDept };
+            query = { department: coordDept, role: 'Member' };
         } else {
              // Fallback: See own/HR? Or nothing?
              // If title is malformed, show HR dept
-             query = { department: 'HR' };
+             query = { department: 'HR', role: 'Member' };
         }
     }
     // General President sees all
 
-    let users = await User.find(query).select('-password');
+    // Query BOTH User and HighBoard collections
+    const usersFromUser = await User.find(query).select('-password');
+    const usersFromHighBoard = await HighBoard.find(query).select('-password');
+    let users = [...usersFromUser, ...usersFromHighBoard];
     
     // Custom Sort by Role Hierarchy
     const roleOrder: { [key: string]: number } = {
@@ -252,8 +262,13 @@ export const deleteUser = async (req: Request, res: Response) => {
         return res.status(404).json({ message: 'User not found' });
     }
 
-    // Default: Check Admin/HR Permissions
-    const isAdmin = ['General President', 'Vice President', 'Head'].includes(currentUser.role) || currentUser.department === 'HR';
+    // Authorization: Board, Heads, or HR department
+    // HR Head has role='Head' AND department='HR'
+    const isAdmin = [
+      'General President', 
+      'Vice President', 
+      'Head' // ← Includes HR Head!
+    ].includes(currentUser.role) || currentUser.department === 'HR';
     
     // HR Coordinator Check
     const isHRCoordinator = currentUser.role === 'Member' && currentUser.department === 'HR' && currentUser.title?.startsWith('HR Coordinator');
@@ -348,7 +363,17 @@ export const addWarning = async (req: Request, res: Response) => {
      // Check if HR Coordinator
      const isHRCoordinator = currentUser.role === 'Member' && currentUser.department === 'HR' && currentUser.title?.startsWith('HR Coordinator');
      
-     if (currentUser.role !== 'HR' && currentUser.role !== 'Head' && currentUser.department !== 'HR' && currentUser.role !== 'General President' && !isHRCoordinator) {
+     // Authorization: HR department, Heads, or Board
+     // HR Head: role='Head' AND department='HR' (passes both checks)
+     const isAuthorized = (
+       currentUser.role === 'HR' || 
+       currentUser.role === 'Head' ||  // ← HR Head has this role
+       currentUser.department === 'HR' ||  // ← HR Head also has this dept
+       currentUser.role === 'General President' || 
+       isHRCoordinator
+     );
+     
+     if (!isAuthorized) {
          return res.status(403).json({ message: 'Only HR can issue warnings.' });
      }
 

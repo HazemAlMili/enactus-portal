@@ -3,6 +3,7 @@ import { Request, Response } from 'express';
 // Import HourLog and User models
 import HourLog from '../models/HourLog';
 import User from '../models/User';
+import HighBoard from '../models/HighBoard';
 
 /**
  * Controller to submit hours.
@@ -111,18 +112,25 @@ export const getHours = async (req: Request, res: Response) => {
     } 
     // 2. Head / Vice Head: See hours for their Department members
     else if (currentUser?.role === 'Head' || currentUser?.role === 'Vice Head') {
-      const deptUsers = await User.find({ department: currentUser.department }).select('_id');
-      query = { user: { $in: deptUsers.map(u => u._id) } };
+      // Check BOTH User and HighBoard collections
+      const userDept = await User.find({ department: currentUser.department }).select('_id');
+      const highboardDept = await HighBoard.find({ department: currentUser.department }).select('_id');
+      const allDeptUsers = [...userDept.map(u => u._id), ...highboardDept.map(u => u._id)];
+      query = { user: { $in: allDeptUsers } };
     }
     // 3. Operation Director
     else if (currentUser?.role === 'Operation Director') {
-         const deptUsers = await User.find({ department: { $in: ['PR', 'FR', 'Logistics', 'PM'] } }).select('_id');
-         query = { user: { $in: deptUsers.map(u => u._id) } };
+         const userDept = await User.find({ department: { $in: ['PR', 'FR', 'Logistics', 'PM'] } }).select('_id');
+         const highboardDept = await HighBoard.find({ department: { $in: ['PR', 'FR', 'Logistics', 'PM'] } }).select('_id');
+         const allDeptUsers = [...userDept.map(u => u._id), ...highboardDept.map(u => u._id)];
+         query = { user: { $in: allDeptUsers } };
     }
     // 4. Creative Director
     else if (currentUser?.role === 'Creative Director') {
-         const deptUsers = await User.find({ department: { $in: ['Marketing', 'Multi-Media', 'Presentation', 'Organization'] } }).select('_id');
-         query = { user: { $in: deptUsers.map(u => u._id) } };
+         const userDept = await User.find({ department: { $in: ['Marketing', 'Multi-Media', 'Presentation', 'Organization'] } }).select('_id');
+         const highboardDept = await HighBoard.find({ department: { $in: ['Marketing', 'Multi-Media', 'Presentation', 'Organization'] } }).select('_id');
+         const allDeptUsers = [...userDept.map(u => u._id), ...highboardDept.map(u => u._id)];
+         query = { user: { $in: allDeptUsers } };
     }
     // 5. HR Logic
     else if (currentUser?.role === 'HR') {
@@ -143,15 +151,19 @@ export const getHours = async (req: Request, res: Response) => {
          const validDepts = ['IT','HR','PM','PR','FR','Logistics','Organization','Marketing','Multi-Media','Presentation'];
          const deptName = validDepts.find(d => d.replace(/[^a-zA-Z]/g, '').toLowerCase() === targetDept.replace(/[^a-zA-Z]/g, '').toLowerCase()) || targetDept;
 
-         const deptUsers = await User.find({ department: deptName }).select('_id');
-         query = { user: { $in: deptUsers.map(u => u._id) } };
+         const userDept = await User.find({ department: deptName }).select('_id');
+         const highboardDept = await HighBoard.find({ department: deptName }).select('_id');
+         const allDeptUsers = [...userDept.map(u => u._id), ...highboardDept.map(u => u._id)];
+         query = { user: { $in: allDeptUsers } };
       } else {
          // General HR (hr@enactus.com) - Sees All or filters via query
          // Current behavior for General HR: Default All
          const { department } = req.query;
          if (department && department !== 'All') {
-            const deptUsers = await User.find({ department }).select('_id');
-            query = { user: { $in: deptUsers.map(u => u._id) } };
+            const userDept = await User.find({ department }).select('_id');
+            const highboardDept = await HighBoard.find({ department }).select('_id');
+            const allDeptUsers = [...userDept.map(u => u._id), ...highboardDept.map(u => u._id)];
+            query = { user: { $in: allDeptUsers } };
          }
       }
     }
@@ -161,8 +173,10 @@ export const getHours = async (req: Request, res: Response) => {
          if (currentUser.title?.startsWith('HR Coordinator')) {
              const coordDept = currentUser.title.split(' - ')[1];
              if (coordDept) {
-                 const deptUsers = await User.find({ department: coordDept }).select('_id');
-                 query = { user: { $in: deptUsers.map(u => u._id) } };
+                 const userDept = await User.find({ department: coordDept }).select('_id');
+                 const highboardDept = await HighBoard.find({ department: coordDept }).select('_id');
+                 const allDeptUsers = [...userDept.map(u => u._id), ...highboardDept.map(u => u._id)];
+                 query = { user: { $in: allDeptUsers } };
              } else {
                  // Fallback: See own hours
                  query = { user: currentUser._id };
@@ -176,8 +190,10 @@ export const getHours = async (req: Request, res: Response) => {
     else if (['General President', 'Vice President'].includes(currentUser?.role)) {
       const { department } = req.query;
       if (department && department !== 'All') {
-        const deptUsers = await User.find({ department }).select('_id');
-        query = { user: { $in: deptUsers.map(u => u._id) } };
+        const userDept = await User.find({ department }).select('_id');
+        const highboardDept = await HighBoard.find({ department }).select('_id');
+        const allDeptUsers = [...userDept.map(u => u._id), ...highboardDept.map(u => u._id)];
+        query = { user: { $in: allDeptUsers } };
       }
     }
 

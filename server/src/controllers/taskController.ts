@@ -3,6 +3,7 @@ import { Request, Response } from 'express';
 // Import Task model
 import Task from '../models/Task';
 import User from '../models/User';
+import HourLog from '../models/HourLog';
 
 /**
  * Controller to create a new task.
@@ -85,7 +86,8 @@ export const getTasks = async (req: Request, res: Response) => {
       };
     }
     else if (['General President', 'Vice President'].includes(userRole)) {
-        query = {}; // GP and VP see all tasks
+        // GP and VP are also PM Heads - only see PM department tasks
+        query = { department: 'PM' };
     }
     else if (userRole === 'Operation Director') {
         // Responsible for PR, FR, Logistics, PM
@@ -134,7 +136,20 @@ export const updateTask = async (req: Request, res: Response) => {
                  member.hoursApproved += task.taskHours;
                  member.points += task.taskHours * 10; // 10 points per hour
                  await member.save();
-                 console.log(`✅ Auto-rewarded ${task.taskHours} hours to ${member.name}`);
+                 
+                 // ✅ CREATE HOUR LOG ENTRY (NEW!)
+                 // This makes auto-rewarded hours visible in Hours page
+                 const currentUser = (req as any).user;
+                 await HourLog.create({
+                   user: task.assignedTo,
+                   amount: task.taskHours,
+                   description: `${task.title} - ${task.description || 'No description'} | Submitted: ${task.updatedAt ? new Date(task.updatedAt).toLocaleDateString() : 'N/A'} | Approved: ${new Date().toLocaleDateString()}`,
+                   status: 'Approved',
+                   approvedBy: currentUser._id,
+                   date: new Date()
+                 });
+                 
+                 console.log(`✅ Auto-rewarded ${task.taskHours} hours to ${member.name} for task: ${task.title}`);
                }
              }
         }
