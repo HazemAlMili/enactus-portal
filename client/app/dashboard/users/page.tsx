@@ -13,22 +13,20 @@ import { Trash2, UserPlus, AlertTriangle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
+import { useNotification } from '@/components/ui/notification';
 
 // Define UsersPage Component (Squad Management)
 export default function UsersPage() {
-  // State for the list of users
+  const { showNotification, showAlert } = useNotification();
+  
   const [users, setUsers] = useState<any[]>([]);
-  // State for controlling the 'Add Member' modal visibility
   const [isOpen, setIsOpen] = useState(false);
-  // State for Delete Confirmation Modal
   const [deleteId, setDeleteId] = useState<string | null>(null);
   
-
-  // State for Filtration and Warnings (HR Feature)
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [nameFilter, setNameFilter] = useState('');
   const [deptFilter, setDeptFilter] = useState('ALL');
-  const [warningTarget, setWarningTarget] = useState<any>(null); // User to warn
+  const [warningTarget, setWarningTarget] = useState<any>(null);
   const [warningReason, setWarningReason] = useState('');
   
   // State for the new user form data
@@ -98,17 +96,17 @@ export default function UsersPage() {
       return matchName && matchDept;
   });
 
-  // Warning Handler
   const issueWarning = async () => {
       if (!warningTarget) return;
       try {
           await api.post(`/users/${warningTarget._id}/warning`, { reason: warningReason });
-          alert(`USER WARNED: ${warningTarget.name}`);
+          showNotification(`USER WARNED: ${warningTarget.name}`, 'success');
           setWarningTarget(null);
           setWarningReason('');
       } catch (err: any) {
           console.error(err);
-          alert(err.response?.data?.message || "Failed to issue warning.");
+          const msg = err.response?.data?.message || "Failed to issue warning.";
+          showNotification(`WARNING ERROR: ${msg}`, 'error');
       }
   };
 
@@ -127,20 +125,19 @@ export default function UsersPage() {
           payload.title = `HR Coordinator - ${formData.hrResponsibility}`;
       }
 
-      // VALIDATION: If HR Head recruiting HR Member, REQUIRE Responsibility
       if (currentUser?.role === 'Head' && currentUser?.department === 'HR' && formData.department === 'HR' && !formData.hrResponsibility && formData.role !== 'Head') {
-         alert("YOU MUST ASSIGN A RESPONSIBILITY TO THIS NEW HR MEMBER.");
+         showAlert("YOU MUST ASSIGN A RESPONSIBILITY TO THIS NEW HR MEMBER.", 'warning');
          return;
       }
 
       await api.post('/users', payload);
-      // Close modal and refresh list
       setIsOpen(false);
       fetchUsers();
+      showNotification('USER RECRUITED SUCCESSFULLY!', 'success');
     } catch (error: any) {
       console.error(error);
       const msg = error.response?.data?.message || 'Failed to recruit player.';
-      alert(`RECRUITMENT ERROR: ${msg}`);
+      showNotification(`RECRUITMENT ERROR: ${msg}`, 'error');
     }
   };
 
@@ -149,14 +146,14 @@ export default function UsersPage() {
     if (!deleteId) return;
     try {
       const token = localStorage.getItem('token');
-      // DELETE request
       await api.delete(`/users/${deleteId}`);
       fetchUsers();
-      setDeleteId(null); // Close modal
+      setDeleteId(null);
+      showNotification('USER DELETED SUCCESSFULLY', 'success');
     } catch (error: any) {
       console.error(error);
       const msg = error.response?.data?.message || "Delete failed";
-      alert(`DELETE ERROR: ${msg}`);
+      showNotification(`DELETE ERROR: ${msg}`, 'error');
     }
   };
 

@@ -75,12 +75,26 @@
   }
 }
 
+@keyframes scanline {
+  0% {
+    transform: translateY(-100%);
+  }
+
+  100% {
+    transform: translateY(100%);
+  }
+}
+
 @layer utilities {
   .pixel-corners {
     clip-path: polygon(0px 4px, 4px 4px, 4px 0px,
         calc(100% - 4px) 0px, calc(100% - 4px) 4px, 100% 4px,
         100% calc(100% - 4px), calc(100% - 4px) calc(100% - 4px), calc(100% - 4px) 100%,
         4px 100%, 4px calc(100% - 4px), 0px calc(100% - 4px));
+  }
+
+  .animate-scanline {
+    animation: scanline 3s linear infinite;
   }
 }
 

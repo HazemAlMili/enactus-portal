@@ -130,18 +130,7 @@ export default function Dashboard() {
 
       {/* Stats Grid - ONLY FOR MEMBERS */}
       {user.role === 'Member' && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* Hours Card */}
-          <Card className="bg-card border-2 border-secondary pixel-corners hover:scale-105 transition-transform">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-secondary pixel-font text-sm">HOURS PLAYED</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-4xl font-bold text-white pixel-font">{user.hoursApproved || 0}</p>
-              <p className="text-xs text-white/50 mt-1">APPROVED TIME</p>
-            </CardContent>
-          </Card>
-
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Tasks Card */}
           <Card className="bg-card border-2 border-accent pixel-corners hover:scale-105 transition-transform">
             <CardHeader className="pb-2">

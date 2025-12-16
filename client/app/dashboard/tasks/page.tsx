@@ -417,7 +417,7 @@ export default function TasksPage() {
 }
 
 // Extracted Component to avoid code duplication errors and maintain structure
-const TaskItem = ({ task, canCreate, isHeadView, isStrictMember, getStatusColor, user, updateStatus, selectedTask, setSelectedTask, submissionLink, setSubmissionLink }: any) => {
+const TaskItem = ({ task, canCreate, isHeadView, isStrictMember, getStatusColor, user, updateStatus, selectedTask, setSelectedTask, submissionLinks, setSubmissionLinks, updateSubmissionLink, removeSubmissionLink, handleSubmissionLinkBlur }: any) => {
     const [open, setOpen] = useState(false);
     const isOverdue = task.deadline && new Date() > new Date(task.deadline) && task.status === 'Pending';
     
@@ -585,21 +585,40 @@ const TaskItem = ({ task, canCreate, isHeadView, isStrictMember, getStatusColor,
                                         Your previous submission was rejected.
                                     </p>
                                 )}
-                                <div className="flex gap-2">
-                                    <Input 
-                                        placeholder="Paste link..."
-                                        className="bg-background pixel-corners font-mono text-xs"
-                                        value={submissionLink}
-                                        onChange={(e) => setSubmissionLink(e.target.value)}
-                                    />
-                                    <Button 
-                                        onClick={() => updateStatus(task._id, 'Submitted', submissionLink)}
-                                        className="bg-accent hover:bg-accent/80 text-white pixel-corners pixel-font"
-                                        disabled={!submissionLink}
-                                    >
-                                        SUBMIT
-                                    </Button>
+                                
+                                {/* Dynamic Submission Links */}
+                                <div className="space-y-2">
+                                    {submissionLinks.map((link: string, index: number) => (
+                                        <div key={index} className="flex gap-2">
+                                            <Input
+                                                placeholder={index === 0 ? "Paste link..." : "Additional link..."}
+                                                className="bg-background pixel-corners font-mono text-xs"
+                                                value={link}
+                                                onChange={(e) => updateSubmissionLink(index, e.target.value)}
+                                                onBlur={() => handleSubmissionLinkBlur?.(index)}
+                                            />
+                                            {submissionLinks.length > 1 && (
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    onClick={() => removeSubmissionLink(index)}
+                                                    className="pixel-corners text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                                                >
+                                                    ×
+                                                </Button>
+                                            )}
+                                        </div>
+                                    ))}
                                 </div>
+
+                                <Button
+                                    onClick={() => updateStatus(task._id, 'Submitted', submissionLinks)}
+                                    className="bg-accent hover:bg-accent/80 text-white pixel-corners pixel-font w-full"
+                                    disabled={!submissionLinks || !submissionLinks.some((link: string) => link.trim())}
+                                >
+                                    SUBMIT
+                                </Button>
                             </div>
                         ) : (
                             <div className="pt-4 border-t border-red-500/30">

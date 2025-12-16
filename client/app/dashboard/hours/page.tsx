@@ -84,10 +84,17 @@ export default function HoursPage() {
       const url = dept && dept !== 'All' ? `/hours?department=${dept}` : '/hours';
       const { data } = await api.get(url);
       
+      console.log('📊 Raw hours data from backend:', data);
+      console.log('📊 Total hours received:', data.length);
+      
       // Filter list to only show Members
-      setHours(data.filter((log: any) => log.user?.role === 'Member'));
+      const filtered = data.filter((log: any) => log.user?.role === 'Member');
+      console.log('📊 Filtered hours (Members only):', filtered);
+      console.log('📊 Filtered count:', filtered.length);
+      
+      setHours(filtered);
     } catch (error) {
-      console.error(error);
+      console.error('❌ Error fetching hours:', error);
     }
   };
 
