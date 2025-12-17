@@ -140,7 +140,7 @@ export const createUser = async (req: Request, res: Response) => {
     // This implies HR Coordinators CANNOT add members to the HR Department.
     
     if (department === 'HR') {
-        if (currentUser.role !== 'Head' && currentUser.role !== 'General President' && currentUser.role !== 'Vice President') {
+        if (currentUser.role !== 'Head' && currentUser.role !== 'Vice Head' && currentUser.role !== 'General President' && currentUser.role !== 'Vice President') {
              return res.status(403).json({ message: 'Only the HR Head (or Board) can recruit HR members.' });
         }
         
@@ -262,12 +262,13 @@ export const deleteUser = async (req: Request, res: Response) => {
         return res.status(404).json({ message: 'User not found' });
     }
 
-    // Authorization: Board, Heads, or HR department
-    // HR Head has role='Head' AND department='HR'
+    // Authorization: Board, Heads, Vice Heads, or HR department
+    // HR Head: role='Head' AND department='HR'
     const isAdmin = [
       'General President', 
       'Vice President', 
-      'Head' // ← Includes HR Head!
+      'Head',      // ← Includes HR Head
+      'Vice Head'  // ← Vice Heads have same permissions!
     ].includes(currentUser.role) || currentUser.department === 'HR';
     
     // HR Coordinator Check
@@ -288,8 +289,8 @@ export const deleteUser = async (req: Request, res: Response) => {
         }
     }
 
-    // Head Check (Can delete own members?) - Assuming Heads can delete their members as requested implicitly by "everything like Head"
-    if (currentUser.role === 'Head' && userToDelete.department === currentUser.department) {
+    // Head/Vice Head Check - Can delete members from their department
+    if ((currentUser.role === 'Head' || currentUser.role === 'Vice Head') && userToDelete.department === currentUser.department) {
         hasPermission = true;
     }
 
@@ -363,12 +364,14 @@ export const addWarning = async (req: Request, res: Response) => {
      // Check if HR Coordinator
      const isHRCoordinator = currentUser.role === 'Member' && currentUser.department === 'HR' && currentUser.title?.startsWith('HR Coordinator');
      
-     // Authorization: HR department, Heads, or Board
-     // HR Head: role='Head' AND department='HR' (passes both checks)
+     // Authorization: HR department, Heads, Vice Heads, or Board
+     // HR Head: role='Head' AND department='HR'
+     // Vice Head: Same permissions as Head
      const isAuthorized = (
        currentUser.role === 'HR' || 
-       currentUser.role === 'Head' ||  // ← HR Head has this role
-       currentUser.department === 'HR' ||  // ← HR Head also has this dept
+       currentUser.role === 'Head' ||      // ← Heads (including HR Head)
+       currentUser.role === 'Vice Head' || // ← Vice Heads have same permissions!
+       currentUser.department === 'HR' ||  // ← HR department members
        currentUser.role === 'General President' || 
        isHRCoordinator
      );
@@ -390,6 +393,12 @@ export const addWarning = async (req: Request, res: Response) => {
          if (coordDept && targetUser.department !== coordDept) {
              return res.status(403).json({ message: `You are authorized to warn members of the ${coordDept} department only.` });
          }
+     }
+     
+     // HR Head/Vice Head Logic: Can only warn HR department members
+     const isHRHead = (currentUser.role === 'Head' || currentUser.role === 'Vice Head') && currentUser.department === 'HR';
+     if (isHRHead && targetUser.department !== 'HR') {
+         return res.status(403).json({ message: 'HR Head/Vice Head can only warn HR department members.' });
      }
 
      targetUser.warnings = targetUser.warnings || [];

@@ -3,7 +3,7 @@ import express from 'express';
 // Import Controllers
 import { getLeaderboard, getUsers, createUser, deleteUser, updateAvatar, addWarning } from '../controllers/userController';
 // Import Auth Middleware
-import { protect, authorize } from '../middleware/authMiddleware';
+import { protect, authorize, authorizeHROnly } from '../middleware/authMiddleware';
 
 // Initialize Router
 const router = express.Router();
@@ -17,14 +17,14 @@ router.get('/leaderboard', protect, getLeaderboard); // Fetch Top Users
 // Route: /api/users (User Management)
 router.route('/')
   .get(protect, authorize('HR', 'General President', 'Vice President', 'Operation Director', 'Creative Director', 'Head', 'Vice Head'), getUsers)
-  .post(protect, authorize('HR', 'General President', 'Vice President', 'Head', 'Vice Head'), createUser); // OPs/Creative usually don't recruit? I'll let them just in case or exclude. Sticking to HR/GP/Head for adding.
+  .post(protect, authorizeHROnly, createUser); // ONLY HR DEPARTMENT can recruit
 
-// Route: /api/users/:id/warning
-router.post('/:id/warning', protect, authorize('HR', 'General President', 'Vice President'), addWarning); // VP can warn too?
+// Route: /api/users/:id/warning - ONLY HR DEPARTMENT
+router.post('/:id/warning', protect, authorizeHROnly, addWarning);
 
-// Route: /api/users/:id
+// Route: /api/users/:id (Delete User) - ONLY HR DEPARTMENT
 router.route('/:id')
-  .delete(protect, authorize('HR', 'General President', 'Vice President'), deleteUser);
+  .delete(protect, authorizeHROnly, deleteUser);
 
 // Export Router
 export default router;

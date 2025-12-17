@@ -86,6 +86,39 @@ export const authorize = (...roles: string[]) => {
       // @ts-ignore
       return res.status(403).json({ message: `User role ${req.user?.role} is not authorized to access this route` });
     }
-    next();
+    next(); // ✅ CRITICAL: Continue to next middleware/controller!
   };
+};
+
+/**
+ * Middleware to restrict access to HR department ONLY.
+ * Allows: HR Head, HR Vice Head, HR Coordinators
+ * Blocks: All other Heads (IT, PM, etc.), Presidents, Directors
+ */
+export const authorizeHROnly = (req: Request, res: Response, next: NextFunction) => {
+  // @ts-ignore
+  const user = req.user;
+  
+  if (!user) {
+    return res.status(401).json({ message: 'Not authorized, no user found' });
+  }
+  
+  // Check if user is from HR department
+  const isHRDepartment = user.department === 'HR';
+  
+  // Check if user is HR Coordinator (Member role with HR department and HR Coordinator title)
+  const isHRCoordinator = user.role === 'Member' && user.department === 'HR' && user.title?.startsWith('HR Coordinator');
+  
+  // Check if user is HR Head or Vice Head
+  const isHRHead = (user.role === 'Head' || user.role === 'Vice Head') && user.department === 'HR';
+  
+  // Allow if any HR department member (Head, Vice Head, or Coordinator)
+  if (isHRDepartment && (isHRHead || isHRCoordinator || user.role === 'HR')) {
+    return next();
+  }
+  
+  // Block everyone else (IT Head, PM Head, General President, etc.)
+  return res.status(403).json({ 
+    message: `Access denied. Only HR department members can perform this action.` 
+  });
 };

@@ -63,6 +63,7 @@ export const loginUser = async (req: Request, res: Response) => {
         hoursApproved: user.hoursApproved,
         tasksCompleted: user.tasksCompleted,
         title: user.title, // Include Title (Important for HR Coordinators)
+        warnings: user.warnings || [], // Include warnings
         token: generateToken(user._id.toString()), // Generated JWT Token
       });
     } else {
@@ -126,7 +127,8 @@ export const getMe = async (req: Request, res: Response) => {
       points: user.points,
       hoursApproved: user.hoursApproved,
       tasksCompleted: user.tasksCompleted,
-      title: user.title // Include Title
+      title: user.title, // Include Title
+      warnings: user.warnings || [] // Include warnings
     });
   } else {
     res.status(404).json({ message: 'User not found' });

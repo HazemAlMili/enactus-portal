@@ -106,11 +106,31 @@ export const getHours = async (req: Request, res: Response) => {
     let query: any = {};
     const currentUser = (req as any).user;
     
-    // 1. Members: See ONLY their own hours
-    if (currentUser?.role === 'Member') {
+    // 1. HR Member (Coordinator) Logic - CHECK FIRST! (before general Member check)
+    // HR Coordinators have role='Member' but special title
+    if (currentUser?.department === 'HR' && currentUser?.role === 'Member') {
+         // Check title for responsibility
+         if (currentUser.title?.startsWith('HR Coordinator')) {
+             const coordDept = currentUser.title.split(' - ')[1];
+             if (coordDept) {
+                 const userDept = await User.find({ department: coordDept }).select('_id');
+                 const highboardDept = await HighBoard.find({ department: coordDept }).select('_id');
+                 const allDeptUsers = [...userDept.map(u => u._id), ...highboardDept.map(u => u._id)];
+                 query = { user: { $in: allDeptUsers } };
+             } else {
+                 // Fallback: See own hours
+                 query = { user: currentUser._id };
+             }
+         } else {
+             // Regular HR member (if any): See own hours
+             query = { user: currentUser._id };
+         }
+    }
+    // 2. Regular Members: See ONLY their own hours
+    else if (currentUser?.role === 'Member') {
       query = { user: currentUser._id };
     } 
-    // 2. Head / Vice Head: See hours for their Department members
+    // 3. Head / Vice Head: See hours for their Department members
     else if (currentUser?.role === 'Head' || currentUser?.role === 'Vice Head') {
       // Check BOTH User and HighBoard collections
       const userDept = await User.find({ department: currentUser.department }).select('_id');
@@ -118,21 +138,21 @@ export const getHours = async (req: Request, res: Response) => {
       const allDeptUsers = [...userDept.map(u => u._id), ...highboardDept.map(u => u._id)];
       query = { user: { $in: allDeptUsers } };
     }
-    // 3. Operation Director
+    // 4. Operation Director
     else if (currentUser?.role === 'Operation Director') {
          const userDept = await User.find({ department: { $in: ['PR', 'FR', 'Logistics', 'PM'] } }).select('_id');
          const highboardDept = await HighBoard.find({ department: { $in: ['PR', 'FR', 'Logistics', 'PM'] } }).select('_id');
          const allDeptUsers = [...userDept.map(u => u._id), ...highboardDept.map(u => u._id)];
          query = { user: { $in: allDeptUsers } };
     }
-    // 4. Creative Director
+    // 5. Creative Director
     else if (currentUser?.role === 'Creative Director') {
          const userDept = await User.find({ department: { $in: ['Marketing', 'Multi-Media', 'Presentation', 'Organization'] } }).select('_id');
          const highboardDept = await HighBoard.find({ department: { $in: ['Marketing', 'Multi-Media', 'Presentation', 'Organization'] } }).select('_id');
          const allDeptUsers = [...userDept.map(u => u._id), ...highboardDept.map(u => u._id)];
          query = { user: { $in: allDeptUsers } };
     }
-    // 5. HR Logic
+    // 6. HR Logic (role='HR', not Member)
     else if (currentUser?.role === 'HR') {
       // Check if this is a specific HR Coordinator (e.g., hr-it@enactus.com)
       const email = currentUser.email || '';
@@ -142,12 +162,6 @@ export const getHours = async (req: Request, res: Response) => {
          // This is an HR Coordinator for a specific department
          const targetDept = hrMatch[1].toUpperCase().replace('MULTIMEDIA', 'Multi-Media'); // normalize if needed
          
-         // Find users in that target department
-         // But wait, the department name in DB might be 'Multi-Media' but email 'hr-multimedia'. 
-         // For now assuming simple tokens match (IT, PM, PR). 
-         
-         // Fuzzy match or exact match from DB? 
-         // Let's rely on the department list normalized.
          const validDepts = ['IT','HR','PM','PR','FR','Logistics','Organization','Marketing','Multi-Media','Presentation'];
          const deptName = validDepts.find(d => d.replace(/[^a-zA-Z]/g, '').toLowerCase() === targetDept.replace(/[^a-zA-Z]/g, '').toLowerCase()) || targetDept;
 
@@ -167,26 +181,7 @@ export const getHours = async (req: Request, res: Response) => {
          }
       }
     }
-    // 6. HR Member (Coordinator) Logic
-    else if (currentUser?.department === 'HR' && currentUser?.role === 'Member') {
-         // Check title for responsibility
-         if (currentUser.title?.startsWith('HR Coordinator')) {
-             const coordDept = currentUser.title.split(' - ')[1];
-             if (coordDept) {
-                 const userDept = await User.find({ department: coordDept }).select('_id');
-                 const highboardDept = await HighBoard.find({ department: coordDept }).select('_id');
-                 const allDeptUsers = [...userDept.map(u => u._id), ...highboardDept.map(u => u._id)];
-                 query = { user: { $in: allDeptUsers } };
-             } else {
-                 // Fallback: See own hours
-                 query = { user: currentUser._id };
-             }
-         } else {
-             // Regular HR member (if any): See own hours
-             query = { user: currentUser._id };
-         }
-    }
-    // 7. General President / VP: Sees ALL
+    // 7. General President / VP: Sees ALL (can filter)
     else if (['General President', 'Vice President'].includes(currentUser?.role)) {
       const { department } = req.query;
       if (department && department !== 'All') {
