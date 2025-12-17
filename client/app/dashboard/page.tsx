@@ -7,6 +7,12 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 // Define User Interface
+interface Warning {
+  reason: string;
+  date: string;
+  issuer: string;
+}
+
 interface User {
   name: string;
   email: string;
@@ -15,6 +21,7 @@ interface User {
   points?: number;
   hoursApproved?: number;
   tasksCompleted?: number;
+  warnings?: Warning[];
 }
 
 // Define Dashboard Component
@@ -37,6 +44,8 @@ export default function Dashboard() {
     const fetchUserData = async () => {
       try {
         const { data } = await api.get('/auth/me');
+        console.log('📊 Fetched user data:', data);
+        console.log('⚠️ Warnings:', data.warnings);
         setUser(data);
         // Optionally update local storage
         localStorage.setItem('user', JSON.stringify(data));
@@ -153,6 +162,55 @@ export default function Dashboard() {
             </CardContent>
           </Card>
         </div>
+      )}
+
+      {/* Warnings Section - ONLY FOR MEMBERS */}
+      {/* DEBUG: Show even if no warnings to test component */}
+      {user.role === 'Member' && (
+        <Card className="bg-card border-2 border-destructive pixel-corners">
+          <CardHeader className="border-b border-destructive/20">
+            <CardTitle className="text-destructive pixel-font text-sm flex items-center gap-2">
+              <span className="animate-pulse">⚠️</span>
+              WARNINGS RECEIVED
+              <span className="bg-destructive text-white text-xs px-2 py-0.5 pixel-corners">
+                {user.warnings?.length || 0}
+              </span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-4">
+            {!user.warnings || user.warnings.length === 0 ? (
+              <p className="text-white/50 text-sm text-center py-4">
+                No warnings received. Keep up the good work! ✅
+              </p>
+            ) : (
+              <div className="space-y-3 max-h-64 overflow-y-auto">
+                {user.warnings.map((warning, index) => (
+                  <div 
+                    key={index} 
+                    className="bg-destructive/10 border border-destructive/30 pixel-corners p-3 hover:bg-destructive/20 transition-colors"
+                  >
+                    <div className="flex justify-between items-start mb-2">
+                      <span className="text-xs text-destructive font-mono">
+                        WARNING #{user.warnings!.length - index}
+                      </span>
+                      <span className="text-xs text-white/50 font-mono">
+                        {new Date(warning.date).toLocaleDateString('en-US', {
+                          month: 'short',
+                          day: 'numeric',
+                          year: 'numeric'
+                        })}
+                      </span>
+                    </div>
+                    <p className="text-white text-sm mb-2">{warning.reason}</p>
+                    <p className="text-xs text-white/40 font-mono">
+                      Issued by: {warning.issuer}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
       )}
 
       {/* Quote Footer (Replacing Press Start) */}

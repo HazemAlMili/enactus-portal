@@ -16,16 +16,65 @@ export default function LoginForm() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [emailError, setEmailError] = useState('');
+  const [passwordError, setPasswordError] = useState('');
   const router = useRouter();
+
+  // Validate email domain
+  const validateEmail = (email: string) => {
+    if (!email) {
+      setEmailError('Email is required');
+      return false;
+    }
+    if (!email.endsWith('@enactus.com')) {
+      setEmailError('Invalid email address');
+      return false;
+    }
+    setEmailError('');
+    return true;
+  };
+
+  // Validate password strength
+  const validatePassword = (password: string) => {
+    if (!password) {
+      setPasswordError('Password is required');
+      return false;
+    }
+    if (password.length < 8) {
+      setPasswordError('Password must be at least 8 characters');
+      return false;
+    }
+    if (!/[A-Z]/.test(password)) {
+      setPasswordError('Password must contain at least one uppercase letter');
+      return false;
+    }
+    if (!/[a-z]/.test(password)) {
+      setPasswordError('Password must contain at least one lowercase letter');
+      return false;
+    }
+    if (!/[0-9]/.test(password)) {
+      setPasswordError('Password must contain at least one number');
+      return false;
+    }
+    setPasswordError('');
+    return true;
+  };
 
   // Handle Login Form Submission
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError('');
+    
+    // Validate email and password
+    const isEmailValid = validateEmail(email);
+    const isPasswordValid = validatePassword(password);
+    
+    if (!isEmailValid || !isPasswordValid) {
+      return; // Stop if validation fails
+    }
+    
     try {
       // POST request to login endpoint
-      // Ensure we're hitting the correct endpoint. If /api/auth/login is the standard, 
-      // api.post('/auth/login') assumes baseURL includes /api or / is relative correctly.
-      // Based on previous files, api instance likely handles baseURL.
       const { data } = await api.post('/auth/login', { email, password });
       
       // Store token and user data in local storage
@@ -63,10 +112,19 @@ export default function LoginForm() {
                 type="email" 
                 placeholder="name@enactus.com" 
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  setEmailError(''); // Clear error on change
+                }}
+                onBlur={() => validateEmail(email)} // Validate on blur
                 required
-                className="bg-background/50 border-primary/50 focus:border-primary"
+                className={`bg-background/50 border-primary/50 focus:border-primary ${
+                  emailError ? 'border-red-500' : ''
+                }`}
               />
+              {emailError && (
+                <p className="text-red-500 text-xs pixel-font">{emailError}</p>
+              )}
             </div>
             {/* Password Input */}
             <div className="space-y-2">
@@ -75,10 +133,19 @@ export default function LoginForm() {
                 id="password" 
                 type="password" 
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  setPasswordError(''); // Clear error on change
+                }}
+                onBlur={() => validatePassword(password)} // Validate on blur
                 required
-                className="bg-background/50 border-primary/50 focus:border-primary"
+                className={`bg-background/50 border-primary/50 focus:border-primary ${
+                  passwordError ? 'border-red-500' : ''
+                }`}
               />
+              {passwordError && (
+                <p className="text-red-500 text-xs pixel-font">{passwordError}</p>
+              )}
             </div>
             
             {/* Error Message Display */}

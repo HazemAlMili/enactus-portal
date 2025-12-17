@@ -61,8 +61,8 @@ export default function UsersPage() {
   // Effect to reset form and set defaults when Modal opens
   useEffect(() => {
      if (isOpen) {
-         // Check HR Roles
-         const isHRHead = currentUser?.role === 'Head' && currentUser?.department === 'HR';
+         // Check HR Roles (Head or Vice Head)
+         const isHRHead = (currentUser?.role === 'Head' || currentUser?.role === 'Vice Head') && currentUser?.department === 'HR';
          // Check HR Coordinator
          const isHRCoordinator = currentUser?.role === 'Member' && currentUser?.department === 'HR' && currentUser?.title?.startsWith('HR Coordinator');
          
@@ -125,7 +125,8 @@ export default function UsersPage() {
           payload.title = `HR Coordinator - ${formData.hrResponsibility}`;
       }
 
-      if (currentUser?.role === 'Head' && currentUser?.department === 'HR' && formData.department === 'HR' && !formData.hrResponsibility && formData.role !== 'Head') {
+      // HR Head or Vice Head must assign responsibility when creating HR Members
+      if ((currentUser?.role === 'Head' || currentUser?.role === 'Vice Head') && currentUser?.department === 'HR' && formData.department === 'HR' && !formData.hrResponsibility && formData.role !== 'Head') {
          showAlert("YOU MUST ASSIGN A RESPONSIBILITY TO THIS NEW HR MEMBER.", 'warning');
          return;
       }
@@ -193,18 +194,18 @@ export default function UsersPage() {
                 <Select 
                     onValueChange={v => setFormData({...formData, role: v})} 
                     defaultValue={formData.role}
-                    // HR HEAD LOCKED TO MEMBER
+                    // HR HEAD/VICE HEAD LOCKED TO MEMBER
                     // HR COORDINATOR LOCKED TO MEMBER
                     disabled={
-                        (currentUser?.role === 'Head' && currentUser?.department === 'HR') ||
+                        ((currentUser?.role === 'Head' || currentUser?.role === 'Vice Head') && currentUser?.department === 'HR') ||
                         (currentUser?.role === 'Member' && currentUser?.department === 'HR' && currentUser?.title?.startsWith('HR Coordinator'))
                     }
                 >
                   <SelectTrigger className="pixel-corners border-primary bg-background/50"><SelectValue /></SelectTrigger>
                   <SelectContent className="pixel-corners border-primary bg-card">
                     <SelectItem value="Member">Member</SelectItem>
-                    {/* Only show other options if NOT HR Head */}
-                    {!(currentUser?.role === 'Head' && currentUser?.department === 'HR') && (
+                    {/* Only show other options if NOT HR Head or Vice Head */}
+                    {!((currentUser?.role === 'Head' || currentUser?.role === 'Vice Head') && currentUser?.department === 'HR') && (
                         <>
                             <SelectItem value="Vice Head">Vice Head</SelectItem>
                             <SelectItem value="Head">Head</SelectItem>
@@ -220,10 +221,10 @@ export default function UsersPage() {
                     onValueChange={v => setFormData({...formData, department: v})} 
                     // Default Logic handled in useEffect
                     defaultValue={formData.department}
-                    // HR HEAD LOCKED TO HR
+                    // HR HEAD/VICE HEAD LOCKED TO HR
                     // HR COORDINATOR LOCKED TO THEIR DEPT (Set in useEffect)
                     disabled={
-                        (currentUser?.role === 'Head' && currentUser?.department === 'HR') ||
+                        ((currentUser?.role === 'Head' || currentUser?.role === 'Vice Head') && currentUser?.department === 'HR') ||
                         (currentUser?.role === 'Member' && currentUser?.department === 'HR' && currentUser?.title?.startsWith('HR Coordinator'))
                     }
                 >
@@ -234,8 +235,8 @@ export default function UsersPage() {
                     ))}
                   </SelectContent>
                 </Select>
-                {currentUser?.role === 'Head' && currentUser?.department === 'HR' && (
-                    <p className="text-[10px] text-gray-500 font-mono mt-1">HR HEADS RECRUIT FOR HR ONLY</p>
+                {((currentUser?.role === 'Head' || currentUser?.role === 'Vice Head') && currentUser?.department === 'HR') && (
+                    <p className="text-[10px] text-gray-500 font-mono mt-1">HR HEADS/VICE HEADS RECRUIT FOR HR ONLY</p>
                 )}
               </div>
 
@@ -247,7 +248,7 @@ export default function UsersPage() {
                  3. Current User is HR Head or Board (allowed to recruit HR)
                */}
                {formData.department === 'HR' && formData.role === 'Member' && 
-                currentUser && ['Head', 'General President', 'Vice President'].includes(currentUser.role) && 
+                currentUser && ['Head', 'Vice Head', 'General President', 'Vice President'].includes(currentUser.role) && 
                 currentUser.department === 'HR' && (
                   <div className="space-y-2 animate-in fade-in slide-in-from-top-2">
                     <Label className="pixel-font text-xs text-yellow-400">ASSIGN RESPONSIBILITY (HR COORD)</Label>
@@ -317,6 +318,10 @@ export default function UsersPage() {
               <TableRow className="hover:bg-transparent border-b border-primary/20">
                 <TableHead className="text-primary pixel-font text-xs">PLAYER NAME</TableHead>
                 <TableHead className="text-primary pixel-font text-xs">CLASS</TableHead>
+                {/* Show 'Responsible For' column only for HR Head/Vice Head */}
+                {((currentUser?.role === 'Head' || currentUser?.role === 'Vice Head') && currentUser?.department === 'HR') && (
+                  <TableHead className="text-primary pixel-font text-xs">RESPONSIBLE FOR</TableHead>
+                )}
                 <TableHead className="text-primary pixel-font text-xs">GUILD</TableHead>
                 <TableHead className="text-primary pixel-font text-xs">XP</TableHead>
                 <TableHead className="text-gray-400"></TableHead>
@@ -328,24 +333,76 @@ export default function UsersPage() {
                 <TableRow key={u._id} className="hover:bg-primary/10 border-b border-primary/10">
                   <TableCell className="text-white font-medium pixel-font text-sm">{u.name}</TableCell>
                   <TableCell className="text-gray-300 font-mono text-xs uppercase">{u.role}</TableCell>
+                  {/* Show responsible department for HR Coordinators (HR Head/Vice Head view only) */}
+                  {((currentUser?.role === 'Head' || currentUser?.role === 'Vice Head') && currentUser?.department === 'HR') && (
+                    <TableCell>
+                      {u.title?.startsWith('HR Coordinator') ? (
+                        <Badge variant="secondary" className="pixel-corners border-yellow-500 text-yellow-400 bg-yellow-500/10">
+                          {u.title.split(' - ')[1] || 'N/A'}
+                        </Badge>
+                      ) : (
+                        <span className="text-gray-500 text-xs">-</span>
+                      )}
+                    </TableCell>
+                  )}
                   <TableCell><Badge variant="outline" className="pixel-corners border-accent text-accent">{u.department}</Badge></TableCell>
                   <TableCell className="text-secondary pixel-font">{u.points} XP</TableCell>
                   <TableCell className="text-right flex items-center justify-end gap-2">
-                    {/* Warning Button (HR Only, Members Only, or HEAD) */}
-                    {/* Allow HR Coordinator (Member + HR Dept + Title check) */}
-                    {(currentUser?.role === 'HR' || 
-                      (currentUser?.role === 'Member' && currentUser?.department === 'HR' && currentUser?.title?.startsWith('HR Coordinator'))
-                     ) && u.role === 'Member' && (
-                        <Button 
+                    {/* Warning Button - HR department only */}
+                    {/* HR Head/Vice Head: Can only warn HR members */}
+                    {/* HR Coordinator: Can only warn their assigned dept members */}
+                    {(() => {
+                      const isHRHead = (currentUser?.role === 'Head' || currentUser?.role === 'Vice Head') && currentUser?.department === 'HR';
+                      const isHRCoordinator = currentUser?.role === 'Member' && currentUser?.department === 'HR' && currentUser?.title?.startsWith('HR Coordinator');
+                      
+                      // HR Head/Vice Head: Show button only for HR members
+                      if (isHRHead) {
+                        return u.role === 'Member' && u.department === 'HR' && (
+                          <Button 
                             variant="ghost" 
                             size="sm" 
                             onClick={() => setWarningTarget(u)}
                             className="text-yellow-500 hover:text-yellow-400 hover:bg-yellow-500/10 pixel-corners"
                             title="Issue Warning"
-                        >
+                          >
                             <AlertTriangle className="h-4 w-4" />
-                        </Button>
-                    )}
+                          </Button>
+                        );
+                      }
+                      
+                      // HR Coordinator: Show button for their assigned dept members
+                      if (isHRCoordinator) {
+                        const coordDept = currentUser?.title?.split(' - ')[1];
+                        return u.role === 'Member' && u.department === coordDept && (
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            onClick={() => setWarningTarget(u)}
+                            className="text-yellow-500 hover:text-yellow-400 hover:bg-yellow-500/10 pixel-corners"
+                            title="Issue Warning"
+                          >
+                            <AlertTriangle className="h-4 w-4" />
+                          </Button>
+                        );
+                      }
+                      
+                      // General HR role (if any other HR logic needed)
+                      if (currentUser?.role === 'HR' && u.role === 'Member') {
+                        return (
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            onClick={() => setWarningTarget(u)}
+                            className="text-yellow-500 hover:text-yellow-400 hover:bg-yellow-500/10 pixel-corners"
+                            title="Issue Warning"
+                          >
+                            <AlertTriangle className="h-4 w-4" />
+                          </Button>
+                        );
+                      }
+                      
+                      return null;
+                    })()}
 
                     {/* Delete Button */}
                     <Button variant="ghost" size="sm" onClick={() => setDeleteId(u._id)} className="text-destructive hover:text-white hover:bg-destructive pixel-corners">

@@ -28,15 +28,29 @@ export default function DepartmentsPage() {
     if (storedUser) {
         const u = JSON.parse(storedUser);
         setUser(u);
+        
+        // Check if HR Coordinator
+        const isHRCoordinator = u.role === 'Member' && u.department === 'HR' && u.title?.startsWith('HR Coordinator');
+        
         // If Head/Vice Head, force selection to their department
         if (['Head', 'Vice Head'].includes(u.role) && u.department) {
             setSelectedDept(u.department);
+        }
+        // If HR Coordinator, lock to their assigned department
+        else if (isHRCoordinator) {
+            const coordDept = u.title?.split(' - ')[1]; // e.g., "HR Coordinator - IT" => "IT"
+            if (coordDept) {
+                setSelectedDept(coordDept);
+            }
         }
     }
     fetchUsers();
   }, []);
 
+  // Check if user should be locked to a specific department
+  const isHRCoordinator = user?.role === 'Member' && user?.department === 'HR' && user?.title?.startsWith('HR Coordinator');
   const isHead = user && ['Head', 'Vice Head'].includes(user.role);
+  const isLocked = isHead || isHRCoordinator; // Both Heads and HR Coordinators are locked
 
   // ... (keep fetchUsers logic)
 
@@ -82,8 +96,8 @@ export default function DepartmentsPage() {
           <p className="text-gray-400 font-mono text-xs mt-2">VIEW ACTIVE AGENTS AND STATS</p>
         </div>
         
-        {/* Department Filter - Only for Non-Heads (e.g. GP, HR) */}
-        {!isHead && (
+        {/* Department Filter - Only for users NOT locked to a department (e.g., GP, HR Head with all access) */}
+        {!isLocked && (
             <div className="w-full md:w-48 shrink-0">
                 <Select value={selectedDept} onValueChange={setSelectedDept}>
                 <SelectTrigger className="pixel-corners border-secondary bg-background/50 text-xs pixel-font h-10 w-full">
