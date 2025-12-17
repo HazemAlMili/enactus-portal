@@ -211,6 +211,13 @@ export const getHours = async (req: Request, res: Response) => {
  */
 export const updateHourStatus = async (req: Request, res: Response) => {
   try {
+    const currentUser = (req as any).user;
+    
+    // Block Directors from approving (read-only access)
+    if (currentUser?.role === 'Operation Director' || currentUser?.role === 'Creative Director') {
+      return res.status(403).json({ message: 'Directors have read-only access and cannot approve hours.' });
+    }
+    
     const { status } = req.body;
     const log = await HourLog.findById(req.params.id);
     if (!log) return res.status(404).json({ message: 'Log not found' });
@@ -218,7 +225,7 @@ export const updateHourStatus = async (req: Request, res: Response) => {
     // Update status and set who approved it
     log.status = status;
     if (status === 'Approved') {
-      log.approvedBy = (req as any).user?._id;
+      log.approvedBy = currentUser?._id;
       
       // Update User stats (Total hours and Points)
       const user = await User.findById(log.user);
