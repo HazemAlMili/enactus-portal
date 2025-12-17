@@ -14,7 +14,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 
 // Force dynamic rendering - disable Next.js caching
 export const dynamic = 'force-dynamic';
-export const revalidate = 0;
 
 // Define HoursPage Component
 export default function HoursPage() {

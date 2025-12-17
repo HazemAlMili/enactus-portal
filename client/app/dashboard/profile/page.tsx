@@ -8,7 +8,6 @@ import api from '@/lib/api';
 
 // Force dynamic rendering - disable Next.js caching
 export const dynamic = 'force-dynamic';
-export const revalidate = 0;
 
 interface UserProfile {
   _id: string;

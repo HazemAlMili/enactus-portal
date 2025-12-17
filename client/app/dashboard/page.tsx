@@ -8,7 +8,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 // Force dynamic rendering - disable Next.js caching
 export const dynamic = 'force-dynamic';
-export const revalidate = 0;
 
 // Define User Interface
 interface Warning {

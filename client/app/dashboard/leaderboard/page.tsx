@@ -10,7 +10,6 @@ import { Trophy } from 'lucide-react';
 
 // Force dynamic rendering - disable Next.js caching
 export const dynamic = 'force-dynamic';
-export const revalidate = 0;
 
 export default function LeaderboardPage() {
   const [users, setUsers] = useState<any[]>([]);

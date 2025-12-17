@@ -17,7 +17,6 @@ import { useNotification } from '@/components/ui/notification';
 
 // Force dynamic rendering - disable Next.js caching
 export const dynamic = 'force-dynamic';
-export const revalidate = 0;
 
 // Define UsersPage Component (Squad Management)
 export default function UsersPage() {

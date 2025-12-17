@@ -13,7 +13,6 @@ import { CheckCircle2, XCircle, Clock, AlertCircle, Link as LinkIcon, Upload } f
 
 // Force dynamic rendering - disable Next.js caching
 export const dynamic = 'force-dynamic';
-export const revalidate = 0;
 
 export default function TasksPage() {
   const [tasks, setTasks] = useState<any[]>([]);
