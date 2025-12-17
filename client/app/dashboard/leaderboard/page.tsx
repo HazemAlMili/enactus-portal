@@ -17,11 +17,12 @@ export default function LeaderboardPage() {
     const userStr = localStorage.getItem('user');
     if (userStr) {
        const user = JSON.parse(userStr);
-       // Allow Heads, Vice Heads, HR, GP
+       // Allow Heads, Vice Heads, HR, GP, VP, Directors
        // Also ALLOW HR Coordinators (Member, HR, Title check)
        const isHRCoordinator = user.role === 'Member' && user.department === 'HR' && user.title?.startsWith('HR Coordinator');
+       const isDirector = user.role === 'Operation Director' || user.role === 'Creative Director';
        
-       if (!['Head', 'Vice Head', 'HR', 'General President'].includes(user.role) && !isHRCoordinator) {
+       if (!['Head', 'Vice Head', 'HR', 'General President', 'Vice President'].includes(user.role) && !isHRCoordinator && !isDirector) {
           router.push('/dashboard'); // Redirect unauthorized
           return;
        }

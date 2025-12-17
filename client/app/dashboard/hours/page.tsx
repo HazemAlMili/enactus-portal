@@ -50,12 +50,20 @@ export default function HoursPage() {
     setUser(u);
     
     // Restrict Access: Only Leaders can access Hours Page
-    // Also ALLOW HR Coordinators (Member, HR, Title check)
+    // Also ALLOW HR Coordinators (Member, HR, Title check) and Directors
     const isHRCoordinator = u.role === 'Member' && u.department === 'HR' && u.title?.startsWith('HR Coordinator');
+    const isDirector = u.role === 'Operation Director' || u.role === 'Creative Director';
 
-    if (!['Head', 'Vice Head', 'HR', 'General President'].includes(u.role) && !isHRCoordinator) {
+    if (!['Head', 'Vice Head', 'HR', 'General President', 'Vice President'].includes(u.role) && !isHRCoordinator && !isDirector) {
        router.push('/dashboard');
        return;
+    }
+
+    // Set default department for Directors
+    if (u.role === 'Operation Director') {
+      setSelectedDept('PR'); // Default to first assigned department
+    } else if (u.role === 'Creative Director') {
+      setSelectedDept('Marketing'); // Default to first assigned department
     }
 
     fetchHours(); // initial fetch without filter
@@ -240,25 +248,44 @@ export default function HoursPage() {
         <CardHeader className="border-b border-secondary/20 pb-2 flex flex-row justify-between items-center">
           <CardTitle className="text-white pixel-font text-sm">SESSION HISTORY</CardTitle>
           
-          {/* Department Filter for HR / GP / VP */}
-          {(user?.role === 'HR' || user?.role === 'General President' || user?.role === 'Vice President') && (
-            <div className="w-48">
-              <Select value={selectedDept} onValueChange={handleFilterChange}>
-                <SelectTrigger className="pixel-corners border-secondary bg-background/50 text-xs pixel-font h-8">
-                  <SelectValue placeholder="FILTER GUILD" />
-                </SelectTrigger>
-                <SelectContent className="pixel-corners bg-card border-secondary">
-                  <SelectItem value="All">ALL GUILDS</SelectItem>
-                  {['IT','HR','PM','PR','FR','Logistics','Organization','Marketing','Multi-Media','Presentation'].map(d => (
-                    <SelectItem key={d} value={d}>{d}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
+          {/* Department Filter for HR / GP / VP / Directors */}
+          {(() => {
+            const isDirector = user?.role === 'Operation Director' || user?.role === 'Creative Director';
+            const canFilter = user?.role === 'HR' || user?.role === 'General President' || user?.role === 'Vice President' || isDirector;
+            
+            if (!canFilter) return null;
+            
+            // Filter departments based on role
+            let departments = ['IT','HR','PM','PR','FR','Logistics','Organization','Marketing','Multi-Media','Presentation'];
+            
+            if (user?.role === 'Operation Director') {
+              departments = ['PR', 'FR', 'Logistics', 'PM'];
+            } else if (user?.role === 'Creative Director') {
+              departments = ['Marketing', 'Multi-Media', 'Presentation', 'Organization'];
+            }
+            
+            return (
+              <div className="w-48">
+                <Select value={selectedDept} onValueChange={handleFilterChange}>
+                  <SelectTrigger className="pixel-corners border-secondary bg-background/50 text-xs pixel-font h-8">
+                    <SelectValue placeholder="FILTER GUILD" />
+                  </SelectTrigger>
+                  <SelectContent className="pixel-corners bg-card border-secondary">
+                    {/* Only show "ALL GUILDS" for users who can see all departments */}
+                    {(user?.role === 'HR' || user?.role === 'General President' || user?.role === 'Vice President') && (
+                      <SelectItem value="All">ALL GUILDS</SelectItem>
+                    )}
+                    {departments.map(d => (
+                      <SelectItem key={d} value={d}>{d}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            );
+          })()}
           
           {/* Static Badge for Heads indicating they are viewing their Guild */}
-          {(user?.role === 'Head' || user?.role === 'Vice Head' || user?.role === 'Operation Director' || user?.role === 'Creative Director') && (
+          {(user?.role === 'Head' || user?.role === 'Vice Head') && (
             <Badge variant="outline" className="pixel-corners border-secondary text-secondary text-xs pixel-font">
               GUILD: {user.department || 'MULTIPLE'}
             </Badge>

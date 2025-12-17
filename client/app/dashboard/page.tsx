@@ -72,7 +72,13 @@ export default function Dashboard() {
           </h1>
           <div className="flex items-center gap-2 text-white/80 font-mono text-sm">
             <span className="bg-primary/20 px-2 py-1 rounded-none border border-primary pixel-corners">
-              {user.department || 'NO_DEPT'}
+              {user.role === 'General President' 
+                ? 'President'
+                : user.role === 'Vice President' || user.role === 'Vice Head'
+                ? 'Vice'
+                : user.role === 'Operation Director' || user.role === 'Creative Director' 
+                ? 'Director' 
+                : (user.department || 'NO_DEPT')}
             </span>
             <span className="bg-secondary/20 px-2 py-1 rounded-none border border-secondary pixel-corners text-secondary">
               {user.role}
@@ -99,7 +105,7 @@ export default function Dashboard() {
       <Card className="bg-card border-2 border-primary pixel-corners">
         <CardContent className="p-6">
           {(() => {
-             const isBoss = ['Head', 'Vice Head', 'General President', 'HR'].includes(user.role);
+             const isBoss = ['Head', 'Vice Head', 'General President', 'Vice President', 'Operation Director', 'Creative Director', 'HR'].includes(user.role);
              const xpForNextLevel = 100;
              const rawLevel = Math.floor((user.points || 0) / xpForNextLevel) + 1;
              const displayLevel = isBoss ? "99+" : rawLevel;
@@ -114,19 +120,15 @@ export default function Dashboard() {
                            {isBoss ? "MAXIMUM CLEARANCE" : `NEXT REWARD AT ${(Math.floor((user.points || 0) / xpForNextLevel) + 1) * xpForNextLevel} XP`}
                         </p>
                      </div>
-                     <span className="text-white pixel-font text-sm">{user.points || 0} XP</span>
+                     <span className="text-white pixel-font text-sm">{isBoss ? 100 : (user.points || 0)} XP</span>
                   </div>
-                  {/* XP Bar */}
-                  <div className="h-6 w-full bg-black border-2 border-white/20 relative">
+                  {/* XP Bar - Updated to match Identity page */}
+                  <div className="h-3 w-full bg-gray-900 border border-primary/20 rounded-full overflow-hidden relative">
                     <div 
-                      className="h-full bg-gradient-to-r from-primary to-accent transition-all duration-1000"
+                      className="h-full bg-gradient-to-r from-secondary to-blue-500 relative transition-all duration-1000"
                       style={{ width: `${progress}%` }}
-                    />
-                    {/* Tick marks */}
-                    <div className="absolute inset-0 flex justify-evenly pointer-events-none">
-                       {[...Array(9)].map((_, i) => (
-                          <div key={i} className="h-full w-[1px] bg-black/20" />
-                       ))}
+                    >
+                      <div className="absolute inset-0 bg-white/20 w-full h-full animate-pulse" />
                     </div>
                   </div>
                </>

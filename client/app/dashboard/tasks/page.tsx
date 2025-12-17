@@ -159,9 +159,10 @@ export default function TasksPage() {
     // This function is now optional/deprecated
   };
 
-  const boardRoles = ['General President', 'Vice President', 'Operation Director', 'Creative Director'];
+  const boardRoles = ['General President', 'Vice President']; // Directors NOT included - read-only
+  const directorRoles = ['Operation Director', 'Creative Director']; // Directors for view-only logic
   const canCreate = user && (['Head', 'Vice Head', 'HR'].includes(user.role) || boardRoles.includes(user.role));
-  const isHeadView = user && (['Head', 'Vice Head'].includes(user.role) || boardRoles.includes(user.role)); // Board sees head view
+  const isHeadView = user && (['Head', 'Vice Head'].includes(user.role) || boardRoles.includes(user.role) || directorRoles.includes(user.role)); // Directors see head view but can't create
   const isMember = user && ['Member', 'HR'].includes(user.role); 
   const isStrictMember = user && user.role === 'Member'; // For gamification/messages only
   

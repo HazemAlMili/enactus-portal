@@ -100,7 +100,7 @@ export default function ProfilePage() {
   if (!profile) return null;
 
   // Determine Role Type
-  const isBoss = ['Head', 'Vice Head', 'General President', 'HR'].includes(profile.role);
+  const isBoss = ['Head', 'Vice Head', 'General President', 'Vice President', 'Operation Director', 'Creative Director', 'HR'].includes(profile.role);
 
   // Calculate Level Progress
   // Members: Fast leveling (100 XP per level). Bosses: Maxed out.
@@ -113,8 +113,12 @@ export default function ProfilePage() {
   // Progress Bar: Bosses always 100%, Members calculated based on 100XP cycle
   const currentLevelProgress = isBoss ? 100 : (profile.points % xpForNextLevel) / xpForNextLevel * 100;
   
+  // XP Display: Bosses show 100, Members show actual
+  const displayXP = isBoss ? +100 : profile.points;
+  
   // Dynamic Role Colors
-  const roleColor = ['Head', 'Vice Head', 'General President'].includes(profile.role) ? 'text-yellow-500 border-yellow-500' : 
+  const roleColor = ['Head', 'Vice Head', 'General President', 'Vice President'].includes(profile.role) ? 'text-yellow-500 border-yellow-500' : 
+                    ['Operation Director', 'Creative Director'].includes(profile.role) ? 'text-purple-500 border-purple-500' :
                     profile.role === 'HR' ? 'text-pink-500 border-pink-500' : 'text-blue-400 border-blue-400';
 
   return (
@@ -218,7 +222,7 @@ export default function ProfilePage() {
                          <div className="flex justify-between items-end">
                               <span className="text-xs font-bold text-secondary pixel-font">{levelTitle}</span>
                               <span className="text-[10px] font-mono text-gray-400">
-                                {isBoss ? "MAX LEVEL REQUIRIED" : `${profile.points} / ${Math.ceil((profile.points + 1)/xpForNextLevel) * xpForNextLevel} XP`}
+                                {isBoss ? "MAX LEVEL ACQUIRED" : `${displayXP} / ${Math.ceil((displayXP + 1)/xpForNextLevel) * xpForNextLevel} XP`}
                               </span>
                          </div>
                          <div className="h-3 w-full bg-gray-900 border border-primary/20 rounded-full overflow-hidden relative">

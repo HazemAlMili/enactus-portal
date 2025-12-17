@@ -43,6 +43,13 @@ export default function DepartmentsPage() {
                 setSelectedDept(coordDept);
             }
         }
+        // If Director, default to first assigned department
+        else if (u.role === 'Operation Director') {
+            setSelectedDept('PR'); // Default to first dept: PR, FR, Logistics, PM
+        }
+        else if (u.role === 'Creative Director') {
+            setSelectedDept('Marketing'); // Default to first dept: Marketing, Multi-Media, Presentation, Organization
+        }
     }
     fetchUsers();
   }, []);
@@ -81,8 +88,15 @@ export default function DepartmentsPage() {
     ? groupedUsers 
     : { [selectedDept]: groupedUsers[selectedDept] || [] };
 
-  // Generate department list for dropdown (Static List to ensure all are visible)
-  const allDepartments = ['IT','HR','PM','PR','FR','Logistics','Organization','Marketing','Multi-Media','Presentation'];
+  // Generate department list for dropdown based on user role
+  let allDepartments = ['IT','HR','PM','PR','FR','Logistics','Organization','Marketing','Multi-Media','Presentation'];
+  
+  // Filter departments for Directors
+  if (user?.role === 'Operation Director') {
+    allDepartments = ['PR', 'FR', 'Logistics', 'PM'];
+  } else if (user?.role === 'Creative Director') {
+    allDepartments = ['Marketing', 'Multi-Media', 'Presentation', 'Organization'];
+  }
 
   if (isLoading) {
     return <LoadingSpinner />;
@@ -104,7 +118,10 @@ export default function DepartmentsPage() {
                     <SelectValue placeholder="FILTER GUILD" />
                 </SelectTrigger>
                     <SelectContent className="pixel-corners bg-card border-secondary">
-                    <SelectItem value="All">ALL GUILDS</SelectItem>
+                    {/* Only show "ALL GUILDS" for users who can see all departments */}
+                    {(user?.role === 'HR' || user?.role === 'General President' || user?.role === 'Vice President') && (
+                      <SelectItem value="All">ALL GUILDS</SelectItem>
+                    )}
                     {allDepartments.map(dept => {
                         const shortName = {
                         'Organization': 'ORG',

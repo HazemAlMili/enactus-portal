@@ -55,7 +55,16 @@ export default function UsersPage() {
   // Fetch users AND current profile on component mount
   useEffect(() => {
     fetchUsers();
-    api.get('/auth/me').then(res => setCurrentUser(res.data)).catch(console.error);
+    api.get('/auth/me').then(res => {
+      setCurrentUser(res.data);
+      
+      // Set default department filter for Directors
+      if (res.data.role === 'Operation Director') {
+        setDeptFilter('PR'); // Default to first assigned department
+      } else if (res.data.role === 'Creative Director') {
+        setDeptFilter('Marketing'); // Default to first assigned department
+      }
+    }).catch(console.error);
   }, []);
 
   // Effect to reset form and set defaults when Modal opens
@@ -163,7 +172,17 @@ export default function UsersPage() {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-card p-6 border-l-4 border-l-accent pixel-corners">
         <h2 className="text-3xl text-white pixel-font text-glow">SQUAD ROSTER</h2>
         
-        {/* Add Member Dialog (Modal) */}
+        {/* Add Member Dialog (Modal) - ONLY HR can recruit */}
+        {(() => {
+          const isHR = currentUser?.department === 'HR' && 
+                      (currentUser?.role === 'Head' || 
+                       currentUser?.role === 'Vice Head' || 
+                       currentUser?.role === 'HR' ||
+                       (currentUser?.role === 'Member' && currentUser?.title?.startsWith('HR Coordinator')));
+          
+          if (!isHR) return null; // Directors and other roles cannot recruit
+          
+          return (
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
           <DialogTrigger asChild>
             <Button className="w-full md:w-auto bg-secondary text-secondary-foreground hover:bg-yellow-500 pixel-corners pixel-font">
@@ -267,6 +286,8 @@ export default function UsersPage() {
             </div>
           </DialogContent>
         </Dialog>
+          );
+        })()}
 
         {/* Delete Confirmation Modal */}
         <Dialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>
@@ -295,19 +316,38 @@ export default function UsersPage() {
               onChange={e => setNameFilter(e.target.value)}
               className="md:w-64 pixel-corners bg-background/50 border-primary/50"
           />
-          {currentUser && ['HR', 'General President', 'Vice President'].includes(currentUser.role) && (
+          {(() => {
+            const isDirector = currentUser?.role === 'Operation Director' || currentUser?.role === 'Creative Director';
+            const canFilter = currentUser && (['HR', 'General President', 'Vice President'].includes(currentUser.role) || isDirector);
+            
+            if (!canFilter) return null;
+            
+            // Filter departments based on role
+            let departments = ['IT','HR','PM','PR','FR','Logistics','Organization','Marketing','Multi-Media','Presentation'];
+            
+            if (currentUser?.role === 'Operation Director') {
+              departments = ['PR', 'FR', 'Logistics', 'PM'];
+            } else if (currentUser?.role === 'Creative Director') {
+              departments = ['Marketing', 'Multi-Media', 'Presentation', 'Organization'];
+            }
+            
+            return (
               <Select onValueChange={setDeptFilter} defaultValue="ALL">
                  <SelectTrigger className="md:w-48 pixel-corners bg-background/50 border-primary/50">
                      <SelectValue placeholder="FILTER DEPT" />
                  </SelectTrigger>
                  <SelectContent className="pixel-corners bg-card border-primary">
-                     <SelectItem value="ALL">ALL DEPTS</SelectItem>
-                     {['IT','HR','PM','PR','FR','Logistics','Organization','Marketing','Multi-Media','Presentation'].map(d => (
+                     {/* Only show "ALL DEPTS" for users who can see all departments */}
+                     {(currentUser?.role === 'HR' || currentUser?.role === 'General President' || currentUser?.role === 'Vice President') && (
+                       <SelectItem value="ALL">ALL DEPTS</SelectItem>
+                     )}
+                     {departments.map(d => (
                          <SelectItem key={d} value={d}>{d}</SelectItem>
                      ))}
                  </SelectContent>
               </Select>
-          )}
+            );
+          })()}
       </div>
 
       {/* Users List Table */}
