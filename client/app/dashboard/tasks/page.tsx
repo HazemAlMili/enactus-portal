@@ -11,6 +11,10 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { CheckCircle2, XCircle, Clock, AlertCircle, Link as LinkIcon, Upload } from 'lucide-react';
 
+// Force dynamic rendering - disable Next.js caching
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export default function TasksPage() {
   const [tasks, setTasks] = useState<any[]>([]);
   const [user, setUser] = useState<any>(null);

@@ -6,6 +6,10 @@ import { Badge } from "@/components/ui/badge";
 import { User, Shield, Briefcase, Mail, Star, Clock, Trophy, Hash } from 'lucide-react';
 import api from '@/lib/api';
 
+// Force dynamic rendering - disable Next.js caching
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 interface UserProfile {
   _id: string;
   name: string;
@@ -29,13 +33,19 @@ export default function ProfilePage() {
     const fetchProfile = async () => {
       try {
         const token = localStorage.getItem('token');
-        if (!token) return;
+        if (!token) {
+          console.log('⚠️ No token found in localStorage');
+          setLoading(false);
+          return;
+        }
 
-        // Fetch fresh user data from /api/auth/me to ensures stats are up to date
-        const res = await api.get('/auth/me');
+        // Fetch fresh user data from /api/auth/me with cache-busting timestamp
+        console.log('🔄 Fetching fresh profile data...');
+        const res = await api.get(`/auth/me?_t=${Date.now()}`);
+        console.log('✅ Profile data loaded:', res.data.name);
         setProfile(res.data);
       } catch (err) {
-        console.error("Failed to fetch profile", err);
+        console.error("❌ Failed to fetch profile:", err);
       } finally {
         setLoading(false);
       }

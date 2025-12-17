@@ -6,6 +6,10 @@ import api from '@/lib/api';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
+// Force dynamic rendering - disable Next.js caching
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 // Define User Interface
 interface Warning {
   reason: string;
@@ -40,17 +44,17 @@ export default function Dashboard() {
     // Set initial user from local storage to avoid flashing
     setUser(JSON.parse(storedUser));
 
-    // Fetch fresh user data
+    // Fetch fresh user data with cache-busting
     const fetchUserData = async () => {
       try {
-        const { data } = await api.get('/auth/me');
+        const { data } = await api.get(`/auth/me?_t=${Date.now()}`);
         console.log('📊 Fetched user data:', data);
         console.log('⚠️ Warnings:', data.warnings);
         setUser(data);
         // Optionally update local storage
         localStorage.setItem('user', JSON.stringify(data));
       } catch (error) {
-        console.error("Failed to fetch fresh user data", error);
+        console.error("❌ Failed to fetch fresh user data:", error);
         // If auth fails, maybe redirect? For now, keep local version or let interceptors handle it
       }
     };

@@ -12,6 +12,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
+// Force dynamic rendering - disable Next.js caching
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 // Define HoursPage Component
 export default function HoursPage() {
   const router = useRouter();

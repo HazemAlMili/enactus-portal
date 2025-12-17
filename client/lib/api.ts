@@ -29,13 +29,13 @@ api.interceptors.request.use((config) => {
   config.headers['Expires'] = '0';
   
   // Add timestamp to prevent browser caching (for GET requests)
-  // TEMPORARILY DISABLED - Testing if this causes CORS issues
-  // if (config.method === 'get') {
-  //   config.params = {
-  //     ...config.params,
-  //     _t: Date.now(), // Cache buster
-  //   };
-  // }
+  // This is CRITICAL for ensuring fresh data in leaderboard and profile pages
+  if (config.method === 'get') {
+    config.params = {
+      ...config.params,
+      _t: Date.now(), // Cache buster timestamp
+    };
+  }
   
   // Return the modified config
   return config;

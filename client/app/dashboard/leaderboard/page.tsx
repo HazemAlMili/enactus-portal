@@ -8,6 +8,10 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Trophy } from 'lucide-react';
 
+// Force dynamic rendering - disable Next.js caching
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export default function LeaderboardPage() {
   const [users, setUsers] = useState<any[]>([]);
   const router = useRouter();
@@ -33,11 +37,13 @@ export default function LeaderboardPage() {
 
     const fetchLeaderboard = async () => {
       try {
-        const { data } = await api.get('/users/leaderboard');
+        // Add timestamp to prevent browser/Next.js caching
+        const { data } = await api.get(`/users/leaderboard?_t=${Date.now()}`);
+        console.log('📊 Leaderboard data fetched:', data.length, 'users');
         // Filter to show ONLY Members (Redundant check but safe)
         setUsers(data.filter((u: any) => u.role === 'Member'));
       } catch (error) {
-        console.error(error);
+        console.error('❌ Failed to fetch leaderboard:', error);
       } finally {
         setLoading(false);
       }
