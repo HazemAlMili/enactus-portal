@@ -263,6 +263,49 @@ const playWin = () => {
 
 ---
 
+#### **8. Password Visibility Toggle** 👁️
+```
+Login Form Enhancement:
+┌─────────────────────────────┐
+│ PASSWORD                    │
+│ ┌─────────────────────────┐ │
+│ │ ••••••••        👁️      │ │ ← Click to show/hide
+│ └─────────────────────────┘ │
+└─────────────────────────────┘
+```
+
+**Features:**
+- **Eye icon toggle** on password field
+- **Show/hide password** text visibility
+- **Smooth transitions** (gray → purple on hover)
+- **Accessible** (aria-labels, keyboard support)
+- **Type switching** (`password` ↔ `text`)
+
+**Visual Feedback:**
+```
+Hidden:  [👁️ Eye]     → ••••••••  (password dots)
+Visible: [👁️‍🗨️ EyeOff] → MyPass123 (plain text)
+```
+
+**Implementation:**
+```tsx
+// State management
+const [showPassword, setShowPassword] = useState(false);
+
+// Dynamic input type
+<Input 
+  type={showPassword ? "text" : "password"}
+  className="pr-10" // Space for icon
+/>
+
+// Toggle button
+<button onClick={() => setShowPassword(!showPassword)}>
+  {showPassword ? <EyeOff /> : <Eye />}
+</button>
+```
+
+---
+
 ### **Technical Improvements:**
 
 **Backend:**
@@ -281,6 +324,7 @@ const playWin = () => {
 - ✅ Cache-busting on all pages
 - ✅ Real-time badge updates
 - ✅ Arcade sound effects system
+- ✅ Password visibility toggle
 
 ---
 
@@ -419,6 +463,7 @@ db.users.find({
 - ✅ JWT-based auth (30-day expiry)
 - ✅ Email validation (@enactus.com)
 - ✅ Password strength requirements
+- ✅ Password visibility toggle (eye icon)
 - ✅ Role-based access control
 - ✅ sessionStorage (auto-clear on logout)
 - ✅ Cache-safe (no stale data)
