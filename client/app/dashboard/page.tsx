@@ -105,7 +105,7 @@ export default function Dashboard() {
             <span className="bg-primary/20 px-2 py-1 rounded-none border border-primary pixel-corners">
               {user.role === 'General President' 
                 ? 'President'
-                : user.role === 'Vice President' || user.role === 'Vice Head'
+                : user.role === 'Vice President'
                 ? 'Vice'
                 : user.role === 'Operation Director' || user.role === 'Creative Director' 
                 ? 'Director' 

@@ -43,7 +43,7 @@ const users: SeedUserConfig[] = [
     { name: 'Ahmed Refaay', email: 'ahmed.refaay@enactus.com', role: 'Vice Head', title: 'PR Vice Head', dept: 'PR' },
     { name: 'Khalid Selim', email: 'khalid.selim@enactus.com', role: 'Vice Head', title: 'FR Vice Head', dept: 'FR' },
     { name: 'Saif Abdedlhakim', email: 'saif.abdedlhakim@enactus.com', role: 'Vice Head', title: 'PM Vice Head', dept: 'PM' },
-    { name: 'Ruby', email: 'ruby@enactus.com', role: 'Vice Head', title: 'PM Vice Head', dept: 'PM' },
+    { name: 'Nourhan Elsayed', email: 'nourhan.elsayed@enactus.com', role: 'Vice Head', title: 'PM Vice Head', dept: 'PM' },
     { name: 'Yara Yasser', email: 'yara.yasser@enactus.com', role: 'Vice Head', title: 'HR Vice Head', dept: 'HR' },
     { name: 'Nadin Mohamed', email: 'nadin.mohamed@enactus.com', role: 'Vice Head', title: 'HR Vice Head', dept: 'HR' },
     { name: 'Hasnaa Arabi', email: 'hasnaa.arabi@enactus.com', role: 'Vice Head', title: 'Marketing Vice Head', dept: 'Marketing' },
