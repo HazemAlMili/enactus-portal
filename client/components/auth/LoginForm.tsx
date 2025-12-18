@@ -44,12 +44,8 @@ export default function LoginForm() {
       setPasswordError('Password is required');
       return false;
     }
-    if (password.length < 8) {
-      setPasswordError('Password must be at least 8 characters');
-      return false;
-    }
-    if (!/[a-z]/.test(password)) {
-      setPasswordError('Password must contain at least one uppercase letter');
+    if (password.length < 5) {
+      setPasswordError('Password must be at least 5 characters');
       return false;
     }
     setPasswordError('');
@@ -61,9 +57,13 @@ export default function LoginForm() {
     e.preventDefault();
     setError('');
     
+    // Trim credentials to avoid issues with hidden spaces
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanPassword = password.trim();
+
     // Validate email and password
-    const isEmailValid = validateEmail(email);
-    const isPasswordValid = validatePassword(password);
+    const isEmailValid = validateEmail(cleanEmail);
+    const isPasswordValid = validatePassword(cleanPassword);
     
     if (!isEmailValid || !isPasswordValid) {
       return; // Stop if validation fails
@@ -74,7 +74,7 @@ export default function LoginForm() {
     
     try {
       // POST request to login endpoint
-      const { data } = await api.post('/auth/login', { email, password });
+      const { data } = await api.post('/auth/login', { email: cleanEmail, password: cleanPassword });
       
       // Store token and user data in session storage (cleared on browser close)
       sessionStorage.setItem('token', data.token);
