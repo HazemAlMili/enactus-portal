@@ -2,25 +2,26 @@
 
 **Full-Stack Task & Member Management System with Role-Based Access Control**
 
-[![Version](https://img.shields.io/badge/version-3.0.0-blue.svg)](https://github.com/HazemAlMili/enactus-portal)
+[![Version](https://img.shields.io/badge/version-4.0.0-blue.svg)](https://github.com/HazemAlMili/enactus-portal)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Performance](https://img.shields.io/badge/performance-95%2F100-brightgreen.svg)]()
-[![Security](https://img.shields.io/badge/security-HR--Department--Only-red.svg)]()
+[![Security](https://img.shields.io/badge/security-Enterprise--Grade-red.svg)]()
 
 ---
 
 ## 📋 TABLE OF CONTENTS
 
 1. [Project Overview](#-project-overview)
-2. [System Architecture](#-system-architecture)  
-3. [Role & Permission System](#-role--permission-system)
-4. [Department Organization](#-department-organization)
-5. [Features](#-features)
-6. [Tech Stack](#-tech-stack)
-7. [Database Schema](#-database-schema)
-8. [API Endpoints](#-api-endpoints)
-9. [Security](#-security)
-10. [Installation](#-installation)
+2. [What's New in v4.0](#-whats-new-in-v40)
+3. [System Architecture](#-system-architecture)  
+4. [Role & Permission System](#-role--permission-system)
+5. [Team Structure](#-team-structure)
+6. [Features](#-features)
+7. [Tech Stack](#-tech-stack)
+8. [Database Schema](#-database-schema)
+9. [API Endpoints](#-api-endpoints)
+10. [Security](#-security)
+11. [Installation](#-installation)
 
 ---
 
@@ -28,19 +29,196 @@
 
 Enactus Portal is an enterprise-grade management system for non-profit organizations with:
 - **Multi-role authentication** (8 roles, department-based)
-- **Task management** (create, assign, submit, approve)
+- **Team management** (Sub-teams within departments)
+- **Task management** (create, assign, submit, approve with team filtering)
 - **Hour tracking** (submit, approve, auto-reward)
 - **Gamification** (XP, levels, leaderboard)
+- **Real-time notifications** (task updates, badge system)
 - **HR-exclusive controls** (recruit, delete, warn)
-- **Warning system** (track member infractions)
+- **Cache-safe architecture** (force-dynamic, no stale data)
 
 ### Key Metrics
-- **Lines of Code:** 20,000+
-- **API Endpoints:** 30+
+- **Lines of Code:** 25,000+
+- **API Endpoints:** 35+
 - **User Roles:** 8
 - **Departments:** 10
+- **Teams:** 6 (across 3 departments)
 - **Performance:** 95/100
-- **Security:** HR-Department-Only (100% controlled)
+- **Security:** Enterprise-Grade
+
+---
+
+## 🆕 WHAT'S NEW IN V4.0
+
+### **Major Features Added:**
+
+#### **1. Team Management System** ✨
+```
+Departments with Sub-Teams:
+├─ IT Department
+│  ├─ Frontend Team
+│  └─ UI/UX Team
+├─ Multi-Media Department
+│  ├─ Graphics Team
+│  └─ Photography Team
+└─ Presentation Department
+   ├─ Presentation Team
+   └─ Script Writing Team
+```
+
+**How it Works:**
+- **When creating tasks:** Select a specific team (e.g., Frontend) or "All Teams"
+- **Task assignment:** Only members of that team receive the task
+- **When recruiting:** Assign members to specific teams
+- **Query optimization:** Database indexes for fast team-based filtering
+
+**Example:**
+```typescript
+// Creating a task for Frontend team only
+{
+  title: "Build Login Page",
+  department: "IT",
+  team: "Frontend",  // ← Only Frontend team gets this task
+  hours: 10
+}
+```
+
+---
+
+#### **2. Task Notification System** 🔔
+```
+Real-Time Badge System:
+┌────────────────────────┐
+│ 🔔 Tasks          [3]  │  ← Red badge shows pending count
+└────────────────────────┘
+```
+
+**Features:**
+- **Live badge count** on sidebar Tasks link
+- **Pulsing animation** for new tasks
+- **Color coding:**
+  - Red (pulsing) = New tasks
+  - Yellow = Existing pending tasks
+- **Auto-refresh** every 30 seconds
+- **Instant update** when member submits task
+- **Welcome toast** notification for new assignments
+
+**Technical Implementation:**
+- Custom `useTaskNotifications` hook
+- sessionStorage for "last checked" timestamp
+- Automatic polling with cleanup
+- Manual refresh function for immediate updates
+
+---
+
+#### **3. Enhanced Task Grouping** 📋
+```
+Before (Old):
+├─ Task: Build Feature [4 members submitted]
+└─ Shows mixed statuses (confusing!)
+
+After (New):
+├─ Task: Build Feature - COMPLETED [2 members]
+└─ Task: Build Feature - SUBMITTED [2 members]
+   └─ Each status gets separate card
+```
+
+**Improvements:**
+- **Status-based grouping:** Separate cards for Completed/Submitted/Pending
+- **Individual submission review:** Approve/reject each member separately
+- **Vertical button layout:** Better UX for approve/reject actions
+- **Grid layout:** 2-column responsive grid for submissions
+- **Completed work display:** View all completed submissions per task
+
+---
+
+#### **4. Automatic Hours System** ⏰
+```
+Task Completion Flow:
+Member Submits → Head Approves → Hours Auto-Added
+                                 ↓
+                          Points Calculated
+                          (Hours × 10)
+```
+
+**Features:**
+- **No manual hour submission** needed for tasks
+- **Auto-approved** when task is completed
+- **Hour log tracking** (visible in Hours page)
+- **Direct accumulation** to member's total
+- **Points calculation** (10 points per hour)
+
+**Example:**
+```typescript
+Task: 10 hours
+Member completes task
+↓
+Hours: +10 ✅
+Points: +100 ✅
+Hour log: "Task Name - Submitted: 12/18/2025" [APPROVED]
+```
+
+---
+
+#### **5. Cache-Safe Architecture** 🔒
+```
+All Pages Use force-dynamic:
+✅ Dashboard
+✅ Tasks
+✅ Hours
+✅ Squad
+✅ Leaderboard
+✅ Profile
+✅ Departments
+```
+
+**Security Measures:**
+- **No Next.js static caching**
+- **Aggressive HTTP cache headers:**
+  ```typescript
+  'Cache-Control': 'no-cache, no-store, must-revalidate'
+  'Pragma': 'no-cache'
+  'Expires': '0'
+  ```
+- **sessionStorage** (clears on logout)
+- **Version control** (auto-clear on updates)
+- **Fresh data** on every request
+
+---
+
+#### **6. Styled Notifications** 🎨
+```
+Before: alert("Error") // ❌ Browser alert
+
+After: showNotification("❌ Error Message", 'error') // ✅ Styled
+```
+
+**Features:**
+- **Consistent theme** (pixel art style)
+- **Color-coded** (red=error, green=success, yellow=warning)
+- **Auto-dismiss** after timeout
+- **Emoji support** for visual feedback
+- **Smooth animations**
+
+---
+
+### **Technical Improvements:**
+
+**Backend:**
+- ✅ Team field in User model (indexed)
+- ✅ Team field in Task model (indexed)
+- ✅ Team filtering in task creation
+- ✅ Team-based member queries
+- ✅ Hour log auto-creation on task approval
+- ✅ Points calculation optimization
+
+**Frontend:**
+- ✅ Team selectors in task/user forms
+- ✅ Notification badge system
+- ✅ Task grouping by status + team
+- ✅ Styled error notifications
+- ✅ Cache-busting on all pages
+- ✅ Real-time badge updates
 
 ---
 
@@ -52,13 +230,13 @@ Enactus Portal is an enterprise-grade management system for non-profit organizat
 ├─────────────────────────────────────────────────────────────────┤
 │  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐       │
 │  │Dashboard │  │  Tasks   │  │  Hours   │  │  Squad   │       │
-│  │  (XP)    │  │ (Submit) │  │(Approve) │  │(Members) │       │
+│  │  (XP)    │  │ (Teams)  │  │(Auto-Add)│  │(Teams)   │       │
 │  └────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘       │
-│       │             │              │             │              │
+│       │             │ 🔔          │             │              │
 │       └─────────────┴──────────────┴─────────────┘              │
 │                          │                                       │
 │                    ┌─────▼─────┐                                │
-│                    │  API.ts   │ (Axios + JWT Interceptors)     │
+│                    │  API.ts   │ (Axios + Cache-Busting)        │
 │                    └─────┬─────┘                                │
 └──────────────────────────┼──────────────────────────────────────┘
                            │
@@ -69,693 +247,401 @@ Enactus Portal is an enterprise-grade management system for non-profit organizat
 ├─────────────────────────────────────────────────────────────────┤
 │  ┌──────────────────── MIDDLEWARE STACK ──────────────────────┐ │
 │  │  1. CORS (Origin control)                                  │ │
-│  │  2. Helmet (Security headers)                              │ │
+│  │  2. force-dynamic (No caching)                             │ │
 │  │  3. Rate Limiter (100 req/15min)                           │ │
-│  │  4. Body Parser (JSON, max 50MB)                           │ │
-│  │  5. Sanitizer (NoSQL injection blocker)                    │ │
-│  │  6. XSS Clean (Script injection blocker)                   │ │
-│  │  7. Cache Control (5-layer prevention)                     │ │
-│  │  8. JWT Auth (protect middleware)                          │ │
-│  │  9. Role Auth (authorize/authorizeHROnly)                  │ │
+│  │  4. JWT Auth (protect middleware)                          │ │
+│  │  5. Role Auth (authorize/authorizeHROnly)                  │ │
 │  └─────────────────────────────────────────────────────────────┘ │
 │                              │                                   │
 │  ┌───────────────────────────▼──────────────────────────────┐   │
 │  │                 ROUTE HANDLERS                           │   │
 │  ├──────────────────────────────────────────────────────────┤   │
-│  │  /api/auth/*   → authController  (login, me, validate)   │   │
-│  │  /api/tasks/*  → taskController  (create, submit, approve│   │
-│  │  /api/hours/*  → hourController  (submit, approve, assign│   │
-│  │  /api/users/*  → userController  (CRUD, warn) [HR ONLY]  │   │
-│  └──────────────────────────────────────────────────────────┘   │
-│                              │                                   │
-│  ┌───────────────────────────▼──────────────────────────────┐   │
-│  │             BUSINESS LOGIC CONTROLLERS                    │   │
-│  │  - Role-based query filtering                             │   │
-│  │  - Department-scoped operations                           │   │
-│  │  - Auto hour/XP rewards                                   │   │
-│  │  - Self-healing stats sync                                │   │
-│  │  - HR-only authorization                                  │   │
+│  │  /api/auth/*   → authController                          │   │
+│  │  /api/tasks/*  → taskController (team filtering)         │   │
+│  │  /api/hours/*  → hourController (auto-reward)            │   │
+│  │  /api/users/*  → userController (team assignment)        │   │
 │  └──────────────────────────────────────────────────────────┘   │
 └───────────────────────────────┬─────────────────────────────────┘
                                 │
-                   [ MongoDB Driver + Mongoose ]
+                   [ MongoDB + Mongoose ]
                                 │
 ┌───────────────────────────────▼─────────────────────────────────┐
 │                   DATABASE LAYER (MongoDB)                       │
 ├─────────────────────────────────────────────────────────────────┤
-│  ┌───────────────────────────────────────────────────────────┐  │
-│  │  COLLECTIONS:                                             │  │
-│  │  ├─ users          (Members, HR, role='Member'/'HR')      │  │
-│  │  ├─ highboards     (Heads, VPs, Directors)                │  │
-│  │  ├─ tasks          (Assignments, submissions)             │  │
-│  │  └─ hourlogs       (Hour entries, approvals)              │  │
-│  └───────────────────────────────────────────────────────────┘  │
-│  ┌───────────────────────────────────────────────────────────┐  │
-│  │  INDEXES: (20-50x performance boost)                      │  │
-│  │  ├─ { department: 1, role: 1 }                            │  │
-│  │  ├─ { email: 1 } unique                                   │  │
-│  │  ├─ { hoursApproved: -1 }                                 │  │
-│  │  ├─ { assignedTo: 1, status: 1 }                          │  │
-│  │  └─ { createdAt: -1 }                                     │  │
-│  └───────────────────────────────────────────────────────────┘  │
+│  COLLECTIONS:                                                    │
+│  ├─ users (Members, HR, team field)                             │
+│  ├─ highboards (Leadership)                                      │
+│  ├─ tasks (Assignments, team filtering, taskGroupId)            │
+│  └─ hourlogs (Auto-generated on task approval)                  │
+│                                                                  │
+│  INDEXES:                                                        │
+│  ├─ { department: 1, team: 1, role: 1 } ← NEW!                 │
+│  ├─ { taskGroupId: 1 }                                          │
+│  └─ { assignedTo: 1, status: 1 }                                │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 👥 ROLE & PERMISSION SYSTEM
+## 👥 TEAM STRUCTURE
 
-### **Role Hierarchy**
-
-```
-                    ┌──────────────────────────┐
-                    │   BOARD LEVEL (HighBoard)│
-                    │  General President (GP)  │
-                    │  Vice President (VP)     │
-                    └────────────┬─────────────┘
-                                 │
-        ┌────────────────────────┼────────────────────────┐
-        │                        │                        │
-┌───────▼─────────┐    ┌─────────▼─────────┐   ┌────────▼────────┐
-│ Operation Dir   │    │ Creative Director │   │  Department     │
-│  PR, FR, LOG, PM│    │ MKT, MM, PRES, ORG│   │  Heads/Vices    │
-└─────────────────┘    └───────────────────┘   └────────┬────────┘
-                                                         │
-                      ┌──────────────────────────────────┼───────┐
-                      │                                  │       │
-              ┌───────▼────────┐              ┌─────────▼──────┐│
-              │   HEAD         │              │  VICE HEAD     ││
-              │ (Each Dept)    │              │ (Each Dept)    ││
-              │ SAME POWERS    │◄─────────────│ SAME POWERS    ││
-              └───────┬────────┘              └────────┬───────┘│
-                      │                                │        │
-                      └────────────────┬───────────────┘        │
-                                       │                        │
-                            ┌──────────▼──────────┐  ┌──────────▼─────────┐
-                            │  HR DEPARTMENT      │  │  OTHER DEPARTMENTS │
-                            ├─────────────────────┤  ├────────────────────┤
-                            │ - HR Head           │  │ - IT               │
-                            │ - HR Vice Head      │  │ - PM               │
-                            │ - HR Coordinators   │  │ - PR, FR, etc.     │
-                            │                     │  │                    │
-                            │ ✅ Can Delete       │  │ ❌ Cannot Delete   │
-                            │ ✅ Can Warn         │  │ ❌ Cannot Warn     │
-                            │ ✅ Can Recruit      │  │ ❌ Cannot Recruit  │
-                            └─────────────────────┘  └────────────────────┘
-```
-
-### **Complete Permission Matrix**
-
-| Permission | Member | HR Coord | HR Head | HR Vice | IT Head | IT Vice | Dir | GP/VP |
-|------------|--------|----------|---------|---------|---------|---------|-----|-------|
-| **View Own Tasks** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| **Submit Tasks** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| **Create Tasks** | ❌ | ✅ Dept | ✅ HR | ✅ HR | ✅ IT | ✅ IT | ✅ Depts | ✅ All |
-| **Approve Tasks** | ❌ | ✅ Dept | ✅ HR | ✅ HR | ✅ IT | ✅ IT | ✅ Depts | ✅ All |
-| **Submit Hours** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| **Approve Hours** | ❌ | ✅ Dept | ✅ HR | ✅ HR | ✅ IT | ✅ IT | ✅ Depts | ✅ All |
-| **Assign Hours** | ❌ | ✅ Dept | ✅ All | ✅ All | ❌ | ❌ | ❌ | ✅ All |
-| **View Squad** | ❌ | ✅ Dept | ✅ HR | ✅ HR | ✅ IT | ✅ IT | ✅ Depts | ✅ All |
-| **Create Users** | ❌ | ✅ Dept | ✅ **ALL** | ✅ **ALL** | ❌ | ❌ | ❌ | ❌ |
-| **Delete Users** | ❌ | ✅ Dept | ✅ **ALL** | ✅ **ALL** | ❌ | ❌ | ❌ | ❌ |
-| **Issue Warnings** | ❌ | ✅ Dept | ✅ **HR** | ✅ **HR** | ❌ | ❌ | ❌ | ❌ |
-| **View Leaderboard** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| **View Warnings** | ✅ Own | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
-
-**Legend:**
-- ✅ = Full access
-- ✅ **Dept** = Scoped to assigned department  
-- ✅ **ALL** = All members across all departments
-- ✅ **HR** = HR department members only
-- ❌ = No access
-
-### **Key Differences:**
-
-**Vice Head = Head:**
-- ✅ Vice Heads have IDENTICAL permissions to Heads
-- ✅ Both can create tasks, approve hours, manage department
-- ✅ Vice Heads are treated as Heads in all authorization checks
-
-**HR Department Exclusive Powers:**
-- ✅ **Only HR** can delete members (any department)
-- ✅ **Only HR** can recruit members (any department)
-- ✅ **Only HR** can warn members (HR dept only for Head/Vice, assigned dept for Coordinators)
-
-**HR Coordinators:**
-- ✅ Scoped to specific department (e.g., "HR Coordinator - IT")
-- ✅ Can manage ONLY their assigned department
-- ✅ Title format: "HR Coordinator - [Department]"
-
----
-
-## 🏢 DEPARTMENT ORGANIZATION
-
-### **Department Structure**
+### **Department Teams:**
 
 ```
-┌────────────────────────────────────────────────────────────────┐
-│                    ENACTUS ORGANIZATION                        │
-│                       110+ Members                             │
-└────────────────────────────────────────────────────────────────┘
-                              │
-         ┌────────────────────┼────────────────────┐
-         │                    │                    │
-     ┌───▼───┐           ┌────▼────┐         ┌────▼────┐
-     │  IT   │           │   HR    │         │   PM    │
-     ├───────┤           ├─────────┤         ├─────────┤
-     │ Head  │           │ Head    │         │ Head    │
-     │ Vice  │           │ Vice    │         │ Vice    │
-     │ 10 M  │           │ 5 M + 9 │         │ 8 M     │
-     └───────┘           │ Coords  │         └─────────┘
-                         └─────────┘
-                              │
-                    ┌─────────┴─────────┐
-                    │ HR Coordinators   │
-                    ├───────────────────┤
-                    │ - IT Coordinator  │
-                    │ - PM Coordinator  │
-                    │ - PR Coordinator  │
-                    │ - FR Coordinator  │
-                    │ - LOG Coordinator │
-                    │ - ORG Coordinator │
-                    │ - MKT Coordinator │
-                    │ - MM Coordinator  │
-                    │ - PRES Coordinator│
-                    └───────────────────┘
-         │               ┌────┴────┐               │
-         │               │         │               │
-    ┌────▼────┐    ┌────▼────┐ ┌──▼───────┐  ┌───▼───┐
-    │   PR    │    │   FR    │ │ Logistics│  │  ORG  │
-    ├─────────┤    ├─────────┤ ├──────────┤  ├───────┤
-    │ Head    │    │ Head    │ │ Head     │  │ Head  │
-    │ Vice    │    │ Vice    │ │ Vice     │  │ Vice  │
-    │ 12 M    │    │ 6 M     │ │ 7 M      │  │ 9 M   │
-    └─────────┘    └─────────┘ └──────────┘  └───────┘
-                                                  │
-         ┌────────────────────────────────────────┼──────────┐
-         │                                        │          │
-    ┌────▼────┐                            ┌─────▼─────┐ ┌──▼────┐
-    │Marketing│                            │Multi-Media│ │ PRES  │
-    ├─────────┤                            ├───────────┤ ├───────┤
-    │ Head    │                            │ 2x Heads  │ │ 2x H  │
-    │ Vice    │                            │ 2x Vices  │ │ Vice  │
-    │ 11 M    │                            │ 8 M       │ │ 10 M  │
-    └─────────┘                            └───────────┘ └───────┘
+┌──────────────────────────────────────────┐
+│        IT DEPARTMENT                     │
+├──────────────────────────────────────────┤
+│  👥 Frontend Team                        │
+│  └─ Web development, React, Next.js      │
+│                                          │
+│  👥 UI/UX Team                           │
+│  └─ Design, Figma, User Experience       │
+└──────────────────────────────────────────┘
 
-TOTAL: 10 Departments | 110+ Members | 9 HR Coordinators
+┌──────────────────────────────────────────┐
+│     MULTI-MEDIA DEPARTMENT               │
+├──────────────────────────────────────────┤
+│  👥 Graphics Team                        │
+│  └─ Design, Illustrations, Branding      │
+│                                          │
+│  👥 Photography Team                     │
+│  └─ Photo shoots, Editing, Videos        │
+└──────────────────────────────────────────┘
+
+┌──────────────────────────────────────────┐
+│    PRESENTATION DEPARTMENT               │
+├──────────────────────────────────────────┤
+│  👥 Presentation Team                    │
+│  └─ Slide design, Visual presentations   │
+│                                          │
+│  👥 Script Writing Team                  │
+│  └─ Event scripts, Narration, Content    │
+└──────────────────────────────────────────┘
 ```
 
-### **Department Responsibilities Matrix**
+### **How Teams Work:**
 
-| Department | Head(s) | Vice(s) | Members | HR Coord | Primary Responsibility |
-|------------|---------|---------|---------|----------|------------------------|
-| **IT** | 1 | 1 | 10 | 1 | Portal, Tech, Website |
-| **HR** | 1 | 1 | 5 | - | Recruitment, Warnings, Management |
-| **PM** | 1 | 1 | 8 | 1 | Project Management |
-| **PR** | 1 | 1 | 12 | 1 | Public Relations, Media |
-| **FR** | 1 | 1 | 6 | 1 | Fundraising, Sponsorship |
-| **Logistics** | 1 | 1 | 7 | 1 | Events, Operations |
-| **Organization** | 1 | 1 | 9 | 1 | Internal Organization |
-| **Marketing** | 1 | 1 | 11 | 1 | Marketing, Campaigns |
-| **Multi-Media** | 2 | 2 | 8 | 1 | Content Creation |
-| **Presentation** | 2 | 1 | 10 | 1 | Presentations, Design |
+**1. Recruiting with Teams:**
+```
+Squad Page → Recruit New Member
+├─ Department: IT
+├─ Team: Frontend ← Choose team
+└─ Member gets assigned to Frontend team
+```
+
+**2. Creating Team Tasks:**
+```
+Tasks Page → Deploy New Mission
+├─ Department: IT (auto)
+├─ Team: Frontend ← Only Frontend gets task
+└─ Or "All Teams" for everyone
+```
+
+**3. Team Queries:**
+```sql
+-- Members of Frontend team
+db.users.find({ 
+  department: "IT", 
+  team: "Frontend",
+  role: "Member"
+})
+```
 
 ---
 
 ## ✨ FEATURES
 
-### **1. Advanced Authentication & Validation**
+### **Complete Feature List:**
 
-```
-Login Flow:
-┌──────────────┐
-│ Enter Email  │
-│ & Password   │
-└──────┬───────┘
-       │
-       ▼
-┌──────────────────┐
-│ Frontend         │
-│ Validation       │
-├──────────────────┤
-│ ✅ Email ends    │
-│    @enactus.com  │
-│ ✅ Password:     │
-│    - Min 8 chars │
-│    - 1 Uppercase │
-│    - 1 Lowercase │
-│    - 1 Number    │
-└──────┬───────────┘
-       │
-    PASS│
-       ▼
-┌──────────────────┐
-│ Backend Auth     │
-│ Controller       │
-├──────────────────┤
-│ ✅ Check DB      │
-│ ✅ Verify bcrypt │
-│ ✅ Generate JWT  │
-│ ✅ Return user   │
-│    + warnings    │
-└──────┬───────────┘
-       │
-       ▼
-┌──────────────────┐
-│ Dashboard        │
-│ (Authenticated)  │
-└──────────────────┘
-```
+#### **1. Authentication & Security** 🔐
+- ✅ JWT-based auth (30-day expiry)
+- ✅ Email validation (@enactus.com)
+- ✅ Password strength requirements
+- ✅ Role-based access control
+- ✅ sessionStorage (auto-clear on logout)
+- ✅ Cache-safe (no stale data)
 
-**Validation Rules:**
-- Email: Must end with `@enactus.com`
-- Password: 8+ chars, uppercase, lowercase, number
-- Error messages: Generic (don't reveal format)
-- JWT Token: 30-day expiry
+#### **2. Task Management** 📋
+- ✅ Create tasks for specific teams
+- ✅ Group tasks by status
+- ✅ Individual submission review
+- ✅ Approve/reject per member
+- ✅ Auto-hour rewards
+- ✅ Resource link attachments
+- ✅ Deadline tracking
+- ✅ Status badges (Pending/Submitted/Completed/Rejected)
 
----
+#### **3. Team Management** 👥
+- ✅ Assign members to teams
+- ✅ Filter tasks by team
+- ✅ Team-specific assignments
+- ✅ Department + Team structure
+- ✅ 3 departments with teams (IT, Multi-Media, Presentation)
 
-### **2. Warning System**
+#### **4. Hour Tracking** ⏰
+- ✅ Auto-add hours on task completion
+- ✅ Points calculation (hours × 10)
+- ✅ Hour log tracking
+- ✅ Manual hour submission
+- ✅ Approval workflow
+- ✅ Department-scoped viewing
 
-```
-Warning Flow:
-┌──────────────────┐
-│ HR Head/Vice/    │
-│ Coordinator      │
-└────────┬─────────┘
-         │
-         ▼
-┌──────────────────┐
-│ Issue Warning    │
-│ (Squad Page)     │
-├──────────────────┤
-│ ⚠️ Icon Click    │
-│ Enter Reason     │
-│ Submit           │
-└────────┬─────────┘
-         │
-         ▼
-┌──────────────────┐
-│ Backend          │
-│ Validation       │
-├──────────────────┤
-│ ✅ HR only       │
-│ ✅ Member target │
-│ ✅ Dept check    │
-└────────┬─────────┘
-         │
-         ▼
-┌──────────────────┐
-│ Save to DB       │
-│ user.warnings[]  │
-├──────────────────┤
-│ {                │
-│   reason,        │
-│   date,          │
-│   issuer         │
-│ }                │
-└────────┬─────────┘
-         │
-         ▼
-┌──────────────────┐
-│ Member Dashboard │
-│ Shows Warnings   │
-├──────────────────┤
-│ ⚠️ Red Section   │
-│ Count Badge      │
-│ Full Details     │
-└──────────────────┘
-```
+#### **5. Notifications** 🔔
+- ✅ Real-time badge count
+- ✅ Pulsing animation for new tasks
+- ✅ Welcome toast for assignments
+- ✅ Auto-refresh (30sec polling)
+- ✅ Instant update on submission
+- ✅ Styled error messages
 
-**Warning Display (Member Dashboard):**
-```
-┌──────────────────────────────────────────┐
-│  ⚠️ WARNINGS RECEIVED [2]                 │
-├──────────────────────────────────────────┤
-│  ┌────────────────────────────────────┐  │
-│  │ WARNING #2      Dec 17, 2025      │  │
-│  │ Missed deadline without notice    │  │
-│  │ Issued by: Mariam Abdelhafiz      │  │
-│  └────────────────────────────────────┘  │
-│  ┌────────────────────────────────────┐  │
-│  │ WARNING #1      Dec 10, 2025      │  │
-│  │ Late task submission              │  │
-│  │ Issued by: HR Team                │  │
-│  └────────────────────────────────────┘  │
-└──────────────────────────────────────────┘
-```
+#### **6. Gamification** 🎮
+- ✅ XP system (based on hours)
+- ✅ Level progression
+- ✅ Leaderboard (members only)
+- ✅ Points tracking
+- ✅ Badges and ranks
 
----
-
-### **3. Task Management System**
-
-See previous README sections (task flow unchanged)...
-
-### **4. Hour Tracking System**
-
-See previous README sections (hour flow unchanged)...
-
-### **5. Gamification System**
-
-See previous README sections (gamification unchanged)...
+#### **7. User Management (HR Only)** 👔
+- ✅ Recruit members with teams
+- ✅ Delete users
+- ✅ Issue warnings
+- ✅ Department-scoped control
+- ✅ Squad roster display
 
 ---
 
 ## 🛠️ TECH STACK
 
 ```
-Frontend Stack:
-┌─────────────────────────────────────┐
-│ Next.js 14 (App Router)             │
-│  ├─ TypeScript                      │
-│  ├─ Tailwind CSS                    │
-│  ├─ shadcn/ui Components            │
-│  ├─ Lucide Icons                    │
-│  ├─ Axios (HTTP Client + JWT)       │
-│  └─ React Hooks (State)             │
-└─────────────────────────────────────┘
+Frontend:
+├─ Next.js 14 (App Router)
+├─ TypeScript
+├─ Tailwind CSS (Pixel art theme)
+├─ shadcn/ui Components
+├─ Lucide Icons
+├─ Axios (HTTP + Cache-busting)
+├─ Custom hooks (useTaskNotifications)
+└─ sessionStorage
 
-Backend Stack:
-┌─────────────────────────────────────┐
-│ Node.js + Express.js                │
-│  ├─ TypeScript                      │
-│  ├─ Mongoose (ODM)                  │
-│  ├─ JWT Authentication (30d)        │
-│  ├─ bcryptjs (Hashing, 10 rounds)   │
-│  ├─ express-validator               │
-│  └─ dotenv (Config)                 │
-└─────────────────────────────────────┘
+Backend:
+├─ Node.js + Express.js
+├─ TypeScript
+├─ MongoDB + Mongoose
+├─ JWT Authentication
+├─ bcryptjs (Password hashing)
+└─ express-validator
 
-Security & Performance:
-┌─────────────────────────────────────┐
-│ helmet (Headers)                    │
-│ xss-clean (XSS Protection)          │
-│ cors (Origin Control)               │
-│ express-rate-limit (100/15min)      │
-│ 5-Layer Cache Prevention            │
-│ Database Indexes (20-50x faster)    │
-│ authorizeHROnly middleware          │
-└─────────────────────────────────────┘
+Security:
+├─ Helmet (Security headers)
+├─ cors (Origin control)
+├─ express-rate-limit
+├─ Cache-Control headers
+├─ force-dynamic rendering
+└─ authorizeHROnly middleware
 ```
 
 ---
 
 ## 🗄️ DATABASE SCHEMA
 
-### **User Model (Members, HR)**
-
+### **User Model (Updated):**
 ```typescript
 interface IUser {
   _id: ObjectId;
   name: string;
-  email: string;                    // Unique, must end with @enactus.com
-  password: string;                 // Bcrypt hashed
-  role: 'Member' | 'HR';
-  title?: string;                   // e.g., "HR Coordinator - IT"
-  department: string;               // IT, HR, PM, PR, FR, etc.
-  hoursApproved: number;            // Total approved hours
-  tasksCompleted: number;           // Completed tasks count
-  points: number;                   // Gamification points (XP)
-  avatar?: string;                  // Base64 or URL
-  warnings?: Warning[];             // ⚠️ Disciplinary warnings
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-interface Warning {
-  reason: string;                   // Why issued
-  date: Date;                       // When issued
-  issuer: string;                   // Who issued (name)
-}
-
-// Indexes:
-- { department: 1, role: 1 }      // Filtered queries
-- { role: 1 }                      // Role filtering
-- { hoursApproved: -1 }            // Leaderboard
-- { email: 1 } unique              // Login
-- { points: -1 }                   // Points ranking
-```
-
-### **HighBoard Model (Leadership)**
-
-```typescript
-interface IHighBoard {
-  _id: ObjectId;
-  name: string;
-  email: string;                    // Unique
+  email: string;
   password: string;
-  role: 'General President' | 'Vice President' | 
-        'Operation Director' | 'Creative Director' | 
-        'Head' | 'Vice Head';
-  title: string;
-  department?: string;              // Department for Heads/Vice Heads
+  role: 'Member' | 'HR';
+  title?: string;
+  department: string;
+  team?: string;              // ← NEW! Sub-team
   hoursApproved: number;
   tasksCompleted: number;
   points: number;
   avatar?: string;
-  createdAt: Date;
-  updatedAt: Date;
+  warnings?: Warning[];
 }
+
+// Indexes:
+{ department: 1, team: 1, role: 1 }  // ← Team-based filtering
+{ email: 1 } unique
+{ hoursApproved: -1 }
+```
+
+### **Task Model (Updated):**
+```typescript
+interface ITask {
+  title: string;
+  description: string;
+  assignedTo: ObjectId;
+  assignedBy: ObjectId;
+  department: string;
+  team?: string;              // ← NEW! Team filtering
+  status: 'Pending' | 'Submitted' | 'Completed' | 'Rejected';
+  scoreValue: number;
+  resourcesLink?: string[];
+  submissionLink?: string[];
+  taskHours?: number;         // Auto-rewarded hours
+  taskGroupId?: string;       // Groups related tasks
+}
+
+// Indexes:
+{ taskGroupId: 1 }
+{ department: 1, team: 1 }
+{ assignedTo: 1, status: 1 }
 ```
 
 ---
 
 ## 🔌 API ENDPOINTS
 
-### **Authentication**
+### **New/Updated Endpoints:**
 
-#### **POST /api/auth/login**
+#### **POST /api/tasks**
 ```json
 Request:
 {
-  "email": "test@enactus.com",     // Must be @enactus.com
-  "password": "Password123"        // 8+ chars, uppercase, lowercase, number
+  "title": "Build Login Page",
+  "description": "Create responsive login",
+  "resourcesLink": ["https://..."],
+  "deadline": "2025-12-25",
+  "taskHours": 10,
+  "team": "Frontend"  // ← NEW! Optional team
 }
 
-Response:
+Response: [
+  {
+    "_id": "...",
+    "assignedTo": "member1_id",
+    "department": "IT",
+    "team": "Frontend",
+    "taskGroupId": "group123"
+  },
+  // ... more assigned tasks
+]
+```
+
+#### **POST /api/users**
+```json
+Request:
 {
-  "_id": "...",
-  "name": "Test User",
-  "email": "test@enactus.com",
-  "role": "Member",
+  "name": "John Doe",
+  "email": "john@enactus.com",
+  "password": "Password123",
   "department": "IT",
-  "points": 0,
-  "hoursApproved": 0,
-  "tasksCompleted": 0,
-  "warnings": [],                  // ⚠️ User warnings
-  "token": "eyJhbGci..."
+  "team": "Frontend"  // ← NEW! Optional team
 }
 ```
 
-#### **GET /api/auth/me**
-Returns current user profile with warnings
-
----
-
-### **User Management (HR ONLY)**
-
-#### **POST /api/users/:id/warning**
-**Authorization:** HR Head, HR Vice Head, HR Coordinators (dept-scoped)
-
-```json
-Request:
-{
-  "reason": "Missed deadline without notice"
-}
-
-Response:
-{
-  "message": "Warning issued successfully",
-  "warnings": [
-    {
-      "reason": "Missed deadline without notice",
-      "date": "2025-12-17T...",
-      "issuer": "Mariam Abdelhafiz"
-    }
-  ]
-}
-```
-
-**Rules:**
-- HR Head/Vice: Can warn HR members only
-- HR Coordinator: Can warn their assigned dept members only
+#### **PUT /api/tasks/:id**
+When status changes to 'Completed':
+- ✅ Auto-adds hours to member
+- ✅ Calculates points (hours × 10)
+- ✅ Creates hour log entry
 
 ---
 
 ## 🔐 SECURITY
 
-### **1. Login Validation**
-
-**Frontend Validation:**
+### **Cache Prevention (5-Layer):**
 ```typescript
-Email Validation:
-✅ Required
-✅ Must end with '@enactus.com'
-❌ Shows generic error: "Invalid email address"
-
-Password Validation:
-✅ Minimum 8 characters
-✅ At least 1 uppercase (A-Z)
-✅ At least 1 lowercase (a-z)
-✅ At least 1 number (0-9)
-❌ Shows specific error messages
+1. force-dynamic export (Next.js)
+2. Cache-Control headers (HTTP)
+3. Pragma: no-cache (HTTP)
+4. Expires: 0 (HTTP)
+5. sessionStorage (Browser)
 ```
 
-**Security Best Practices:**
-- Email error is generic (doesn't reveal @enactus.com requirement)
-- Password hints removed from UI (no format disclosure)
-- Client-side validation prevents unnecessary API calls
-- Backend still validates (defense in depth)
-
----
-
-### **2. HR-Only Authorization**
-
-**Middleware: `authorizeHROnly`**
-```typescript
-export const authorizeHROnly = (req, res, next) => {
-  const user = req.user;
-  
-  const isHRDepartment = user.department === 'HR';
-  const isHRCoordinator = user.role === 'Member' && 
-                          user.department === 'HR' && 
-                          user.title?.startsWith('HR Coordinator');
-  const isHRHead = (user.role === 'Head' || user.role === 'Vice Head') && 
-                    user.department === 'HR';
-  
-  if (isHRDepartment && (isHRHead || isHRCoordinator || user.role === 'HR')) {
-    return next(); // ✅ ALLOWED
-  }
-  
-  return res.status(403).json({ 
-    message: 'Access denied. Only HR department members can perform this action.' 
-  }); // ❌ BLOCKED
-};
+### **Authorization Layers:**
 ```
-
-**Routes Protected:**
-- `POST /api/users` (Create user)
-- `DELETE /api/users/:id` (Delete user)
-- `POST /api/users/:id/warning` (Issue warning)
-
----
-
-### **3. Two-Layer Authorization**
-
-```
-Request → Route Middleware → Controller Logic → Database
-
-Layer 1: authorizeHROnly
-├─ Checks: Is user in HR department?
-├─ Checks: Is user Head/Vice/Coordinator?
-└─ Blocks: IT Head, PM Head, General President
-
-Layer 2: Controller Business Logic
-├─ HR Head: Can warn HR members only
-├─ HR Coordinator: Can warn assigned dept only
-└─ IT Head: No warning power (blocked at Layer 1)
+Request
+  ↓
+JWT Verification (protect middleware)
+  ↓
+Role Check (authorize/authorizeHROnly)
+  ↓
+Controller Logic (department/team scoping)
+  ↓
+Database Query
 ```
 
 ---
 
 ## 📦 INSTALLATION
 
-### **Prerequisites:**
-- Node.js >= 18.x
-- MongoDB >= 6.x
-- npm or yarn
+### **Quick Start:**
 
-### **1. Clone Repository:**
 ```bash
+# 1. Clone
 git clone https://github.com/HazemAlMili/enactus-portal.git
 cd enactus-portal
-```
 
-### **2. Install Dependencies:**
-
-**Backend:**
-```bash
+# 2. Backend
 cd server
 npm install
-```
+cp .env.example .env  # Configure MongoDB URI
+npm run dev
 
-**Frontend:**
-```bash
+# 3. Frontend (new terminal)
 cd client
 npm install
+npm run dev
+
+# 4. Access
+# Frontend: http://localhost:3000
+# Backend: http://localhost:5000/api
 ```
 
-### **3. Environment Variables:**
+### **Environment Variables:**
 
-**Backend** (`server/.env`):
+**server/.env:**
 ```env
-# Database
 MONGO_URI=mongodb://localhost:27017/enactus_portal
-
-# JWT
-JWT_SECRET=your-super-secret-jwt-key-change-in-production
-
-# Server
+JWT_SECRET=your-secret-key
 PORT=5000
-NODE_ENV=development
 ```
 
-**Frontend** (`client/.env.local`):
+**client/.env.local:**
 ```env
 NEXT_PUBLIC_API_URL=http://localhost:5000/api
 ```
-
-### **4. Run Development Servers:**
-
-**Backend:**
-```bash
-cd server
-npm run dev
-```
-
-**Frontend:**
-```bash
-cd client
-npm run dev
-```
-
-### **5. Access:**
-- Frontend: http://localhost:3000
-- Backend API: http://localhost:5000/api
-
----
-
-## 🚀 DEPLOYMENT
-
-See `.agent/production-deployment-guide.md` for production deployment instructions.
 
 ---
 
 ## 📝 CHANGELOG
 
+### **Version 4.0.0** (December 18, 2025)
+
+**🆕 Major Features:**
+- ✅ Team management system (3 departments, 6 teams)
+- ✅ Real-time notification badges
+- ✅ Auto-hour rewards on task completion
+- ✅ Enhanced task grouping by status
+- ✅ Styled notification system
+- ✅ Cache-safe architecture (force-dynamic)
+
+**🔧 Improvements:**
+- ✅ Team filtering in task creation
+- ✅ Team assignment in recruitment
+- ✅ Separate cards per task status
+- ✅ Individual submission review
+- ✅ Vertical approve/reject buttons
+- ✅ Grid layout for submissions
+- ✅ Hour log tracking for tasks
+
+**🐛 Bug Fixes:**
+- ✅ Task grouping conflicts resolved
+- ✅ Cache issues eliminated
+- ✅ Notification timing optimized
+- ✅ Browser alert replaced with styled notifications
+
+---
+
 ### **Version 3.0.0** (December 17, 2025)
-
-**Major Features:**
-- ✅ HR-only member management (delete, recruit, warn)
-- ✅ Vice Head = Head permissions (complete parity)
-- ✅ HR Coordinator department-scoped management
-- ✅ Warning system with dashboard display
-- ✅ Login validation (@enactus.com + password strength)
-- ✅ "Responsible For" column in Squad page
-- ✅ Generic security error messages
-
-**Security Enhancements:**
-- ✅ `authorizeHROnly` middleware
-- ✅ Two-layer authorization (route + controller)
-- ✅ Email domain validation (silent check)
-- ✅ Password strength requirements
-- ✅ JWT authentication with 30-day expiry
-
-**Bug Fixes:**
-- ✅ Warnings now returned in API responses
-- ✅ HR Coordinator hours visibility fixed
-- ✅ Route authorization includes Vice Heads
-- ✅ Missing `next()` call in authorize middleware
+- ✅ HR-only member management
+- ✅ Vice Head = Head permissions
+- ✅ Warning system
+- ✅ Login validation enhancements
 
 ---
 
@@ -768,10 +654,16 @@ MIT License - See LICENSE file for details
 ## 👥 CONTRIBUTORS
 
 - **Hazem Mahmoud** - IT Head & Lead Developer
-- **Enactus Team** - Requirements & Testing
+- **Enactus CIC Zayed Team** - Requirements & Testing
 
 ---
 
-**Built with ❤️ for Enactus CIC Zayed**
+## 🎯 Built with ❤️ for Enactus CIC Zayed
+
+**Developer:** Hazem Mahmoud  
+**Position:** Head of IT Department S'2026  
+**Contact:** [GitHub](https://github.com/HazemAlMili), [Linkedin](https://www.linkedin.com/in/hazem-al-melli)
+
 ---
-**Built BY Hazem Mahmoud ==> Head Of IT department s'2026**
+
+**⭐ If you find this project useful, please give it a star!**
