@@ -19,7 +19,7 @@ const users: SeedUserConfig[] = [
     // LEADERSHIP (Board) mapped to 'General President' role for full access
     { name: 'Aiam Hatem', email: 'aiam.hatem@enactus.com', role: 'General President', title: 'General President & PM Head', dept: 'PM' },
     { name: 'Jana Mostafa', email: 'jana.mostafa@enactus.com', role: 'Vice President', title: 'Vice President', dept: 'General' },
-    { name: 'Saif Ahmed', email: 'saif.ahmed@enactus.com', role: 'Vice President', title: 'Vice President', dept: 'General' },
+    { name: 'Saif Ahmed', email: 'sief.ahmed@enactus.com', role: 'Vice President', title: 'Vice President', dept: 'General' },
     { name: 'Maram Ashraf', email: 'maram.ashraf@enactus.com', role: 'Operation Director', title: 'Operation Director', dept: 'General' },
     { name: 'Habiba Alsayed', email: 'habiba.alsayed@enactus.com', role: 'Creative Director', title: 'Creative Director', dept: 'General' },
     
