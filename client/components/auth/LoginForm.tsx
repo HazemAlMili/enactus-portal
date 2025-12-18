@@ -4,6 +4,7 @@
 import { useState } from 'react';
 import api from '@/lib/api';
 import { useRouter } from 'next/navigation';
+import { playClick, playSuccess, playError } from '@/lib/sounds';
 // Import UI components
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -18,6 +19,7 @@ export default function LoginForm() {
   const [error, setError] = useState('');
   const [emailError, setEmailError] = useState('');
   const [passwordError, setPasswordError] = useState('');
+  const [isLoading, setIsLoading] = useState(false); // ← NEW: Loading state
   const router = useRouter();
 
   // Validate email domain
@@ -65,6 +67,9 @@ export default function LoginForm() {
       return; // Stop if validation fails
     }
     
+    playClick(); // 🔊 Play click sound
+    setIsLoading(true); // ← Start loading
+    
     try {
       // POST request to login endpoint
       const { data } = await api.post('/auth/login', { email, password });
@@ -73,11 +78,15 @@ export default function LoginForm() {
       sessionStorage.setItem('token', data.token);
       sessionStorage.setItem('user', JSON.stringify(data));
       
+      playSuccess(); // 🔊 Play success sound
+      
       // Redirect to dashboard
       router.push('/dashboard');
     } catch (err: any) {
       // Set error message from response or generic default
+      playError(); // ❌ Invalid credentials buzz
       setError(err.response?.data?.message || 'Login failed');
+      setIsLoading(false); // ← Stop loading on error
     }
   };
 
@@ -150,9 +159,29 @@ export default function LoginForm() {
             {/* Submit Button */}
             <Button 
               type="submit" 
-              className="w-full bg-secondary text-secondary-foreground hover:bg-yellow-500 pixel-corners pixel-font mt-4 text-sm font-bold tracking-widest"
+              disabled={isLoading}
+              className="w-full bg-secondary text-secondary-foreground hover:bg-yellow-500 pixel-corners pixel-font mt-4 text-sm font-bold tracking-widest disabled:opacity-70 disabled:cursor-not-allowed transition-all relative overflow-hidden"
             >
-              START GAME
+              {isLoading ? (
+                <span className="flex items-center justify-center gap-2">
+                  <span className="text-xs">Deploying mission</span>
+                  <span className="flex gap-0.5">
+                    <span className="inline-block text-xs animate-bounce" style={{ animationDelay: '0ms' }}>█</span>
+                    <span className="inline-block text-xs animate-bounce" style={{ animationDelay: '150ms' }}>█</span>
+                    <span className="inline-block text-xs animate-bounce" style={{ animationDelay: '300ms' }}>█</span>
+                  </span>
+                </span>
+              ) : (
+                <span className="flex items-center justify-center gap-2">
+                  <span>▶</span>
+                  <span>START GAME</span>
+                </span>
+              )}
+              
+              {/* Pixel Loading Bar Effect */}
+              {isLoading && (
+                <span className="absolute bottom-0 left-0 h-1 bg-yellow-400 animate-pixel-load" />
+              )}
             </Button>
           </form>
         </CardContent>

@@ -12,6 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { CheckCircle2, XCircle, Clock, AlertCircle, Link as LinkIcon, Upload } from 'lucide-react';
 import { useTaskNotifications } from '@/hooks/useTaskNotifications';
 import { useNotification } from '@/components/ui/notification';
+import { playClick, playSuccess, playError, playWin } from '@/lib/sounds';
 
 // Force dynamic rendering - disable Next.js caching
 export const dynamic = 'force-dynamic';
@@ -75,6 +76,7 @@ export default function TasksPage() {
         taskHours: taskHours ? Number(taskHours) : 0, // Hours auto-awarded on completion
         team: team || undefined // Send team if selected
       });
+      playWin(); // 🏆 Task deployed!
       // Reset form
       setTitle('');
       setDescription('');
@@ -86,6 +88,7 @@ export default function TasksPage() {
       fetchTasks();
     } catch (err: any) { 
         console.error(err);
+        playError(); // ❌ Error buzz
         const msg = err.response?.data?.message || 'Failed to deploy mission.';
         showNotification(`❌ MISSION FAILED: ${msg}`, 'error');
     } finally {
@@ -132,6 +135,16 @@ export default function TasksPage() {
         status, 
         submissionLink: filteredLinks.length > 0 ? filteredLinks : undefined 
       });
+      
+      // 🔊 Play sound based on status
+      if (status === 'Submitted') {
+        playClick(); // 📤 Task submitted
+      } else if (status === 'Completed') {
+        playSuccess(); // ✅ Task approved
+      } else if (status === 'Rejected') {
+        playError(); // ❌ Task rejected
+      }
+      
       setIsDialogOpen(false); // Close dialog on success
       setSubmissionLinks(['']); // Reset to one empty field
       fetchTasks();

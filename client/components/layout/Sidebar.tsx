@@ -10,6 +10,8 @@ import { Button } from '@/components/ui/button';
 import { LayoutDashboard, Clock, CheckSquare, Trophy, Users, LogOut, Building, User, Bell } from 'lucide-react';
 // Import task notifications hook
 import { useTaskNotifications } from '@/hooks/useTaskNotifications';
+// Import sound effects
+import { playClick, playLoss } from '@/lib/sounds';
 
 // Define Sidebar Component
 export function Sidebar({ user, className }: { user: any, className?: string }) {
@@ -74,6 +76,7 @@ export function Sidebar({ user, className }: { user: any, className?: string }) 
             <Link key={link.href} href={link.href}>
               <Button
                 variant="ghost"
+                onClick={playClick} // 🔊 Click sound
                 className={cn(
                   "w-full justify-start text-lg mb-2 relative",
                   // Conditional styling based on active state
@@ -106,7 +109,10 @@ export function Sidebar({ user, className }: { user: any, className?: string }) 
       
       {/* Footer / Logout Section */}
       <div className="p-4">
-        <Button variant="destructive" className="w-full" onClick={handleLogout}>
+        <Button variant="destructive" className="w-full" onClick={() => {
+          playLoss(); // � Game over sound
+          handleLogout();
+        }}>
           <LogOut className="mr-2 h-4 w-4" />
           Logout
         </Button>

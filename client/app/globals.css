@@ -85,6 +85,20 @@
   }
 }
 
+@keyframes pixelLoad {
+  0% {
+    width: 0%;
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    width: 100%;
+    opacity: 0.5;
+  }
+}
+
 @layer utilities {
   .pixel-corners {
     clip-path: polygon(0px 4px, 4px 4px, 4px 0px,
@@ -95,6 +109,10 @@
 
   .animate-scanline {
     animation: scanline 3s linear infinite;
+  }
+  
+  .animate-pixel-load {
+    animation: pixelLoad 2s ease-in-out infinite;
   }
 }
 
