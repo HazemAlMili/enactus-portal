@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useNotification } from '@/components/ui/notification';
+import { useTaskNotifications } from '@/hooks/useTaskNotifications';
 
 // Force dynamic rendering - disable Next.js caching
 export const dynamic = 'force-dynamic';
@@ -31,16 +33,18 @@ interface User {
 export default function Dashboard() {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
+  const { showNotification } = useNotification();
+  const { newTasksCount, pendingTasksCount } = useTaskNotifications();
 
   // Effect to protect the route and load user data
   useEffect(() => {
-    const storedUser = localStorage.getItem('user');
+    const storedUser = sessionStorage.getItem('user');
     if (!storedUser) {
       router.push('/');
       return;
     }
     
-    // Set initial user from local storage to avoid flashing
+    // Set initial user from session storage to avoid flashing
     setUser(JSON.parse(storedUser));
 
     // Fetch fresh user data with cache-busting
@@ -50,8 +54,8 @@ export default function Dashboard() {
         console.log('📊 Fetched user data:', data);
         console.log('⚠️ Warnings:', data.warnings);
         setUser(data);
-        // Optionally update local storage
-        localStorage.setItem('user', JSON.stringify(data));
+        // Optionally update session storage
+        sessionStorage.setItem('user', JSON.stringify(data));
       } catch (error) {
         console.error("❌ Failed to fetch fresh user data:", error);
         // If auth fails, maybe redirect? For now, keep local version or let interceptors handle it
@@ -60,6 +64,30 @@ export default function Dashboard() {
 
     fetchUserData();
   }, [router]);
+
+  // Show new task notification for members
+  useEffect(() => {
+    if (user && user.role === 'Member') {
+      // Check if we should show notification (only once per session)
+      const hasShownNotification = sessionStorage.getItem('taskNotificationShown');
+      
+      if (!hasShownNotification && newTasksCount > 0) {
+        showNotification(
+          `🎯 You have ${newTasksCount} new mission${newTasksCount > 1 ? 's' : ''} waiting! Check the Tasks page.`,
+          'info',
+          8000
+        );
+        sessionStorage.setItem('taskNotificationShown', 'true');
+      } else if (!hasShownNotification && pendingTasksCount > 0) {
+        showNotification(
+          `📋 You have ${pendingTasksCount} pending mission${pendingTasksCount > 1 ? 's' : ''} to complete.`,
+          'warning',
+          6000
+        );
+        sessionStorage.setItem('taskNotificationShown', 'true');
+      }
+    }
+  }, [user, newTasksCount, pendingTasksCount, showNotification]);
 
   // Show loading state while checking user
   if (!user) return <div className="text-white">Loading...</div>;
@@ -94,9 +122,11 @@ export default function Dashboard() {
           variant="destructive" 
           className="pixel-corners"
           onClick={() => {
-            localStorage.removeItem('token');
-            localStorage.removeItem('user');
-            router.push('/');
+            sessionStorage.removeItem('token');
+            sessionStorage.removeItem('user');
+            sessionStorage.removeItem('lastTaskCheck');
+            sessionStorage.removeItem('taskNotificationShown');
+            router.replace('/');
           }}
         >
           LOGOUT (QUIT)

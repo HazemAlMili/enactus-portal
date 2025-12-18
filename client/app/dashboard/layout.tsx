@@ -25,8 +25,8 @@ export default function DashboardLayout({
 
   // Effect to check authentication status on component mount
   useEffect(() => {
-    // specific logic: retrive user from local storage
-    const storedUser = localStorage.getItem('user');
+    // specific logic: retrive user from session storage
+    const storedUser = sessionStorage.getItem('user');
     
     // If no user is found, redirect to login page (Root '/')
     if (!storedUser) {

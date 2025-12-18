@@ -31,9 +31,9 @@ export default function ProfilePage() {
   useEffect(() => {
     const fetchProfile = async () => {
       try {
-        const token = localStorage.getItem('token');
+        const token = sessionStorage.getItem('token');
         if (!token) {
-          console.log('⚠️ No token found in localStorage');
+          console.log('⚠️ No token found in sessionStorage');
           setLoading(false);
           return;
         }
@@ -74,10 +74,10 @@ export default function ProfilePage() {
         
         setProfile(res.data);
         
-        // Update localStorage with new avatar
-        const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
+        // Update sessionStorage with new avatar
+        const storedUser = JSON.parse(sessionStorage.getItem('user') || '{}');
         storedUser.avatar = res.data.avatar;
-        localStorage.setItem('user', JSON.stringify(storedUser));
+        sessionStorage.setItem('user', JSON.stringify(storedUser));
         
         alert('Avatar updated successfully!');
       } catch (err: any) {

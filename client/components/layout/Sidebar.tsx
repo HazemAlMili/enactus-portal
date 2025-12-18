@@ -7,18 +7,23 @@ import { usePathname, useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 // Import UI components and icons
 import { Button } from '@/components/ui/button';
-import { LayoutDashboard, Clock, CheckSquare, Trophy, Users, LogOut, Building, User } from 'lucide-react';
+import { LayoutDashboard, Clock, CheckSquare, Trophy, Users, LogOut, Building, User, Bell } from 'lucide-react';
+// Import task notifications hook
+import { useTaskNotifications } from '@/hooks/useTaskNotifications';
 
 // Define Sidebar Component
 export function Sidebar({ user, className }: { user: any, className?: string }) {
   // Get current path... (hooks)
   const pathname = usePathname();
   const router = useRouter();
+  
+  // Get task notifications for members
+  const { pendingTasksCount, hasNewTasks } = useTaskNotifications();
 
   // Define static navigation links
   const links = [
     { href: '/dashboard', label: 'Overview', icon: LayoutDashboard },
-    { href: '/dashboard/tasks', label: 'Tasks', icon: CheckSquare },
+    { href: '/dashboard/tasks', label: 'Tasks', icon: CheckSquare, showBadge: true },
     { href: '/dashboard/profile', label: 'Identity', icon: User },
   ];
 
@@ -37,11 +42,16 @@ export function Sidebar({ user, className }: { user: any, className?: string }) 
   // Handle Logout Logic
   const handleLogout = () => {
     // Clear session storage
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    // Redirect to landing page
-    router.push('/');
+    sessionStorage.removeItem('token');
+    sessionStorage.removeItem('user');
+    sessionStorage.removeItem('lastTaskCheck'); // Also clear task check timestamp
+    sessionStorage.removeItem('taskNotificationShown'); // Clear notification flag
+    // Replace history entry (prevents back/forward navigation to dashboard)
+    router.replace('/');
   };
+
+  // Check if user is a member (for showing task badge)
+  const isMember = user?.role === 'Member';
 
   return (
     // Fixed width side navigation container
@@ -57,12 +67,15 @@ export function Sidebar({ user, className }: { user: any, className?: string }) 
       <nav className="flex-1 p-4 space-y-2">
         {links.map((link) => {
           const Icon = link.icon;
+          const showNotification = link.showBadge && isMember && pendingTasksCount > 0;
+          const isNew = link.showBadge && isMember && hasNewTasks;
+          
           return (
             <Link key={link.href} href={link.href}>
               <Button
                 variant="ghost"
                 className={cn(
-                  "w-full justify-start text-lg mb-2",
+                  "w-full justify-start text-lg mb-2 relative",
                   // Conditional styling based on active state
                   pathname === link.href 
                     ? "bg-primary/20 text-accent hover:bg-primary/30" 
@@ -71,6 +84,20 @@ export function Sidebar({ user, className }: { user: any, className?: string }) 
               >
                 <Icon className="mr-2 h-5 w-5" />
                 {link.label}
+                
+                {/* Notification Badge */}
+                {showNotification && (
+                  <span 
+                    className={cn(
+                      "absolute right-2 top-1/2 -translate-y-1/2 pixel-corners text-[10px] font-bold px-1.5 py-0.5 min-w-[20px] text-center",
+                      isNew 
+                        ? "bg-red-500 text-white animate-pulse shadow-[0_0_10px_rgba(239,68,68,0.6)]"
+                        : "bg-yellow-500 text-black"
+                    )}
+                  >
+                    {pendingTasksCount}
+                  </span>
+                )}
               </Button>
             </Link>
           );

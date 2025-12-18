@@ -17,7 +17,7 @@ export default function LeaderboardPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const userStr = localStorage.getItem('user');
+    const userStr = sessionStorage.getItem('user');
     if (userStr) {
        const user = JSON.parse(userStr);
        // Allow Heads, Vice Heads, HR, GP, VP, Directors

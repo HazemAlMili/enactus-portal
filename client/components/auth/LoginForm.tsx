@@ -69,9 +69,9 @@ export default function LoginForm() {
       // POST request to login endpoint
       const { data } = await api.post('/auth/login', { email, password });
       
-      // Store token and user data in local storage
-      localStorage.setItem('token', data.token);
-      localStorage.setItem('user', JSON.stringify(data));
+      // Store token and user data in session storage (cleared on browser close)
+      sessionStorage.setItem('token', data.token);
+      sessionStorage.setItem('user', JSON.stringify(data));
       
       // Redirect to dashboard
       router.push('/dashboard');

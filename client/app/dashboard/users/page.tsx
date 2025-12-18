@@ -39,6 +39,7 @@ export default function UsersPage() {
     password: '',
     role: 'Member',
     department: 'IT',
+    team: '', // Team within department
     hrResponsibility: '', // New field for HR Head
     title: '' // New field for Title
   });
@@ -46,7 +47,7 @@ export default function UsersPage() {
   // Function to fetch all users from the backend
   const fetchUsers = async () => {
     try {
-      const token = localStorage.getItem('token');
+      const token = sessionStorage.getItem('token');
       // GET /users
       const { data } = await api.get('/users');
       setUsers(data);
@@ -95,6 +96,7 @@ export default function UsersPage() {
              password: '',
              role: 'Member', 
              department: defaultDept,
+             team: '',
              hrResponsibility: '',
              title: ''
          });
@@ -125,7 +127,7 @@ export default function UsersPage() {
   // Handler for creating a new user
   const handleCreate = async () => {
     try {
-      const token = localStorage.getItem('token');
+      const token = sessionStorage.getItem('token');
       // POST to /users with form data
       let payload = { ...formData };
       
@@ -158,7 +160,7 @@ export default function UsersPage() {
   const confirmDelete = async () => {
     if (!deleteId) return;
     try {
-      const token = localStorage.getItem('token');
+      const token = sessionStorage.getItem('token');
       await api.delete(`/users/${deleteId}`);
       fetchUsers();
       setDeleteId(null);
@@ -261,6 +263,37 @@ export default function UsersPage() {
                     <p className="text-[10px] text-gray-500 font-mono mt-1">HR HEADS/VICE HEADS RECRUIT FOR HR ONLY</p>
                 )}
               </div>
+
+               {/* Team Selection - Only for IT, Multi-Media, and Presentation */}
+               {(formData.department === 'IT' || formData.department === 'Multi-Media' || formData.department === 'Presentation') && (
+                 <div className="space-y-2 animate-in fade-in slide-in-from-top-2">
+                   <Label className="pixel-font text-xs text-purple-400">TEAM (OPTIONAL)</Label>
+                   <Select onValueChange={v => setFormData({...formData, team: v})} value={formData.team}>
+                     <SelectTrigger className="pixel-corners border-purple-500 bg-background/50"><SelectValue placeholder="No Team" /></SelectTrigger>
+                     <SelectContent className="pixel-corners border-purple-500 bg-card">
+                       {formData.department === 'IT' && (
+                         <>
+                           <SelectItem value="Frontend">Frontend</SelectItem>
+                           <SelectItem value="UI/UX">UI/UX</SelectItem>
+                         </>
+                       )}
+                       {formData.department === 'Multi-Media' && (
+                         <>
+                           <SelectItem value="Graphics">Graphics</SelectItem>
+                           <SelectItem value="Photography">Photography</SelectItem>
+                         </>
+                       )}
+                       {formData.department === 'Presentation' && (
+                         <>
+                           <SelectItem value="Presentation">Presentation</SelectItem>
+                           <SelectItem value="Script Writing">Script Writing</SelectItem>
+                         </>
+                       )}
+                     </SelectContent>
+                   </Select>
+                   <p className="text-[10px] text-gray-400 font-mono">* Assign member to a specific team within the department.</p>
+                 </div>
+               )}
 
                {/* SPECIAL HR HEAD DROPDOWN: Coordinator Responsibility */}
                {/* 
@@ -366,8 +399,7 @@ export default function UsersPage() {
                   <TableHead className="text-primary pixel-font text-xs">RESPONSIBLE FOR</TableHead>
                 )}
                 <TableHead className="text-primary pixel-font text-xs">GUILD</TableHead>
-                <TableHead className="text-primary pixel-font text-xs">XP</TableHead>
-                <TableHead className="text-gray-400"></TableHead>
+                <TableHead className="text-primary pixel-font text-xs">HOURS</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -389,7 +421,7 @@ export default function UsersPage() {
                     </TableCell>
                   )}
                   <TableCell><Badge variant="outline" className="pixel-corners border-accent text-accent">{u.department}</Badge></TableCell>
-                  <TableCell className="text-secondary pixel-font">{u.points} XP</TableCell>
+                  <TableCell className="text-white pixel-font">{u.hoursApproved || 0} HRS</TableCell>
                   <TableCell className="text-right flex items-center justify-end gap-2">
                     {/* Warning Button - HR department only */}
                     {/* HR Head/Vice Head: Can only warn HR members */}

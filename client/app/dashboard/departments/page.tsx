@@ -8,6 +8,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 
 import LoadingSpinner from '@/components/ui/loading-spinner';
 
+// Force dynamic rendering - disable Next.js caching
+export const dynamic = 'force-dynamic';
+
 interface User {
   _id: string;
   name: string;
@@ -24,7 +27,7 @@ export default function DepartmentsPage() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const storedUser = localStorage.getItem('user');
+    const storedUser = sessionStorage.getItem('user');
     if (storedUser) {
         const u = JSON.parse(storedUser);
         setUser(u);

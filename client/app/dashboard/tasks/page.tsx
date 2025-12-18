@@ -10,6 +10,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { CheckCircle2, XCircle, Clock, AlertCircle, Link as LinkIcon, Upload } from 'lucide-react';
+import { useTaskNotifications } from '@/hooks/useTaskNotifications';
+import { useNotification } from '@/components/ui/notification';
 
 // Force dynamic rendering - disable Next.js caching
 export const dynamic = 'force-dynamic';
@@ -18,12 +20,19 @@ export default function TasksPage() {
   const [tasks, setTasks] = useState<any[]>([]);
   const [user, setUser] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
+  
+  // Get notification refresh function
+  const { refresh: refreshNotifications } = useTaskNotifications();
+  const { showNotification } = useNotification();
+
 
   // Create Task State
+  const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [resourceLinks, setResourceLinks] = useState<string[]>(['']); // Multiple resource links
   const [deadline, setDeadline] = useState('');
   const [taskHours, setTaskHours] = useState(''); // Hours awarded on completion
+  const [team, setTeam] = useState(''); // Selected team for task assignment
   const [isCreating, setIsCreating] = useState(false);
 
   // Selected Task for Details
@@ -34,7 +43,7 @@ export default function TasksPage() {
   const [submissionLinks, setSubmissionLinks] = useState<string[]>(['']);
   
   useEffect(() => {
-    const u = JSON.parse(localStorage.getItem('user') || '{}');
+    const u = JSON.parse(sessionStorage.getItem('user') || '{}');
     setUser(u);
     fetchTasks();
   }, []);
@@ -58,24 +67,27 @@ export default function TasksPage() {
       // Filter out empty links
       const filteredLinks = resourceLinks.filter(link => link.trim() !== '');
       
-      // Backend auto-generates title or uses default
       await api.post('/tasks', { 
+        title,
         description, 
         resourcesLink: filteredLinks, // Send array of links
         deadline: deadline ? new Date(deadline) : undefined,
-        taskHours: taskHours ? Number(taskHours) : 0 // Hours auto-awarded on completion
+        taskHours: taskHours ? Number(taskHours) : 0, // Hours auto-awarded on completion
+        team: team || undefined // Send team if selected
       });
       // Reset form
+      setTitle('');
       setDescription('');
       setResourceLinks(['']); // Reset to one empty field
       setDeadline('');
       setTaskHours(''); // Reset hours
+      setTeam(''); // Reset team
       // Refresh list
       fetchTasks();
     } catch (err: any) { 
         console.error(err);
         const msg = err.response?.data?.message || 'Failed to deploy mission.';
-        alert(`MISSION FAILED: ${msg}`);
+        showNotification(`❌ MISSION FAILED: ${msg}`, 'error');
     } finally {
         setIsCreating(false);
     }
@@ -123,6 +135,12 @@ export default function TasksPage() {
       setIsDialogOpen(false); // Close dialog on success
       setSubmissionLinks(['']); // Reset to one empty field
       fetchTasks();
+      
+      // Refresh notification badge immediately
+      if (status === 'Submitted') {
+        console.log('🔔 Task submitted! Refreshing notification badge...');
+        await refreshNotifications();
+      }
     } catch (error) { console.error(error); }
   };
 
@@ -179,16 +197,59 @@ export default function TasksPage() {
       }
   }, []); // No dependencies - never changes
 
-  // UPDATED LOGIC: Show ALL tasks individually - no grouping
-  // Members need to see their own tasks
-  // Heads need to see ALL individual submissions from each member
+  // UPDATED LOGIC: 
+  // - Members: Show individual tasks assigned to them
+  // - Heads: Group tasks by taskGroupId AND status to show separate cards per status
   const processedTasks = useMemo(() => {
       if (!user) return [];
 
+      // For Heads/Directors: Group by taskGroupId AND status
+      if (isHeadView) {
+        const grouped = new Map();
+        
+        tasks.forEach(task => {
+          // Create unique key combining groupId and status
+          // This creates separate cards for different statuses
+          const groupId = task.taskGroupId || task._id;
+          const groupKey = `${groupId}-${task.status}`; // KEY CHANGE: Group by status too!
+          
+          if (!grouped.has(groupKey)) {
+            // First task in this status group
+            grouped.set(groupKey, {
+              ...task,
+              assignedToList: [task.assignedTo], // Store all assigned members with this status
+              individualTasks: [task], // Store all individual tasks with this status
+              taskGroupId: groupId, // Keep original group ID
+              statusCounts: {
+                [task.status]: 1,
+                Submitted: task.status === 'Submitted' ? 1 : 0,
+                Completed: task.status === 'Completed' ? 1 : 0,
+                Rejected: task.status === 'Rejected' ? 1 : 0,
+                Pending: task.status === 'Pending' ? 1 : 0
+              }
+            });
+          } else {
+            // Add this member to the existing status group
+            const existing = grouped.get(groupKey);
+            existing.assignedToList.push(task.assignedTo);
+            existing.individualTasks.push(task);
+            existing.statusCounts[task.status]++;
+          }
+        });
+        
+        // Return all groups sorted by status priority
+        return Array.from(grouped.values()).sort((a, b) => {
+          // Prioritize: Submitted > Pending > Rejected > Completed
+          const priority: any = { Submitted: 1, Pending: 2, Rejected: 3, Completed: 4 };
+          return priority[a.status] - priority[b.status];
+        });
+      }
+
+      // For Members: Show individual tasks
       const myWork = tasks.filter(t => t.assignedTo?._id === user._id);
       const othersWork = tasks.filter(t => t.assignedTo?._id !== user._id);
 
-      // NO GROUPING - Show each task individually so members can all submit
+      // NO GROUPING for members - Show each task individually
       // Sort: My Work first, then others by status priority
       return [
           ...myWork,
@@ -198,7 +259,7 @@ export default function TasksPage() {
               return priority[a.status] - priority[b.status];
           })
       ];
-  }, [tasks, user]);
+  }, [tasks, user, isHeadView]);
 
   // Helper to check overdue
   const isOverdue = (t: any) => t.deadline && new Date() > new Date(t.deadline) && ['Pending', 'Rejected'].includes(t.status);
@@ -250,6 +311,22 @@ export default function TasksPage() {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleCreateTask} className="space-y-6">
+               {/* Row 0: Title */}
+               <div className="space-y-2">
+                 <Label htmlFor="title" className="pixel-font text-xs text-secondary flex items-center gap-2">
+                    <span className="w-2 h-2 bg-secondary inline-block"></span>
+                    MISSION TITLE
+                 </Label>
+                 <Input 
+                   id="title"
+                   value={title}
+                   onChange={(e: React.ChangeEvent<HTMLInputElement>) => setTitle(e.target.value)}
+                   placeholder="Enter mission title..."
+                   className="bg-black/20 border-secondary/30 focus:border-secondary pixel-corners text-sm font-mono tracking-wide"
+                   required
+                 />
+               </div>
+
                {/* Row 1: Description */}
                <div className="space-y-2">
                  <Label htmlFor="desc" className="pixel-font text-xs text-primary flex items-center gap-2">
@@ -331,6 +408,41 @@ export default function TasksPage() {
                           className="bg-black/20 border-accent/30 focus:border-accent pixel-corners font-mono text-xs h-9"
                         />
                       </div>
+
+                      {/* Team Selection - Only for IT, Multi-Media, and Presentation */}
+                      {user && (user.department === 'IT' || user.department === 'Multi-Media' || user.department === 'Presentation') && (
+                        <div className="space-y-1.5 w-40">
+                          <Label htmlFor="team" className="pixel-font text-[10px] text-purple-400 flex items-center gap-1.5">
+                             👥 TEAM
+                          </Label>
+                          <select
+                            id="team"
+                            value={team}
+                            onChange={e => setTeam(e.target.value)}
+                            className="w-full bg-black/40 border border-purple-500/30 focus:border-purple-500 hover:border-purple-400 pixel-corners font-mono text-xs h-9 text-white px-2 cursor-pointer transition-colors outline-none [&>option]:bg-card [&>option]:text-white"
+                          >
+                            <option value="">All Teams</option>
+                            {user.department === 'IT' && (
+                              <>
+                                <option value="Frontend">Frontend</option>
+                                <option value="UI/UX">UI/UX</option>
+                              </>
+                            )}
+                            {user.department === 'Multi-Media' && (
+                              <>
+                                <option value="Graphics">Graphics</option>
+                                <option value="Photography">Photography</option>
+                              </>
+                            )}
+                            {user.department === 'Presentation' && (
+                              <>
+                                <option value="Presentation">Presentation</option>
+                                <option value="Script Writing">Script Writing</option>
+                              </>
+                            )}
+                          </select>
+                        </div>
+                      )}
                     </div>
                    
                    <Button 
@@ -474,7 +586,14 @@ const TaskItem = ({ task, canCreate, isHeadView, isStrictMember, getStatusColor,
                         <div className="mt-2 flex items-center gap-2">
                             <div className="px-2 py-1 bg-yellow-500/20 border border-yellow-500/50 pixel-corners flex items-center gap-1.5">
                                 <span className="text-yellow-500 pixel-font text-[10px] font-bold tracking-wider">SUBMITTED BY:</span>
-                                <span className="text-yellow-300 pixel-font text-[10px] font-bold">{task.assignedTo?.name}</span>
+                                <span className="text-yellow-300 pixel-font text-[10px] font-bold">
+                                  {task.individualTasks 
+                                    ? task.individualTasks
+                                        .filter((t: any) => t.status === 'Submitted')
+                                        .map((t: any) => t.assignedTo?.name)
+                                        .join(', ')
+                                    : task.assignedTo?.name}
+                                </span>
                             </div>
                         </div>
                     )}
@@ -484,7 +603,23 @@ const TaskItem = ({ task, canCreate, isHeadView, isStrictMember, getStatusColor,
                         <div className="mt-2 flex items-center gap-2">
                             <div className="px-2 py-1 bg-blue-500/10 border border-blue-500/30 pixel-corners flex items-center gap-1.5">
                                 <span className="text-blue-400 pixel-font text-[10px] font-bold tracking-wider">ASSIGNED TO:</span>
-                                <span className="text-blue-300 pixel-font text-[10px] font-bold">{task.assignedTo?.name}</span>
+                                <span className="text-blue-300 pixel-font text-[10px] font-bold">
+                                  {task.assignedToList && task.assignedToList.length > 1 
+                                    ? 'ALL MEMBERS' 
+                                    : task.assignedTo?.name}
+                                </span>
+                            </div>
+                        </div>
+                    )}
+                    
+                    {/* Show Submission Progress for Submitted Grouped Tasks */}
+                    {task.status === 'Submitted' && canCreate && task.statusCounts && (
+                        <div className="mt-2 flex items-center gap-2">
+                            <div className="px-2 py-1 bg-yellow-500/10 border border-yellow-500/30 pixel-corners flex items-center gap-1.5">
+                                <span className="text-yellow-400 pixel-font text-[10px] font-bold tracking-wider">SUBMISSIONS:</span>
+                                <span className="text-yellow-300 pixel-font text-[10px] font-bold">
+                                  {task.statusCounts.Submitted} / {task.assignedToList?.length || 1}
+                                </span>
                             </div>
                         </div>
                     )}
@@ -494,7 +629,14 @@ const TaskItem = ({ task, canCreate, isHeadView, isStrictMember, getStatusColor,
                         <div className="mt-2 flex items-center gap-2">
                             <div className="px-2 py-1 bg-red-500/20 border border-red-500/50 pixel-corners flex items-center gap-1.5">
                                 <span className="text-red-500 pixel-font text-[10px] font-bold tracking-wider">REJECTED:</span>
-                                <span className="text-red-300 pixel-font text-[10px] font-bold">{task.assignedTo?.name}</span>
+                                <span className="text-red-300 pixel-font text-[10px] font-bold">
+                                  {task.individualTasks 
+                                    ? task.individualTasks
+                                        .filter((t: any) => t.status === 'Rejected')
+                                        .map((t: any) => t.assignedTo?.name)
+                                        .join(', ')
+                                    : task.assignedTo?.name}
+                                </span>
                             </div>
                         </div>
                     )}
@@ -504,7 +646,14 @@ const TaskItem = ({ task, canCreate, isHeadView, isStrictMember, getStatusColor,
                         <div className="mt-2 flex items-center gap-2">
                             <div className="px-2 py-1 bg-green-500/20 border border-green-500/50 pixel-corners flex items-center gap-1.5">
                                 <span className="text-green-500 pixel-font text-[10px] font-bold tracking-wider">COMPLETED BY:</span>
-                                <span className="text-green-300 pixel-font text-[10px] font-bold">{task.assignedTo?.name}</span>
+                                <span className="text-green-300 pixel-font text-[10px] font-bold">
+                                  {task.individualTasks 
+                                    ? task.individualTasks
+                                        .filter((t: any) => t.status === 'Completed')
+                                        .map((t: any) => t.assignedTo?.name)
+                                        .join(', ')
+                                    : task.assignedTo?.name}
+                                </span>
                             </div>
                         </div>
                     )}
@@ -513,17 +662,12 @@ const TaskItem = ({ task, canCreate, isHeadView, isStrictMember, getStatusColor,
                         <div className="absolute inset-0 bg-gradient-to-t from-card to-transparent pointer-events-none" />
                         {task.description}
                 </CardContent>
-                <CardFooter className="pl-6 pt-2 pb-4 text-[9px] text-primary/60 pixel-font flex justify-between items-center">
-                        {task.status === 'Submitted' ? (
-                            <span className="truncate max-w-[140px] text-yellow-500 font-bold tracking-widest">FROM: {task.assignedTo?.name}</span>
-                        ) : (
-                             <span className="truncate max-w-[140px] text-primary/70 font-bold tracking-widest">TO: {task.assignedTo?.name || 'Member'}</span>
-                        )}
+                <CardFooter className="pl-6 pt-2 pb-4 text-[9px] text-primary/60 pixel-font flex justify-end items- center">
                         <span className="opacity-0 group-hover:opacity-100 transition-opacity text-accent">OPEN &gt;</span>
                 </CardFooter>
             </Card>
             </DialogTrigger>
-            <DialogContent className="max-w-2xl bg-card border-2 border-primary pixel-corners text-white">
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-card border-2 border-primary pixel-corners text-white">
             <DialogHeader>
                 <div className="flex justify-between items-center mb-2">
                     {(isStrictMember || (canCreate && ['Completed', 'Rejected'].includes(task.status))) && (
@@ -539,7 +683,9 @@ const TaskItem = ({ task, canCreate, isHeadView, isStrictMember, getStatusColor,
                 <div className="grid grid-cols-2 gap-4 text-xs font-mono text-gray-400 bg-primary/10 p-3 pixel-corners">
                         <div>
                         <span className="text-primary block mb-1">ASSIGNED TO:</span>
-                        {task.assignedTo?.name} ({task.assignedTo?.email})
+                        {task.assignedToList && task.assignedToList.length > 1 
+                          ? `ALL DEPARTMENT MEMBERS (${task.assignedToList.length})` 
+                          : `${task.assignedTo?.name} (${task.assignedTo?.email})`}
                         </div>
                         <div>
                         <span className="text-primary block mb-1">ISSUED BY:</span>
@@ -560,7 +706,7 @@ const TaskItem = ({ task, canCreate, isHeadView, isStrictMember, getStatusColor,
             <div className="space-y-6 py-4">
                 <div className="space-y-2">
                     <Label className="pixel-font text-primary text-xs">MISSION BRIEFING</Label>
-                    <div className="p-4 bg-background/50 border border-primary/20 pixel-corners text-sm leading-relaxed font-mono">
+                    <div className="p-4 bg-background/50 border border-primary/20 pixel-corners text-sm leading-relaxed font-mono max-h-32 overflow-y-auto">
                         {task.description}
                     </div>
                 </div>
@@ -568,12 +714,14 @@ const TaskItem = ({ task, canCreate, isHeadView, isStrictMember, getStatusColor,
                 {task.resourcesLink && (
                     <div className="space-y-2">
                         <Label className="pixel-font text-primary text-xs">INTELLIGENCE / RESOURCES</Label>
-                        <a href={task.resourcesLink} target="_blank" rel="noreferrer" className="flex items-center gap-3 p-3 bg-secondary/10 border border-secondary/30 pixel-corners hover:bg-secondary/20 transition-colors group">
-                            <LinkIcon className="w-4 h-4 text-secondary" />
-                            <span className="text-sm text-secondary truncate underline decoration-secondary/50 group-hover:decoration-secondary">
-                                {task.resourcesLink}
-                            </span>
-                        </a>
+                        <div className="max-h-24 overflow-y-auto">
+                          <a href={task.resourcesLink} target="_blank" rel="noreferrer" className="flex items-center gap-3 p-3 bg-secondary/10 border border-secondary/30 pixel-corners hover:bg-secondary/20 transition-colors group">
+                              <LinkIcon className="w-4 h-4 text-secondary" />
+                              <span className="text-sm text-secondary truncate underline decoration-secondary/50 group-hover:decoration-secondary">
+                                  {task.resourcesLink}
+                              </span>
+                          </a>
+                        </div>
                     </div>
                 )}
 
@@ -641,32 +789,127 @@ const TaskItem = ({ task, canCreate, isHeadView, isStrictMember, getStatusColor,
                 {canCreate && task.status === 'Submitted' && (
                     <div className="space-y-3 pt-4 border-t border-white/10">
                         <Label className="pixel-font text-yellow-500 text-xs text-glow">PENDING APPROVAL</Label>
-                        <div className="p-3 bg-yellow-500/10 border border-yellow-500/30 pixel-corners mb-4">
-                            <span className="text-xs text-yellow-500 block mb-1">SUBMITTED WORK:</span>
-                            <a href={task.submissionLink} target="_blank" className="text-sm text-blue-400 hover:underline break-all">
-                                {task.submissionLink}
-                            </a>
-                        </div>
-                        <div className="grid grid-cols-2 gap-4">
-                            <Button 
+                        
+                        {/* For grouped tasks, show each submitted member's work */}
+                        {task.individualTasks ? (
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          {task.individualTasks
+                            .filter((t: any) => t.status === 'Submitted')
+                            .map((individualTask: any) => (
+                              <div key={individualTask._id} className="p-3 bg-yellow-500/5 border border-yellow-500/20 pixel-corners">
+                                <div className="flex justify-between items-center mb-2">
+                                  <span className="text-yellow-400 pixel-font text-xs">{individualTask.assignedTo?.name}</span>
+                                </div>
+                                <div className="p-2 bg-yellow-500/10 border border-yellow-500/30 pixel-corners mb-2">
+                                  <span className="text-xs text-yellow-500 block mb-1">SUBMITTED WORK:</span>
+                                  {individualTask.submissionLink && individualTask.submissionLink.length > 0 ? (
+                                    <div className="space-y-1">
+                                      {individualTask.submissionLink.map((link: string, idx: number) => (
+                                        <a key={idx} href={link} target="_blank" className="text-sm text-blue-400 hover:underline break-all block">
+                                          {link}
+                                        </a>
+                                      ))}
+                                    </div>
+                                  ) : (
+                                    <span className="text-xs text-gray-500">No links provided</span>
+                                  )}
+                                </div>
+                                <div className="space-y-2">
+                                  <Button 
+                                    onClick={() => updateStatus(individualTask._id, 'Completed')}
+                                    size="sm"
+                                    className="w-full bg-green-600 hover:bg-green-500 pixel-corners pixel-font text-xs"
+                                  >
+                                    <CheckCircle2 className="w-3 h-3 mr-1" />
+                                    APPROVE
+                                  </Button>
+                                  <Button 
+                                    onClick={() => updateStatus(individualTask._id, 'Rejected')}
+                                    variant="destructive"
+                                    size="sm"
+                                    className="w-full pixel-corners pixel-font text-xs"
+                                  >
+                                    <XCircle className="w-3 h-3 mr-1" />
+                                    REJECT
+                                  </Button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          // For non-grouped tasks (old tasks or single assignments)
+                          <>
+                            <div className="p-3 bg-yellow-500/10 border border-yellow-500/30 pixel-corners mb-4">
+                              <span className="text-xs text-yellow-500 block mb-1">SUBMITTED WORK:</span>
+                              {task.submissionLink && task.submissionLink.length > 0 ? (
+                                <div className="space-y-1">
+                                  {task.submissionLink.map((link: string, idx: number) => (
+                                    <a key={idx} href={link} target="_blank" className="text-sm text-blue-400 hover:underline break-all block">
+                                      {link}
+                                    </a>
+                                  ))}
+                                </div>
+                              ) : (
+                                <a href={task.submissionLink} target="_blank" className="text-sm text-blue-400 hover:underline break-all">
+                                  {task.submissionLink}
+                                </a>
+                              )}
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                              <Button 
                                 onClick={() => updateStatus(task._id, 'Rejected')}
                                 variant="destructive"
                                 className="pixel-corners pixel-font"
-                            >
+                              >
                                 <XCircle className="w-4 h-4 mr-2" />
                                 REJECT
-                            </Button>
-                            <Button 
+                              </Button>
+                              <Button 
                                 onClick={() => updateStatus(task._id, 'Completed')}
                                 className="bg-green-600 hover:bg-green-500 pixel-corners pixel-font"
-                            >
+                              >
                                 <CheckCircle2 className="w-4 h-4 mr-2" />
                                 APPROVE
-                            </Button>
-                        </div>
+                              </Button>
+                            </div>
+                          </>
+                        )}
                     </div>
                 )}
                 
+                {/* Show Completed Work for Heads */}
+                {canCreate && task.status === 'Completed' && task.individualTasks && (
+                    <div className="space-y-3 pt-4 border-t border-white/10">
+                        <Label className="pixel-font text-green-500 text-xs text-glow">COMPLETED WORK</Label>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {task.individualTasks
+                            .filter((t: any) => t.status === 'Completed')
+                            .map((individualTask: any) => (
+                              <div key={individualTask._id} className="p-3 bg-green-500/5 border border-green-500/20 pixel-corners">
+                                <div className="flex justify-between items-center mb-2">
+                                  <span className="text-green-400 pixel-font text-xs">{individualTask.assignedTo?.name}</span>
+                                </div>
+                                <div className="p-2 bg-green-500/10 border border-green-500/30 pixel-corners">
+                                  <span className="text-xs text-green-500 block mb-1">SUBMITTED WORK:</span>
+                                  {individualTask.submissionLink && individualTask.submissionLink.length > 0 ? (
+                                    <div className="space-y-1">
+                                      {individualTask.submissionLink.map((link: string, idx: number) => (
+                                        <a key={idx} href={link} target="_blank" className="text-sm text-blue-400 hover:underline break-all block">
+                                          {link}
+                                        </a>
+                                      ))}
+                                    </div>
+                                  ) : (
+                                    <span className="text-xs text-gray-500">No links provided</span>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
                 {isStrictMember && task.status === 'Completed' && (
                         <div className="p-3 bg-green-500/20 border border-green-500 text-center pixel-corners">
                             <span className="text-green-500 pixel-font text-xs flex items-center justify-center gap-2">

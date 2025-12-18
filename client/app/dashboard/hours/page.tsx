@@ -49,7 +49,7 @@ export default function HoursPage() {
 
   // Effect on mount: load user and fetch hours
   useEffect(() => {
-    const u = JSON.parse(localStorage.getItem('user') || '{}');
+    const u = JSON.parse(sessionStorage.getItem('user') || '{}');
     setUser(u);
     
     // Restrict Access: Only Leaders can access Hours Page
@@ -90,7 +90,7 @@ export default function HoursPage() {
   // Fetch hours logs from backend
   const fetchHours = async (dept?: string) => {
     try {
-      const token = localStorage.getItem('token');
+      const token = sessionStorage.getItem('token');
       // Construct URL with query param if dept is provided
       const url = dept && dept !== 'All' ? `/hours?department=${dept}` : '/hours';
       const { data } = await api.get(url);
@@ -119,7 +119,7 @@ export default function HoursPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const token = localStorage.getItem('token');
+      const token = sessionStorage.getItem('token');
       // POST to /hours
       await api.post('/hours', 
         { amount: Number(amount), description, targetUserId: targetUserId || undefined }
@@ -139,7 +139,7 @@ export default function HoursPage() {
   // Handler for Heads/HR to approve hours
   const handleApprove = async (id: string) => {
     try {
-      const token = localStorage.getItem('token');
+      const token = sessionStorage.getItem('token');
       // PUT request to update status to 'Approved'
       await api.put(`/hours/${id}`, 
         { status: 'Approved' }
