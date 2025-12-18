@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
+import { Eye, EyeOff } from 'lucide-react';
 
 // Define LoginForm Component
 export default function LoginForm() {
@@ -20,6 +21,7 @@ export default function LoginForm() {
   const [emailError, setEmailError] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const [isLoading, setIsLoading] = useState(false); // ← NEW: Loading state
+  const [showPassword, setShowPassword] = useState(false); // 👁️ Password visibility
   const router = useRouter();
 
   // Validate email domain
@@ -130,20 +132,35 @@ export default function LoginForm() {
             {/* Password Input */}
             <div className="space-y-2">
               <Label htmlFor="password" className="pixel-font text-xs text-primary">PASSWORD</Label>
-              <Input 
-                id="password" 
-                type="password" 
-                value={password}
-                onChange={(e) => {
-                  setPassword(e.target.value);
-                  setPasswordError(''); // Clear error on change
-                }}
-                onBlur={() => validatePassword(password)} // Validate on blur
-                required
-                className={`bg-background/50 border-primary/50 focus:border-primary ${
-                  passwordError ? 'border-red-500' : ''
-                }`}
-              />
+              <div className="relative">
+                <Input 
+                  id="password" 
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    setPasswordError(''); // Clear error on change
+                  }}
+                  onBlur={() => validatePassword(password)} // Validate on blur
+                  required
+                  className={`bg-background/50 border-primary/50 focus:border-primary pr-10 ${
+                    passwordError ? 'border-red-500' : ''
+                  }`}
+                />
+                {/* Eye Toggle Button */}
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-primary transition-colors"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                >
+                  {showPassword ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                </button>
+              </div>
               {passwordError && (
                 <p className="text-red-500 text-xs pixel-font">{passwordError}</p>
               )}
