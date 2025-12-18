@@ -444,52 +444,276 @@ Security:
 
 ## 🗄️ DATABASE SCHEMA
 
-### **User Model (Updated):**
-```typescript
-interface IUser {
-  _id: ObjectId;
-  name: string;
-  email: string;
-  password: string;
-  role: 'Member' | 'HR';
-  title?: string;
-  department: string;
-  team?: string;              // ← NEW! Sub-team
-  hoursApproved: number;
-  tasksCompleted: number;
-  points: number;
-  avatar?: string;
-  warnings?: Warning[];
-}
+### **Entity Relationship Diagram (ERD)**
 
-// Indexes:
-{ department: 1, team: 1, role: 1 }  // ← Team-based filtering
-{ email: 1 } unique
-{ hoursApproved: -1 }
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           DATABASE ARCHITECTURE                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌────────────────────────┐                    ┌────────────────────────┐
+│     USERS              │                    │     HIGHBOARDS         │
+├────────────────────────┤                    ├────────────────────────┤
+│ PK _id: ObjectId       │                    │ PK _id: ObjectId       │
+│    name: String        │                    │    name: String        │
+│    email: String ⚡    │                    │    email: String ⚡    │
+│    password: String    │                    │    password: String    │
+│    role: String        │                    │    role: String        │
+│    title: String?      │                    │    title: String       │
+│    department: String  │                    │    department: String? │
+│    team: String? 🆕   │                    │    hoursApproved: Num  │
+│    hoursApproved: Num  │                    │    tasksCompleted: Num │
+│    tasksCompleted: Num │                    │    points: Number      │
+│    points: Number      │                    │    avatar: String?     │
+│    avatar: String?     │                    │    createdAt: Date     │
+│    warnings: Array     │                    │    updatedAt: Date     │
+│    createdAt: Date     │                    └────────────────────────┘
+│    updatedAt: Date     │                                │
+└────────────────────────┘                                │
+           │                                              │
+           │ 1:N                                          │ 1:N
+           │ (assignedTo)                                 │ (assignedBy)
+           │                                              │
+           ▼                                              ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                              TASKS                                          │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ PK _id: ObjectId                                                            │
+│    title: String                      "Mission Title"                       │
+│ FK assignedTo: ObjectId ───────────▶ references USERS._id                  │
+│ FK assignedBy: ObjectId ───────────▶ references USERS._id or HIGHBOARDS._id│
+│    assignedByModel: String            "User" | "HighBoard"                  │
+│    department: String                 "IT", "HR", "PM"...                   │
+│    team: String? 🆕                  "Frontend", "UI/UX"...                │
+│    status: String                     "Pending" | "Submitted" | ...         │
+│    scoreValue: Number                 XP reward                             │
+│    resourcesLink: Array[String]       Multiple links from Head              │
+│    submissionLink: Array[String]      Multiple links from Member            │
+│    taskHours: Number                  Auto-rewarded hours                   │
+│    taskGroupId: String ⚡            Groups related tasks                  │
+│    deadline: Date?                                                          │
+│    createdAt: Date                                                          │
+│    updatedAt: Date                                                          │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                        │
+                                        │ 1:N
+                                        │ (task completion)
+                                        ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                            HOURLOGS                                         │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ PK _id: ObjectId                                                            │
+│ FK user: ObjectId ──────────────────▶ references USERS._id                 │
+│    amount: Number                      Hours submitted/approved             │
+│    description: String                 Task name or activity                │
+│    status: String                      "Pending" | "Approved" | "Rejected" │
+│ FK approvedBy: ObjectId? ────────────▶ references USERS._id                │
+│    date: Date                          Submission date                      │
+│    createdAt: Date                                                          │
+│    updatedAt: Date                                                          │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+Legend:
+PK = Primary Key
+FK = Foreign Key
+⚡ = Indexed field
+🆕 = New in v4.0
+1:N = One-to-Many relationship
+? = Optional field
 ```
 
-### **Task Model (Updated):**
+---
+
+### **Detailed Schema Definitions:**
+
+#### **1. USERS Collection**
+
 ```typescript
-interface ITask {
-  title: string;
-  description: string;
-  assignedTo: ObjectId;
-  assignedBy: ObjectId;
-  department: string;
-  team?: string;              // ← NEW! Team filtering
-  status: 'Pending' | 'Submitted' | 'Completed' | 'Rejected';
-  scoreValue: number;
-  resourcesLink?: string[];
-  submissionLink?: string[];
-  taskHours?: number;         // Auto-rewarded hours
-  taskGroupId?: string;       // Groups related tasks
+┌─────────────────────────────────────────────────────────────────┐
+│ Collection: users                                               │
+│ Description: Members and HR personnel                           │
+├─────────────────────────────────────────────────────────────────┤
+│ FIELD             │ TYPE      │ REQUIRED │ UNIQUE │ INDEX      │
+├───────────────────┼───────────┼──────────┼────────┼────────────┤
+│ _id               │ ObjectId  │ ✅       │ ✅     │ Auto       │
+│ name              │ String    │ ✅       │ ❌     │ ❌         │
+│ email             │ String    │ ✅       │ ✅     │ ✅ Unique  │
+│ password          │ String    │ ✅       │ ❌     │ ❌         │
+│ role              │ Enum      │ ✅       │ ❌     │ ✅ Index   │
+│ title             │ String    │ ❌       │ ❌     │ ❌         │
+│ department        │ Enum      │ ❌       │ ❌     │ ✅ Index   │
+│ team              │ String 🆕│ ❌       │ ❌     │ ✅ Index   │
+│ hoursApproved     │ Number    │ ✅       │ ❌     │ ✅ DESC    │
+│ tasksCompleted    │ Number    │ ✅       │ ❌     │ ❌         │
+│ points            │ Number    │ ✅       │ ❌     │ ✅ DESC    │
+│ avatar            │ String    │ ❌       │ ❌     │ ❌         │
+│ warnings          │ Array     │ ❌       │ ❌     │ ❌         │
+│ createdAt         │ Date      │ Auto     │ ❌     │ ❌         │
+│ updatedAt         │ Date      │ Auto     │ ❌     │ ❌         │
+└───────────────────┴───────────┴──────────┴────────┴────────────┘
+
+Enums:
+├─ role: "Member" | "HR"
+└─ department: "IT" | "HR" | "PM" | "PR" | "FR" | "Logistics" | 
+               "Organization" | "Marketing" | "Multi-Media" | "Presentation"
+
+Warnings Subdocument:
+{
+  reason: String,      // Why warning was issued
+  date: Date,          // When issued
+  issuer: String       // Who issued it (name)
 }
 
-// Indexes:
-{ taskGroupId: 1 }
-{ department: 1, team: 1 }
-{ assignedTo: 1, status: 1 }
+Composite Indexes:
+1. { department: 1, team: 1, role: 1 }  // Team-based queries 🆕
+2. { department: 1, role: 1 }            // Department filtering
+3. { role: 1 }                           // Role filtering
+4. { hoursApproved: -1 }                 // Leaderboard sorting
+5. { points: -1 }                        // Points ranking
+6. { email: 1 } unique                   // Login lookup
 ```
+
+---
+
+#### **2. HIGHBOARDS Collection**
+
+```typescript
+┌─────────────────────────────────────────────────────────────────┐
+│ Collection: highboards                                          │
+│ Description: Leadership (Presidents, Directors, Heads, Vices)   │
+├─────────────────────────────────────────────────────────────────┤
+│ FIELD             │ TYPE      │ REQUIRED │ UNIQUE │ INDEX      │
+├───────────────────┼───────────┼──────────┼────────┼────────────┤
+│ _id               │ ObjectId  │ ✅       │ ✅     │ Auto       │
+│ name              │ String    │ ✅       │ ❌     │ ❌         │
+│ email             │ String    │ ✅       │ ✅     │ ✅ Unique  │
+│ password          │ String    │ ✅       │ ❌     │ ❌         │
+│ role              │ Enum      │ ✅       │ ❌     │ ✅ Index   │
+│ title             │ String    │ ✅       │ ❌     │ ❌         │
+│ department        │ Enum      │ ❌       │ ❌     │ ✅ Index   │
+│ hoursApproved     │ Number    │ ✅       │ ❌     │ ❌         │
+│ tasksCompleted    │ Number    │ ✅       │ ❌     │ ❌         │
+│ points            │ Number    │ ✅       │ ❌     │ ❌         │
+│ avatar            │ String    │ ❌       │ ❌     │ ❌         │
+│ createdAt         │ Date      │ Auto     │ ❌     │ ❌         │
+│ updatedAt         │ Date      │ Auto     │ ❌     │ ❌         │
+└───────────────────┴───────────┴──────────┴────────┴────────────┘
+
+Enums:
+├─ role: "General President" | "Vice President" | "Operation Director" |
+│        "Creative Director" | "Head" | "Vice Head"
+└─ department: Same as users (only for Heads/Vice Heads)
+
+Composite Indexes:
+1. { department: 1, role: 1 }  // Department-based queries
+2. { role: 1 }                 // Role filtering
+```
+
+---
+
+#### **3. TASKS Collection**
+
+```typescript
+┌─────────────────────────────────────────────────────────────────┐
+│ Collection: tasks                                               │
+│ Description: Task assignments and submissions                   │
+├─────────────────────────────────────────────────────────────────┤
+│ FIELD             │ TYPE      │ REQUIRED │ UNIQUE │ INDEX      │
+├───────────────────┼───────────┼──────────┼────────┼────────────┤
+│ _id               │ ObjectId  │ ✅       │ ✅     │ Auto       │
+│ title             │ String    │ ✅       │ ❌     │ ❌         │
+│ description       │ String    │ ✅       │ ❌     │ ❌         │
+│ assignedTo        │ ObjectId  │ ✅       │ ❌     │ ✅ Index   │
+│ assignedBy        │ ObjectId  │ ✅       │ ❌     │ ✅ Index   │
+│ assignedByModel   │ Enum      │ ✅       │ ❌     │ ❌         │
+│ department        │ String    │ ❌       │ ❌     │ ✅ Index   │
+│ team              │ String 🆕│ ❌       │ ❌     │ ✅ Index   │
+│ status            │ Enum      │ ✅       │ ❌     │ ✅ Index   │
+│ scoreValue        │ Number    │ ✅       │ ❌     │ ❌         │
+│ resourcesLink     │ Array     │ ❌       │ ❌     │ ❌         │
+│ submissionLink    │ Array     │ ❌       │ ❌     │ ❌         │
+│ taskHours         │ Number    │ ❌       │ ❌     │ ❌         │
+│ taskGroupId       │ String    │ ❌       │ ❌     │ ✅ Index   │
+│ deadline          │ Date      │ ❌       │ ❌     │ ❌         │
+│ createdAt         │ Date      │ Auto     │ ❌     │ ❌         │
+│ updatedAt         │ Date      │ Auto     │ ❌     │ ❌         │
+└───────────────────┴───────────┴──────────┴────────┴────────────┘
+
+Enums:
+├─ status: "Pending" | "Submitted" | "Completed" | "Rejected"
+└─ assignedByModel: "User" | "HighBoard"
+
+Composite Indexes:
+1. { taskGroupId: 1 }                    // Group task queries
+2. { department: 1, team: 1 } 🆕        // Team filtering
+3. { assignedTo: 1, status: 1 }          // User task lookup
+4. { assignedBy: 1 }                     // Creator queries
+5. { status: 1 }                         // Status filtering
+```
+
+---
+
+#### **4. HOURLOGS Collection**
+
+```typescript
+┌─────────────────────────────────────────────────────────────────┐
+│ Collection: hourlogs                                            │
+│ Description: Hour submission and approval records               │
+├─────────────────────────────────────────────────────────────────┤
+│ FIELD             │ TYPE      │ REQUIRED │ UNIQUE │ INDEX      │
+├───────────────────┼───────────┼──────────┼────────┼────────────┤
+│ _id               │ ObjectId  │ ✅       │ ✅     │ Auto       │
+│ user              │ ObjectId  │ ✅       │ ❌     │ ✅ Index   │
+│ amount            │ Number    │ ✅       │ ❌     │ ❌         │
+│ description       │ String    │ ✅       │ ❌     │ ❌         │
+│ status            │ Enum      │ ✅       │ ❌     │ ✅ Index   │
+│ approvedBy        │ ObjectId  │ ❌       │ ❌     │ ❌         │
+│ date              │ Date      │ ✅       │ ❌     │ ❌         │
+│ createdAt         │ Date      │ Auto     │ ❌     │ ✅ DESC    │
+│ updatedAt         │ Date      │ Auto     │ ❌     │ ❌         │
+└───────────────────┴───────────┴──────────┴────────┴────────────┘
+
+Enums:
+└─ status: "Pending" | "Approved" | "Rejected"
+
+Composite Indexes:
+1. { user: 1, status: 1 }       // User hour history
+2. { createdAt: -1 }            // Recent logs first
+3. { status: 1 }                // Status filtering
+```
+
+---
+
+### **Relationship Cardinality:**
+
+```
+USERS (1) ──────── (N) TASKS
+  │                     │
+  │ One user can have   │ assignedTo
+  │ multiple tasks      │
+  │                     │
+  
+HIGHBOARDS (1) ──── (N) TASKS
+  │                     │
+  │ One leader can      │ assignedBy
+  │ create many tasks   │
+  │                     │
+
+USERS (1) ──────── (N) HOURLOGS
+  │                     │
+  │ One user can have   │ user
+  │ multiple hour logs  │
+  │                     │
+
+TASKS (1) ──────── (1) HOURLOGS
+  │                     │
+  │ Each completed      │ Auto-created
+  │ task creates one    │ on approval
+  │ hour log            │
+  │                     │
+```
+
+---
 
 ---
 
