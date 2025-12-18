@@ -13,26 +13,37 @@ import HourLog from '../models/HourLog';
 export const createTask = async (req: Request, res: Response) => {
   try {
     // Destructure task details from request body
-    const { title, description, resourcesLink, deadline, taskHours } = req.body;
+    const { title, description, resourcesLink, deadline, taskHours, team } = req.body;
     const currentUser = (req as any).user;
 
     if (!currentUser.department) {
        return res.status(400).json({ message: 'User must belong to a department to create tasks.' });
     }
 
-    // Find all 'Member' users in the creator's department
-    // Find all potential assignees in the department (Members and HRs, excluding self)
-    const members = await User.find({ 
+    // Build query for finding members
+    const query: any = {
       department: currentUser.department, 
       role: { $in: ['Member', 'HR'] },
       _id: { $ne: currentUser._id } // Don't assign to self
-    });
+    };
+
+    // If team is specified, filter by team
+    if (team) {
+      query.team = team;
+    }
+
+    // Find all potential assignees in the department (and team if specified)
+    const members = await User.find(query);
 
     if (!members || members.length === 0) {
-      return res.status(400).json({ message: 'No members found in your department to assign tasks to.' });
+      const teamMsg = team ? ` in team "${team}"` : '';
+      return res.status(400).json({ message: `No members found in your department${teamMsg} to assign tasks to.` });
     }
     
-    // Create a task for each member
+    // Generate a unique group ID for this batch of tasks
+    const taskGroupId = new (require('mongoose').Types.ObjectId)().toString();
+    
+    // Create a task for each member with the same taskGroupId
     const tasks = await Promise.all(members.map(member => Task.create({
       title: title || `${currentUser.department} Task - ${new Date().toLocaleDateString()}`,
       description,
@@ -40,10 +51,12 @@ export const createTask = async (req: Request, res: Response) => {
       assignedBy: currentUser._id,
       assignedByModel: ['Head', 'Vice Head', 'General President', 'Vice President', 'Operation Director', 'Creative Director'].includes(currentUser.role) ? 'HighBoard' : 'User',
       department: currentUser.department,
+      team: team || undefined, // Store team if specified
       scoreValue: 50, // Default XP Reward
       resourcesLink: resourcesLink || [], // Multiple resource links
       deadline,
-      taskHours: taskHours || 0 // Hours awarded on completion (hidden from members)
+      taskHours: taskHours || 0, // Hours awarded on completion (hidden from members)
+      taskGroupId // All tasks in this batch share the same group ID
     })));
 
     // Return the created tasks
@@ -100,7 +113,7 @@ export const getTasks = async (req: Request, res: Response) => {
 
     // Retrieve tasks, populating assignee and assigner details
     const tasks = await Task.find(query)
-      .select('title description status assignedTo assignedBy department deadline scoreValue resourcesLink submissionLink createdAt')
+      .select('title description status assignedTo assignedBy department deadline scoreValue resourcesLink submissionLink createdAt taskGroupId')
       .populate('assignedTo', 'name email')
       .populate('assignedBy', 'name')
       .sort({ createdAt: -1 })
@@ -137,14 +150,14 @@ export const updateTask = async (req: Request, res: Response) => {
                  member.points += task.taskHours * 10; // 10 points per hour
                  await member.save();
                  
-                 // ✅ CREATE HOUR LOG ENTRY (NEW!)
-                 // This makes auto-rewarded hours visible in Hours page
+                 // ✅ CREATE HOUR LOG ENTRY FOR TRACKING
+                 // This shows task completion history in Hours page
                  const currentUser = (req as any).user;
                  await HourLog.create({
                    user: task.assignedTo,
                    amount: task.taskHours,
-                   description: `${task.title} - ${task.description || 'No description'} | Submitted: ${task.updatedAt ? new Date(task.updatedAt).toLocaleDateString() : 'N/A'} | Approved: ${new Date().toLocaleDateString()}`,
-                   status: 'Approved',
+                   description: `${task.title} - Submitted: ${new Date(task.updatedAt || Date.now()).toLocaleDateString()}`,
+                   status: 'Approved', // Auto-approved
                    approvedBy: currentUser._id,
                    date: new Date()
                  });

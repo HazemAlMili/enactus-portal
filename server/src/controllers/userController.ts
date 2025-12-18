@@ -129,7 +129,7 @@ export const getUsers = async (req: Request, res: Response) => {
 export const createUser = async (req: Request, res: Response) => {
   await dbConnect();
   try {
-    const { name, email, password, role, department, title } = req.body;
+    const { name, email, password, role, department, team, title } = req.body;
     const currentUser = (req as any).user;
     // 1. HR Recruitment Rules
     // HR Head can recruit anyone.
@@ -200,6 +200,7 @@ export const createUser = async (req: Request, res: Response) => {
       password: hashedPassword,
       role,
       department,
+      team: team || undefined, // Add team field
       title
     });
 

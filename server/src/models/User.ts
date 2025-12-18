@@ -10,6 +10,7 @@ export interface IUser extends Document {
   role: 'General President' | 'Vice President' | 'Operation Director' | 'Creative Director' | 'HR' | 'Head' | 'Vice Head' | 'Member';
   title?: string; // Custom title like 'Vice President', 'Creative Director'
   department?: 'General' | 'IT' | 'HR' | 'PM' | 'PR' | 'FR' | 'Logistics' | 'Organization' | 'Marketing' | 'Multi-Media' | 'Presentation'; // Enum for departments
+  team?: string; // Sub-team within department (e.g., 'Frontend', 'UI/UX' for IT)
   hoursApproved: number; // Tracking approved volunteer hours
   tasksCompleted: number; // Tracking number of tasks completed
   points: number; // Gamification points
@@ -32,6 +33,7 @@ const UserSchema: Schema = new Schema({
     type: String, 
     enum: ['General', 'IT', 'HR', 'PM', 'PR', 'FR', 'Logistics', 'Organization', 'Marketing', 'Multi-Media', 'Presentation'] // Restrict values to specific departments
   },
+  team: { type: String, index: true }, // Sub-team within department
   hoursApproved: { type: Number, default: 0 }, // Initialize hours to 0
   tasksCompleted: { type: Number, default: 0 }, // Initialize tasks completed to 0
   points: { type: Number, default: 0 }, // Initialize points to 0
@@ -45,6 +47,7 @@ const UserSchema: Schema = new Schema({
 
 // ⚡ PERFORMANCE INDEXES - Critical for query speed
 UserSchema.index({ department: 1, role: 1 }); // For filtered department queries
+UserSchema.index({ department: 1, team: 1, role: 1 }); // For team-based filtering
 UserSchema.index({ role: 1 }); // For role-based filtering
 UserSchema.index({ hoursApproved: -1 }); // For leaderboard sorting (DESC)
 UserSchema.index({ email: 1 }); // Ensure email index for login (should be unique)
