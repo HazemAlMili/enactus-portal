@@ -9,6 +9,7 @@ export interface IHourLog extends Document {
   status: 'Pending' | 'Approved' | 'Rejected';
   date: Date;
   approvedBy?: mongoose.Types.ObjectId; // Reference to who approved it
+  isTest?: boolean;
 }
 
 // Create Schema
@@ -22,7 +23,8 @@ const HourLogSchema: Schema = new Schema({
     default: 'Pending'
   },
   date: { type: Date, default: Date.now },
-  approvedBy: { type: Schema.Types.ObjectId, ref: 'User' }
+  approvedBy: { type: Schema.Types.ObjectId, ref: 'User' },
+  isTest: { type: Boolean, default: false }
 }, { timestamps: true });
 
 // ⚡ PERFORMANCE INDEXES - For hour tracking queries

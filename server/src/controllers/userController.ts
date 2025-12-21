@@ -18,11 +18,12 @@ export const getLeaderboard = async (req: Request, res: Response) => {
   try {
     // Find users from BOTH collections, select specific fields to minimize data transfer
     // Filter strictly for Members, as requested
-    const usersFromUser = await User.find({ role: 'Member' })
+    // EXCLUDE TEST USERS FROM LEADERBOARD
+    const usersFromUser = await User.find({ role: 'Member', isTest: { $ne: true } })
       .select('name points hoursApproved department role') // Only needed fields
       .lean(); // ⚡ Plain objects for speed
       
-    const usersFromHighBoard = await HighBoard.find({ role: 'Member' })
+    const usersFromHighBoard = await HighBoard.find({ role: 'Member', isTest: { $ne: true } })
       .select('name points hoursApproved department role')
       .lean();
       
@@ -48,6 +49,13 @@ export const getUsers = async (req: Request, res: Response) => {
   try {
     let query: any = { role: 'Member' }; // Only show Members in Squad page
     const currentUser = (req as any).user;
+
+    // ISOLATION LOGIC: Test users only see test users, real users only see real users
+    if (currentUser?.isTest) {
+      query.isTest = true;
+    } else {
+      query.isTest = { $ne: true };
+    }
 
     // 1. Head / Vice Head: See only their Department members
     if (currentUser?.role === 'Head' || currentUser?.role === 'Vice Head') {
@@ -201,7 +209,8 @@ export const createUser = async (req: Request, res: Response) => {
       role,
       department,
       team: team || undefined, // Add team field
-      title
+      title,
+      isTest: currentUser?.isTest || false // Mark as test user if created by test account
     });
 
     // AUTO-ASSIGN EXISTING DEPARTMENT TASKS TO NEW MEMBER
@@ -229,7 +238,8 @@ export const createUser = async (req: Request, res: Response) => {
              department: template.department,
              scoreValue: template.scoreValue,
              resourcesLink: template.resourcesLink,
-             status: 'Pending' // Start as Pending
+             status: 'Pending', // Start as Pending
+             isTest: user.isTest // Mark as test data if the user is a test user
           }));
 
           await Task.insertMany(tasksToCreate);
@@ -261,6 +271,11 @@ export const deleteUser = async (req: Request, res: Response) => {
 
     if (!userToDelete) {
         return res.status(404).json({ message: 'User not found' });
+    }
+
+    // ISOLATION: Test accounts CANNOT delete real users, Real accounts CANNOT delete test users
+    if (currentUser?.isTest !== userToDelete.isTest) {
+        return res.status(403).json({ message: 'Security Breach: Isolation mismatch.' });
     }
 
     // Authorization: Board, Heads, Vice Heads, or HR department
@@ -386,6 +401,11 @@ export const addWarning = async (req: Request, res: Response) => {
      
      if (targetUser.role !== 'Member') {
         return res.status(400).json({ message: 'Warnings can only be issued to Members.' });
+     }
+
+     // ISOLATION: Test accounts can only warn test accounts
+     if (currentUser?.isTest && !targetUser.isTest) {
+         return res.status(403).json({ message: 'Test accounts can only warn other test accounts.' });
      }
 
      // HR Coordinator Logic: Can only warn members of THEIR specific department

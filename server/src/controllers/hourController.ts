@@ -19,6 +19,7 @@ export const submitHours = async (req: Request, res: Response) => {
       amount,
       description,
       date,
+      isTest: currentUser?.isTest || false
     };
 
     // Check if Leaders are assigning hours to others (Restricted to HR Only or Board)
@@ -105,6 +106,9 @@ export const getHours = async (req: Request, res: Response) => {
   try {
     let query: any = {};
     const currentUser = (req as any).user;
+
+    // ISOLATION LOGIC
+    const testFilter = currentUser?.isTest ? { isTest: true } : { isTest: { $ne: true } };
     
     // 1. HR Member (Coordinator) Logic - CHECK FIRST! (before general Member check)
     // HR Coordinators have role='Member' but special title
@@ -193,7 +197,7 @@ export const getHours = async (req: Request, res: Response) => {
     }
 
     // Fetch logs, populating user details
-    const logs = await HourLog.find(query)
+    const logs = await HourLog.find({ ...query, ...testFilter })
       .populate('user', 'name role department')
       .sort({ createdAt: -1 })
       .lean(); // ⚡ Plain objects - faster
@@ -221,6 +225,11 @@ export const updateHourStatus = async (req: Request, res: Response) => {
     const { status } = req.body;
     const log = await HourLog.findById(req.params.id);
     if (!log) return res.status(404).json({ message: 'Log not found' });
+
+    // ISOLATION: Test accounts can only update test hours
+    if (currentUser?.isTest !== log.isTest) {
+        return res.status(403).json({ message: 'Security Breach: Isolation mismatch.' });
+    }
 
     // Update status and set who approved it
     log.status = status;

@@ -15,6 +15,7 @@ export interface IUser extends Document {
   points: number; // Gamification points
   avatar?: string; // URL or Base64 string of user avatar
   warnings?: { reason: string; date: Date; issuer: string }[];
+  isTest?: boolean;
 }
 
 // Create the Mongoose Schema corresponding to the IUser interface
@@ -41,6 +42,7 @@ const UserSchema: Schema = new Schema({
     date: { type: Date, default: Date.now },
     issuer: { type: String }
   }],
+  isTest: { type: Boolean, default: false },
 }, { timestamps: true }); // Automatically add createdAt and updatedAt fields
 
 // Export the Mongoose model based on the schema and interface

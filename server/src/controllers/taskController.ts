@@ -32,6 +32,13 @@ export const createTask = async (req: Request, res: Response) => {
       query.team = team;
     }
 
+    // ISOLATION: Test accounts only assign to other test accounts
+    if (currentUser?.isTest) {
+      query.isTest = true;
+    } else {
+      query.isTest = { $ne: true };
+    }
+
     // Find all potential assignees in the department (and team if specified)
     const members = await User.find(query);
 
@@ -56,7 +63,8 @@ export const createTask = async (req: Request, res: Response) => {
       resourcesLink: resourcesLink || [], // Multiple resource links
       deadline,
       taskHours: taskHours || 0, // Hours awarded on completion (hidden from members)
-      taskGroupId // All tasks in this batch share the same group ID
+      taskGroupId, // All tasks in this batch share the same group ID
+      isTest: currentUser?.isTest || false
     })));
 
     // Return the created tasks
@@ -111,6 +119,14 @@ export const getTasks = async (req: Request, res: Response) => {
         query = { department: { $in: ['Marketing', 'Multi-Media', 'Presentation', 'Organization'] } };
     }
 
+    // ISOLATION LOGIC: Test users only see test tasks
+    const currentUser = (req as any).user;
+    if (currentUser?.isTest) {
+      (query as any).isTest = true;
+    } else {
+      (query as any).isTest = { $ne: true };
+    }
+
     // Retrieve tasks, populating assignee and assigner details
     const tasks = await Task.find(query)
       .select('title description status assignedTo assignedBy department deadline scoreValue resourcesLink submissionLink createdAt taskGroupId')
@@ -136,6 +152,12 @@ export const updateTask = async (req: Request, res: Response) => {
     const task = await Task.findById(req.params.id);
     if (!task) return res.status(404).json({ message: 'Task not found' });
 
+    // ISOLATION: Test accounts can only update test tasks
+    const currentUser = (req as any).user;
+    if (currentUser?.isTest !== task.isTest) {
+        return res.status(403).json({ message: 'Security Breach: Isolation mismatch.' });
+    }
+
     // Handle Status Updates
     if (req.body.status) {
         
@@ -159,7 +181,8 @@ export const updateTask = async (req: Request, res: Response) => {
                    description: `${task.title} - Submitted: ${new Date(task.updatedAt || Date.now()).toLocaleDateString()}`,
                    status: 'Approved', // Auto-approved
                    approvedBy: currentUser._id,
-                   date: new Date()
+                   date: new Date(),
+                   isTest: task.isTest || false
                  });
                  
                  console.log(`✅ Auto-rewarded ${task.taskHours} hours to ${member.name} for task: ${task.title}`);
@@ -180,6 +203,77 @@ export const updateTask = async (req: Request, res: Response) => {
     await task.save();
     res.json(task);
   } catch (error) {
+    res.status(500).json({ message: 'Server Error' });
+  }
+};
+
+/**
+ * Controller to edit task details (title, description, resources, deadline, hours).
+ * Route: PUT /api/tasks/:id/edit
+ * Access: Private (Task Creator Only)
+ */
+export const editTask = async (req: Request, res: Response) => {
+  try {
+    const task = await Task.findById(req.params.id);
+    if (!task) return res.status(404).json({ message: 'Task not found' });
+
+    const currentUser = (req as any).user;
+    
+    // ISOLATION: Test accounts can only edit test tasks
+    if (currentUser?.isTest !== task.isTest) {
+        return res.status(403).json({ message: 'Security Breach: Isolation mismatch.' });
+    }
+
+    // AUTHORIZATION: Only the creator can edit
+    if (task.assignedBy.toString() !== currentUser._id.toString()) {
+        return res.status(403).json({ message: 'Only the task creator can edit this task.' });
+    }
+
+    // Update allowed fields
+    const { title, description, resourcesLink, deadline, taskHours, team } = req.body;
+    
+    if (title !== undefined) task.title = title;
+    if (description !== undefined) task.description = description;
+    if (resourcesLink !== undefined) task.resourcesLink = resourcesLink;
+    if (deadline !== undefined) task.deadline = deadline;
+    if (taskHours !== undefined) task.taskHours = taskHours;
+    if (team !== undefined) task.team = team;
+
+    await task.save();
+    res.json(task);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server Error' });
+  }
+};
+
+/**
+ * Controller to delete a task.
+ * Route: DELETE /api/tasks/:id
+ * Access: Private (Task Creator Only)
+ */
+export const deleteTask = async (req: Request, res: Response) => {
+  try {
+    const task = await Task.findById(req.params.id);
+    if (!task) return res.status(404).json({ message: 'Task not found' });
+
+    const currentUser = (req as any).user;
+    
+    // ISOLATION: Test accounts can only delete test tasks
+    if (currentUser?.isTest !== task.isTest) {
+        return res.status(403).json({ message: 'Security Breach: Isolation mismatch.' });
+    }
+
+    // AUTHORIZATION: Only the creator can delete
+    if (task.assignedBy.toString() !== currentUser._id.toString()) {
+        return res.status(403).json({ message: 'Only the task creator can delete this task.' });
+    }
+
+    await task.deleteOne();
+    
+    res.json({ message: 'Task deleted successfully' });
+  } catch (error) {
+    console.error(error);
     res.status(500).json({ message: 'Server Error' });
   }
 };

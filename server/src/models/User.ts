@@ -16,6 +16,7 @@ export interface IUser extends Document {
   points: number; // Gamification points
   avatar?: string; // URL or Base64 string of user avatar
   warnings?: { reason: string; date: Date; issuer: string }[];
+  isTest?: boolean; // Portfolio demo mode flag
 }
 
 // Create the Mongoose Schema corresponding to the IUser interface
@@ -43,6 +44,7 @@ const UserSchema: Schema = new Schema({
     date: { type: Date, default: Date.now },
     issuer: { type: String }
   }],
+  isTest: { type: Boolean, default: false }, // Shadow test account
 }, { timestamps: true }); // Automatically add createdAt and updatedAt fields
 
 // ⚡ PERFORMANCE INDEXES - Critical for query speed
