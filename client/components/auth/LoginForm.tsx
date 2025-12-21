@@ -92,6 +92,18 @@ export default function LoginForm() {
     }
   };
 
+  // 🛡️ Portfolio Demo Helper
+  const handleGuestLogin = async () => {
+    setEmail('visitor@enactus.com');
+    setPassword('visitor2025');
+    // We'll call the logic directly or just wait for state update and user to click?
+    // Better to just autofill and trigger login
+    setTimeout(() => {
+        const fakeEvent = { preventDefault: () => {} } as React.FormEvent;
+        handleLogin(fakeEvent);
+    }, 100);
+  };
+
   return (
     // Centered Container - Removed bg-background to let body pattern show
     <div className="flex items-center justify-center min-h-screen p-4">
@@ -201,6 +213,17 @@ export default function LoginForm() {
               )}
             </Button>
           </form>
+
+          {/* 🛡️ PORTFOLIO GUEST ACCESS */}
+          <div className="mt-6 pt-4 border-t border-primary/20">
+            <button 
+                type="button"
+                onClick={handleGuestLogin}
+                className="w-full text-[10px] pixel-font text-gray-500 hover:text-secondary transition-colors uppercase tracking-tighter"
+            >
+                GUEST ACCESS MODE
+            </button>
+          </div>
         </CardContent>
       </Card>
     </div>

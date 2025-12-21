@@ -193,6 +193,34 @@ export default function TasksPage() {
     // This function is now optional/deprecated
   };
 
+  // ✏️ EDIT TASK
+  const handleEditTask = async (taskId: string, updates: any) => {
+    try {
+      await api.put(`/tasks/${taskId}/edit`, updates);
+      playSuccess();
+      showNotification('Task updated successfully!', 'success');
+      fetchTasks();
+    } catch (error) {
+      playError();
+      showNotification('Failed to update task', 'error');
+      console.error(error);
+    }
+  };
+
+  // 🗑️ DELETE TASK
+  const handleDeleteTask = async (taskId: string) => {
+    try {
+      await api.delete(`/tasks/${taskId}`);
+      playSuccess();
+      showNotification('Task deleted successfully!', 'success');
+      fetchTasks();
+    } catch (error) {
+      playError();
+      showNotification('Failed to delete task', 'error');
+      console.error(error);
+    }
+  };
+
   const boardRoles = ['General President', 'Vice President']; // Directors NOT included - read-only
   const directorRoles = ['Operation Director', 'Creative Director']; // Directors for view-only logic
   const canCreate = user && (['Head', 'Vice Head', 'HR'].includes(user.role) || boardRoles.includes(user.role));
@@ -487,7 +515,7 @@ export default function TasksPage() {
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {incomingSubmissions.map((task) => (
-                  <TaskItem key={task._id} task={task} canCreate={canCreate} isHeadView={isHeadView} isStrictMember={isStrictMember} getStatusColor={getStatusColor} user={user} updateStatus={updateStatus} selectedTask={selectedTask} setSelectedTask={setSelectedTask} submissionLinks={submissionLinks} setSubmissionLinks={setSubmissionLinks} updateSubmissionLink={updateSubmissionLink} removeSubmissionLink={removeSubmissionLink} handleSubmissionLinkBlur={handleSubmissionLinkBlur} />
+                  <TaskItem key={task._id} task={task} canCreate={canCreate} isHeadView={isHeadView} isStrictMember={isStrictMember} getStatusColor={getStatusColor} user={user} updateStatus={updateStatus} selectedTask={selectedTask} setSelectedTask={setSelectedTask} submissionLinks={submissionLinks} setSubmissionLinks={setSubmissionLinks} updateSubmissionLink={updateSubmissionLink} removeSubmissionLink={removeSubmissionLink} handleSubmissionLinkBlur={handleSubmissionLinkBlur} handleEditTask={handleEditTask} handleDeleteTask={handleDeleteTask} />
                 ))}
               </div>
           </div>
@@ -498,7 +526,7 @@ export default function TasksPage() {
           <h2 className="text-xl pixel-font text-blue-400 border-b border-blue-400/20 pb-2">ACTIVE DEPLOYMENTS</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {activeDeployments.map((task) => (
-               <TaskItem key={task._id} task={task} canCreate={canCreate} isHeadView={isHeadView} isStrictMember={isStrictMember} getStatusColor={getStatusColor} user={user} updateStatus={updateStatus} selectedTask={selectedTask} setSelectedTask={setSelectedTask} submissionLinks={submissionLinks} setSubmissionLinks={setSubmissionLinks} updateSubmissionLink={updateSubmissionLink} removeSubmissionLink={removeSubmissionLink} handleSubmissionLinkBlur={handleSubmissionLinkBlur} />
+               <TaskItem key={task._id} task={task} canCreate={canCreate} isHeadView={isHeadView} isStrictMember={isStrictMember} getStatusColor={getStatusColor} user={user} updateStatus={updateStatus} selectedTask={selectedTask} setSelectedTask={setSelectedTask} submissionLinks={submissionLinks} setSubmissionLinks={setSubmissionLinks} updateSubmissionLink={updateSubmissionLink} removeSubmissionLink={removeSubmissionLink} handleSubmissionLinkBlur={handleSubmissionLinkBlur} handleEditTask={handleEditTask} handleDeleteTask={handleDeleteTask} />
             ))}
             {activeDeployments.length === 0 && (
                 <div className="col-span-full text-center py-10 opacity-30 font-mono text-sm">
@@ -517,7 +545,7 @@ export default function TasksPage() {
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 opacity-90">
                 {expiredMissions.map((task) => (
-                  <TaskItem key={task._id} task={task} canCreate={canCreate} isHeadView={isHeadView} isStrictMember={isStrictMember} getStatusColor={getStatusColor} user={user} updateStatus={updateStatus} selectedTask={selectedTask} setSelectedTask={setSelectedTask} submissionLinks={submissionLinks} setSubmissionLinks={setSubmissionLinks} updateSubmissionLink={updateSubmissionLink} removeSubmissionLink={removeSubmissionLink} handleSubmissionLinkBlur={handleSubmissionLinkBlur} />
+                  <TaskItem key={task._id} task={task} canCreate={canCreate} isHeadView={isHeadView} isStrictMember={isStrictMember} getStatusColor={getStatusColor} user={user} updateStatus={updateStatus} selectedTask={selectedTask} setSelectedTask={setSelectedTask} submissionLinks={submissionLinks} setSubmissionLinks={setSubmissionLinks} updateSubmissionLink={updateSubmissionLink} removeSubmissionLink={removeSubmissionLink} handleSubmissionLinkBlur={handleSubmissionLinkBlur} handleEditTask={handleEditTask} handleDeleteTask={handleDeleteTask} />
                 ))}
               </div>
           </div>
@@ -529,7 +557,7 @@ export default function TasksPage() {
               <h2 className="text-xl pixel-font text-white/50 border-b border-white/10 pb-2">MISSION LOGS & HISTORY</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 opacity-80 hover:opacity-100 transition-opacity">
                 {missionHistory.map((task) => (
-                  <TaskItem key={task._id} task={task} canCreate={canCreate} isHeadView={isHeadView} isStrictMember={isStrictMember} getStatusColor={getStatusColor} user={user} updateStatus={updateStatus} selectedTask={selectedTask} setSelectedTask={setSelectedTask} submissionLinks={submissionLinks} setSubmissionLinks={setSubmissionLinks} updateSubmissionLink={updateSubmissionLink} removeSubmissionLink={removeSubmissionLink} handleSubmissionLinkBlur={handleSubmissionLinkBlur} />
+                  <TaskItem key={task._id} task={task} canCreate={canCreate} isHeadView={isHeadView} isStrictMember={isStrictMember} getStatusColor={getStatusColor} user={user} updateStatus={updateStatus} selectedTask={selectedTask} setSelectedTask={setSelectedTask} submissionLinks={submissionLinks} setSubmissionLinks={setSubmissionLinks} updateSubmissionLink={updateSubmissionLink} removeSubmissionLink={removeSubmissionLink} handleSubmissionLinkBlur={handleSubmissionLinkBlur} handleEditTask={handleEditTask} handleDeleteTask={handleDeleteTask} />
                 ))}
               </div>
           </div>
@@ -546,8 +574,15 @@ export default function TasksPage() {
 }
 
 // Extracted Component to avoid code duplication errors and maintain structure
-const TaskItem = ({ task, canCreate, isHeadView, isStrictMember, getStatusColor, user, updateStatus, selectedTask, setSelectedTask, submissionLinks, setSubmissionLinks, updateSubmissionLink, removeSubmissionLink, handleSubmissionLinkBlur }: any) => {
+const TaskItem = ({ task, canCreate, isHeadView, isStrictMember, getStatusColor, user, updateStatus, selectedTask, setSelectedTask, submissionLinks, setSubmissionLinks, updateSubmissionLink, removeSubmissionLink, handleSubmissionLinkBlur, handleEditTask, handleDeleteTask }: any) => {
     const [open, setOpen] = useState(false);
+    const [isEditMode, setIsEditMode] = useState(false);
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+    const [editTitle, setEditTitle] = useState('');
+    const [editDescription, setEditDescription] = useState('');
+    const [editDeadline, setEditDeadline] = useState('');
+    const [editHours, setEditHours] = useState('');
+    const [editResources, setEditResources] = useState('');
     const isOverdue = task.deadline && new Date() > new Date(task.deadline) && task.status === 'Pending';
     
     return (
@@ -693,6 +728,183 @@ const TaskItem = ({ task, canCreate, isHeadView, isStrictMember, getStatusColor,
                 <DialogTitle className="text-2xl pixel-font text-accent mb-2">
                     {task.title || 'Mission Details'}
                 </DialogTitle>
+
+                {/* ADMIN CONTROLS: Edit & Delete (Creator Only) */}
+                {canCreate && String(task.assignedBy?._id || task.assignedBy) === String(user?._id) && task.status === 'Pending' && !isEditMode && (
+                    <div className="flex gap-2 mb-4">
+                        <Button
+                            onClick={() => {
+                                setEditTitle(task.title);
+                                setEditDescription(task.description);
+                                setEditDeadline(task.deadline ? new Date(task.deadline).toISOString().split('T')[0] : '');
+                                setEditHours(task.taskHours?.toString() || '');
+                                setEditResources(task.resourcesLink || '');
+                                setIsEditMode(true);
+                            }}
+                            variant="outline"
+                            size="sm"
+                            className="pixel-corners pixel-font text-xs border-blue-500 text-blue-400 hover:bg-blue-500/10"
+                        >
+                            ✏️ EDIT
+                        </Button>
+                        <Button
+                            onClick={() => setShowDeleteConfirm(true)}
+                            variant="outline"
+                            size="sm"
+                            className="pixel-corners pixel-font text-xs border-red-500 text-red-400 hover:bg-red-500/10"
+                        >
+                            🗑️ DELETE
+                        </Button>
+                    </div>
+                )}
+
+                {/* EDIT MODE UI */}
+                {isEditMode && (
+                    <div className="space-y-4 mb-4 p-4 bg-blue-500/10 border border-blue-500/30 pixel-corners">
+                        <div className="flex justify-between items-center mb-2">
+                            <span className="pixel-font text-blue-400 text-xs">📝 EDIT MODE</span>
+                        </div>
+                        
+                        {/* Title */}
+                        <div className="space-y-2">
+                            <Label className="pixel-font text-xs text-blue-400">MISSION TITLE</Label>
+                            <Input
+                                value={editTitle}
+                                onChange={(e) => setEditTitle(e.target.value)}
+                                className="bg-background pixel-corners font-mono text-sm border-blue-500/50"
+                                placeholder="Enter new title..."
+                            />
+                        </div>
+
+                        {/* Description */}
+                        <div className="space-y-2">
+                            <Label className="pixel-font text-xs text-blue-400">MISSION DESCRIPTION</Label>
+                            <Textarea
+                                value={editDescription}
+                                onChange={(e) => setEditDescription(e.target.value)}
+                                className="bg-background pixel-corners font-mono text-sm border-blue-500/50 min-h-[100px]"
+                                placeholder="Enter new description..."
+                            />
+                        </div>
+
+                        {/* Resources Link */}
+                        <div className="space-y-2">
+                            <Label className="pixel-font text-xs text-blue-400">INTELLIGENCE / RESOURCES LINK</Label>
+                            <Input
+                                value={editResources}
+                                onChange={(e) => setEditResources(e.target.value)}
+                                className="bg-background pixel-corners font-mono text-sm border-blue-500/50"
+                                placeholder="https://drive.google.com/..."
+                            />
+                        </div>
+
+                        {/* Row: Deadline + Hours */}
+                        <div className="grid grid-cols-2 gap-4">
+                            {/* Deadline */}
+                            <div className="space-y-2">
+                                <Label className="pixel-font text-xs text-red-400">⏰ DEADLINE</Label>
+                                <Input
+                                    type="date"
+                                    value={editDeadline}
+                                    onChange={(e) => setEditDeadline(e.target.value)}
+                                    className="bg-background pixel-corners font-mono text-sm border-red-500/50 [color-scheme:dark]"
+                                />
+                            </div>
+
+                            {/* Task Hours */}
+                            <div className="space-y-2">
+                                <Label className="pixel-font text-xs text-yellow-400">💎 REWARD HOURS</Label>
+                                <Input
+                                    type="number"
+                                    min="0"
+                                    step="0.5"
+                                    value={editHours}
+                                    onChange={(e) => setEditHours(e.target.value)}
+                                    className="bg-background pixel-corners font-mono text-sm border-yellow-500/50"
+                                    placeholder="0"
+                                />
+                            </div>
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div className="flex gap-2 pt-2">
+                            <Button
+                                onClick={() => {
+                                    if (editTitle.trim() && editDescription.trim()) {
+                                        const updates: any = {
+                                            title: editTitle,
+                                            description: editDescription,
+                                            resourcesLink: editResources,
+                                        };
+                                        if (editDeadline) updates.deadline = editDeadline;
+                                        if (editHours) updates.taskHours = parseFloat(editHours);
+                                        
+                                        handleEditTask(task._id, updates);
+                                        setIsEditMode(false);
+                                        setOpen(false);
+                                    }
+                                }}
+                                className="pixel-corners pixel-font text-xs bg-green-600 hover:bg-green-500"
+                                disabled={!editTitle.trim() || !editDescription.trim()}
+                            >
+                                ✅ SAVE CHANGES
+                            </Button>
+                            <Button
+                                onClick={() => setIsEditMode(false)}
+                                variant="outline"
+                                className="pixel-corners pixel-font text-xs border-gray-500 text-gray-400"
+                            >
+                                ✖️ CANCEL
+                            </Button>
+                        </div>
+                    </div>
+                )}
+
+                {/* DELETE CONFIRMATION MODAL */}
+                {showDeleteConfirm && (
+                    <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4" onClick={() => setShowDeleteConfirm(false)}>
+                        <div className="bg-card border-2 border-red-500 pixel-corners p-6 max-w-md w-full shadow-[0_0_30px_rgba(239,68,68,0.5)]" onClick={(e) => e.stopPropagation()}>
+                            <div className="flex items-center gap-3 mb-4">
+                                <span className="text-3xl">⚠️</span>
+                                <h3 className="pixel-font text-red-500 text-lg">DELETE MISSION?</h3>
+                            </div>
+                            
+                            <div className="space-y-3 mb-6">
+                                <p className="font-mono text-sm text-gray-300">
+                                    You are about to delete:
+                                </p>
+                                <div className="p-3 bg-red-500/10 border border-red-500/30 pixel-corners">
+                                    <p className="pixel-font text-red-400 text-xs mb-1">MISSION:</p>
+                                    <p className="font-mono text-white text-sm">{task.title}</p>
+                                </div>
+                                <p className="font-mono text-xs text-red-400">
+                                    ⚠️ This action cannot be undone.
+                                </p>
+                            </div>
+
+                            <div className="flex gap-3">
+                                <Button
+                                    onClick={() => {
+                                        handleDeleteTask(task._id);
+                                        setShowDeleteConfirm(false);
+                                        setOpen(false);
+                                    }}
+                                    className="flex-1 bg-red-600 hover:bg-red-500 pixel-corners pixel-font text-xs"
+                                >
+                                    🗑️ CONFIRM DELETE
+                                </Button>
+                                <Button
+                                    onClick={() => setShowDeleteConfirm(false)}
+                                    variant="outline"
+                                    className="flex-1 pixel-corners pixel-font text-xs border-gray-500"
+                                >
+                                    ✖️ CANCEL
+                                </Button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 <div className="grid grid-cols-2 gap-4 text-xs font-mono text-gray-400 bg-primary/10 p-3 pixel-corners">
                         <div>
                         <span className="text-primary block mb-1">ASSIGNED TO:</span>
