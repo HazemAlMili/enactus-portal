@@ -16,14 +16,18 @@ import dbConnect from '../lib/dbConnect';
 export const getLeaderboard = async (req: Request, res: Response) => {
   await dbConnect();
   try {
+    const currentUser = (req as any).user;
+    
+    // ISOLATION LOGIC: Test users see test leaderboard, Real users see real leaderboard
+    const testFilter = currentUser?.isTest ? { isTest: true } : { isTest: { $ne: true } };
+    
     // Find users from BOTH collections, select specific fields to minimize data transfer
     // Filter strictly for Members, as requested
-    // EXCLUDE TEST USERS FROM LEADERBOARD
-    const usersFromUser = await User.find({ role: 'Member', isTest: { $ne: true } })
+    const usersFromUser = await User.find({ role: 'Member', ...testFilter })
       .select('name points hoursApproved department role') // Only needed fields
       .lean(); // ⚡ Plain objects for speed
       
-    const usersFromHighBoard = await HighBoard.find({ role: 'Member', isTest: { $ne: true } })
+    const usersFromHighBoard = await HighBoard.find({ role: 'Member', ...testFilter })
       .select('name points hoursApproved department role')
       .lean();
       
@@ -59,15 +63,18 @@ export const getUsers = async (req: Request, res: Response) => {
 
     // 1. Head / Vice Head: See only their Department members
     if (currentUser?.role === 'Head' || currentUser?.role === 'Vice Head') {
-      query = { department: currentUser.department, role: 'Member' };
+      query.department = currentUser.department;
+      // Keep role and isTest filters intact
     }
     // 2. Operation Director
     else if (currentUser?.role === 'Operation Director') {
-        query = { department: { $in: ['PR', 'FR', 'Logistics', 'PM'] }, role: 'Member' };
+        query.department = { $in: ['PR', 'FR', 'Logistics', 'PM'] };
+        // Keep role and isTest filters intact
     }
     // 3. Creative Director
     else if (currentUser?.role === 'Creative Director') {
-        query = { department: { $in: ['Marketing', 'Multi-Media', 'Presentation', 'Organization'] }, role: 'Member' };
+        query.department = { $in: ['Marketing', 'Multi-Media', 'Presentation', 'Organization'] };
+        // Keep role and isTest filters intact
     }
     // 2. HR Logic
     else if (currentUser?.role === 'HR') {
@@ -79,7 +86,8 @@ export const getUsers = async (req: Request, res: Response) => {
          const validDepts = ['IT','HR','PM','PR','FR','Logistics','Organization','Marketing','Multi-Media','Presentation'];
          const deptName = validDepts.find(d => d.replace(/[^a-zA-Z]/g, '').toLowerCase() === targetDept.replace(/[^a-zA-Z]/g, '').toLowerCase()) || targetDept;
          
-         query = { department: deptName, role: 'Member' };
+         query.department = deptName;
+         // Keep role and isTest filters intact
       }
       // General HR sees all (query remains {})
     }
@@ -88,11 +96,13 @@ export const getUsers = async (req: Request, res: Response) => {
         // "HR Coordinator - IT" -> See IT members
         const coordDept = currentUser.title.split(' - ')[1];
         if (coordDept) {
-            query = { department: coordDept, role: 'Member' };
+            query.department = coordDept;
+            // Keep role and isTest filters intact
         } else {
              // Fallback: See own/HR? Or nothing?
              // If title is malformed, show HR dept
-             query = { department: 'HR', role: 'Member' };
+             query.department = 'HR';
+             // Keep role and isTest filters intact
         }
     }
     // General President sees all

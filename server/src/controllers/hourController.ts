@@ -117,8 +117,8 @@ export const getHours = async (req: Request, res: Response) => {
          if (currentUser.title?.startsWith('HR Coordinator')) {
              const coordDept = currentUser.title.split(' - ')[1];
              if (coordDept) {
-                 const userDept = await User.find({ department: coordDept }).select('_id');
-                 const highboardDept = await HighBoard.find({ department: coordDept }).select('_id');
+                 const userDept = await User.find({ department: coordDept, ...testFilter }).select('_id');
+                 const highboardDept = await HighBoard.find({ department: coordDept, ...testFilter }).select('_id');
                  const allDeptUsers = [...userDept.map(u => u._id), ...highboardDept.map(u => u._id)];
                  query = { user: { $in: allDeptUsers } };
              } else {
@@ -137,22 +137,22 @@ export const getHours = async (req: Request, res: Response) => {
     // 3. Head / Vice Head: See hours for their Department members
     else if (currentUser?.role === 'Head' || currentUser?.role === 'Vice Head') {
       // Check BOTH User and HighBoard collections
-      const userDept = await User.find({ department: currentUser.department }).select('_id');
-      const highboardDept = await HighBoard.find({ department: currentUser.department }).select('_id');
+      const userDept = await User.find({ department: currentUser.department, ...testFilter }).select('_id');
+      const highboardDept = await HighBoard.find({ department: currentUser.department, ...testFilter }).select('_id');
       const allDeptUsers = [...userDept.map(u => u._id), ...highboardDept.map(u => u._id)];
       query = { user: { $in: allDeptUsers } };
     }
     // 4. Operation Director
     else if (currentUser?.role === 'Operation Director') {
-         const userDept = await User.find({ department: { $in: ['PR', 'FR', 'Logistics', 'PM'] } }).select('_id');
-         const highboardDept = await HighBoard.find({ department: { $in: ['PR', 'FR', 'Logistics', 'PM'] } }).select('_id');
+         const userDept = await User.find({ department: { $in: ['PR', 'FR', 'Logistics', 'PM'] }, ...testFilter }).select('_id');
+         const highboardDept = await HighBoard.find({ department: { $in: ['PR', 'FR', 'Logistics', 'PM'] }, ...testFilter }).select('_id');
          const allDeptUsers = [...userDept.map(u => u._id), ...highboardDept.map(u => u._id)];
          query = { user: { $in: allDeptUsers } };
     }
     // 5. Creative Director
     else if (currentUser?.role === 'Creative Director') {
-         const userDept = await User.find({ department: { $in: ['Marketing', 'Multi-Media', 'Presentation', 'Organization'] } }).select('_id');
-         const highboardDept = await HighBoard.find({ department: { $in: ['Marketing', 'Multi-Media', 'Presentation', 'Organization'] } }).select('_id');
+         const userDept = await User.find({ department: { $in: ['Marketing', 'Multi-Media', 'Presentation', 'Organization'] }, ...testFilter }).select('_id');
+         const highboardDept = await HighBoard.find({ department: { $in: ['Marketing', 'Multi-Media', 'Presentation', 'Organization'] }, ...testFilter }).select('_id');
          const allDeptUsers = [...userDept.map(u => u._id), ...highboardDept.map(u => u._id)];
          query = { user: { $in: allDeptUsers } };
     }
@@ -169,8 +169,8 @@ export const getHours = async (req: Request, res: Response) => {
          const validDepts = ['IT','HR','PM','PR','FR','Logistics','Organization','Marketing','Multi-Media','Presentation'];
          const deptName = validDepts.find(d => d.replace(/[^a-zA-Z]/g, '').toLowerCase() === targetDept.replace(/[^a-zA-Z]/g, '').toLowerCase()) || targetDept;
 
-         const userDept = await User.find({ department: deptName }).select('_id');
-         const highboardDept = await HighBoard.find({ department: deptName }).select('_id');
+         const userDept = await User.find({ department: deptName, ...testFilter }).select('_id');
+         const highboardDept = await HighBoard.find({ department: deptName, ...testFilter }).select('_id');
          const allDeptUsers = [...userDept.map(u => u._id), ...highboardDept.map(u => u._id)];
          query = { user: { $in: allDeptUsers } };
       } else {
@@ -178,8 +178,8 @@ export const getHours = async (req: Request, res: Response) => {
          // Current behavior for General HR: Default All
          const { department } = req.query;
          if (department && department !== 'All') {
-            const userDept = await User.find({ department }).select('_id');
-            const highboardDept = await HighBoard.find({ department }).select('_id');
+            const userDept = await User.find({ department, ...testFilter }).select('_id');
+            const highboardDept = await HighBoard.find({ department, ...testFilter }).select('_id');
             const allDeptUsers = [...userDept.map(u => u._id), ...highboardDept.map(u => u._id)];
             query = { user: { $in: allDeptUsers } };
          }
@@ -189,8 +189,8 @@ export const getHours = async (req: Request, res: Response) => {
     else if (['General President', 'Vice President'].includes(currentUser?.role)) {
       const { department } = req.query;
       if (department && department !== 'All') {
-        const userDept = await User.find({ department }).select('_id');
-        const highboardDept = await HighBoard.find({ department }).select('_id');
+        const userDept = await User.find({ department, ...testFilter }).select('_id');
+        const highboardDept = await HighBoard.find({ department, ...testFilter }).select('_id');
         const allDeptUsers = [...userDept.map(u => u._id), ...highboardDept.map(u => u._id)];
         query = { user: { $in: allDeptUsers } };
       }
