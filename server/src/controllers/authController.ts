@@ -90,33 +90,18 @@ import Task from '../models/Task';
  */
 export const getMe = async (req: Request, res: Response) => {
   await dbConnect();
-  // Find the user by ID
+  // Find the user by ID with select() to only fetch needed fields
   // Try User first
-  let user: any = await User.findById((req as any).user?._id);
+  let user: any = await User.findById((req as any).user?._id).select('-password');
 
   // If not found, try HighBoard
   if (!user) {
-    user = await HighBoard.findById((req as any).user?._id);
+    user = await HighBoard.findById((req as any).user?._id).select('-password');
   }
   
   if (user) {
-    // --- SELF HEALING SYNC LOGIC ---
-    // Recalculate stats based on actual Task records to ensure accuracy
-    const completedTasks = await Task.find({ 
-        assignedTo: user._id, 
-        status: 'Completed' 
-    });
-
-    const realCount = completedTasks.length;
-    const realPoints = completedTasks.reduce((sum, task) => sum + (task.scoreValue || 50), 0);
-    
-    // Update if different (or just always update to be safe and simple)
-    if (user.tasksCompleted !== realCount || user.points !== realPoints) {
-        user.tasksCompleted = realCount;
-        user.points = realPoints;
-        await user.save();
-    }
-    // -------------------------------
+    // Return cached user data - stats are updated when tasks are completed/approved
+    // This avoids expensive Task.find() queries on every page load
 
     // Respond with the user's profile information
     res.json({
@@ -125,12 +110,13 @@ export const getMe = async (req: Request, res: Response) => {
       email: user.email,
       role: user.role,
       department: user.department,
-      points: user.points,
-      hoursApproved: user.hoursApproved,
-      tasksCompleted: user.tasksCompleted,
+      points: user.points || 0,
+      hoursApproved: user.hoursApproved || 0,
+      tasksCompleted: user.tasksCompleted || 0,
       title: user.title, // Include Title
       warnings: user.warnings || [], // Include warnings
-      isTest: user.isTest || false
+      isTest: user.isTest || false,
+      avatar: user.avatar // Include avatar
     });
   } else {
     res.status(404).json({ message: 'User not found' });

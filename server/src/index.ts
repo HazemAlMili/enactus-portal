@@ -110,12 +110,14 @@ import authRoutes from './routes/authRoutes';
 import taskRoutes from './routes/taskRoutes';
 import hourRoutes from './routes/hourRoutes';
 import userRoutes from './routes/userRoutes';
+import healthRoutes from './routes/health';
 
 // Register Route Paths
 app.use('/api/auth', authRoutes); // Auth routes (login, me)
 app.use('/api/tasks', taskRoutes); // Task management routes
 app.use('/api/hours', hourRoutes); // Hours tracking routes
 app.use('/api/users', userRoutes); // User management routes
+app.use('/api/health', healthRoutes); // Health check and connection warming
 
 // Basic Health Check Route
 app.get('/', (req, res) => {
@@ -148,16 +150,36 @@ export default app;
 
 import dbConnect from './lib/dbConnect';
 
-// ...
-
-// Server Startup
+// Server Startup with Connection Warming
 if (!process.env.VERCEL && process.env.NODE_ENV !== 'test') {
-  // Connect to DB immediately on startup
-  dbConnect().then(() => {
-    // console.log('MongoDB Connected via Startup'); // Already logged inside dbConnect
-  });
-
-  app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-  });
+  console.log('🚀 Starting Enactus Portal Server...');
+  console.log('🔌 Warming up database connection to Bahrain...');
+  
+  const startTime = Date.now();
+  
+  // Warm up database connection BEFORE starting server
+  dbConnect()
+    .then(() => {
+      const duration = Date.now() - startTime;
+      console.log(`✅ Database connection pool ready in ${duration}ms`);
+      console.log(`📡 Connection pool: 5-15 connections maintained`);
+      
+      // Now start accepting requests
+      app.listen(PORT, () => {
+        console.log(`✅ Server running on port ${PORT}`);
+        console.log(`🌐 API available at http://localhost:${PORT}`);
+        console.log(`❤️ Health check: http://localhost:${PORT}/api/health`);
+        console.log('');
+        console.log('💡 TIP: Connection pool is warm - first requests will be fast!');
+      });
+    })
+    .catch((error) => {
+      console.error('❌ Failed to connect to database:', error);
+      console.error('⚠️ Server will start anyway, but requests will be slow until connection succeeds');
+      
+      // Start server even if DB connection fails (it will retry on first request)
+      app.listen(PORT, () => {
+        console.log(`⚠️ Server running on port ${PORT} (DATABASE CONNECTION FAILED)`);
+      });
+    });
 }

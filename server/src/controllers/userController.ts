@@ -13,32 +13,66 @@ import dbConnect from '../lib/dbConnect';
  * Route: GET /api/users/leaderboard
  * Access: Private/Public
  */
+// In-memory cache for leaderboard (critical for Bahrain DB latency!)
+let leaderboardCache: { data: any[]; timestamp: number } | null = null;
+const CACHE_TTL = 120000; // 2 minutes
+
 export const getLeaderboard = async (req: Request, res: Response) => {
+  const startTime = Date.now();
+  
+  // Check cache first!
+  if (leaderboardCache && (Date.now() - leaderboardCache.timestamp) < CACHE_TTL) {
+    console.log(`✅ Serving from CACHE (${Date.now() - startTime}ms)`);
+    res.set('X-Cache', 'HIT');
+    res.set('Cache-Control', 'private, max-age=120');
+    return res.json(leaderboardCache.data);
+  }
+  
+  console.log('🔍 Leaderboard request started - CACHE MISS');
+  
   await dbConnect();
+  console.log(`⏱️ DB Connect took: ${Date.now() - startTime}ms`);
+  
   try {
     const currentUser = (req as any).user;
-    
-    // ISOLATION LOGIC: Test users see test leaderboard, Real users see real leaderboard
     const testFilter = currentUser?.isTest ? { isTest: true } : { isTest: { $ne: true } };
     
-    // Find users from BOTH collections, select specific fields to minimize data transfer
-    // Filter strictly for Members, as requested
+    const query1Start = Date.now();
     const usersFromUser = await User.find({ role: 'Member', ...testFilter })
-      .select('name points hoursApproved department role') // Only needed fields
-      .lean(); // ⚡ Plain objects for speed
-      
-    const usersFromHighBoard = await HighBoard.find({ role: 'Member', ...testFilter })
-      .select('name points hoursApproved department role')
+      .select('_id name hoursApproved department')
+      .sort({ hoursApproved: -1 })
+      .limit(10) // ⚡ TOP 10 ONLY for Speed Index!
       .lean();
-      
-    // Combine and sort by hoursApproved
+    console.log(`⏱️ User query took: ${Date.now() - query1Start}ms (${usersFromUser.length} results)`);
+    
+    const query2Start = Date.now();
+    const usersFromHighBoard = await HighBoard.find({ role: 'Member', ...testFilter })
+      .select('_id name hoursApproved department')
+      .sort({ hoursApproved: -1 })
+      .limit(10)
+      .lean();
+    console.log(`⏱️ HighBoard query took: ${Date.now() - query2Start}ms (${usersFromHighBoard.length} results)`);
+       
+    const mergeStart = Date.now();
     const users = [...usersFromUser, ...usersFromHighBoard]
       .sort((a, b) => (b.hoursApproved || 0) - (a.hoursApproved || 0))
-      .slice(0, 50); // Top 50
-      
+      .slice(0, 10); // ⚡ TOP 10 FINAL
+    console.log(`⏱️ Merge/sort took: ${Date.now() - mergeStart}ms`);
+    
+    // Update cache
+    leaderboardCache = {
+      data: users,
+      timestamp: Date.now()
+    };
+    
+    console.log(`✅ Total leaderboard time: ${Date.now() - startTime}ms - CACHED for 2min`);
+    console.log(`📊 Payload size: ${users.length} users (optimized for TBT!)`);
+    res.set('X-Cache', 'MISS');
+    res.set('Cache-Control', 'private, max-age=120');
     res.json(users);
   } catch (error) {
-    res.status(500).json({ message: 'Server Error' });
+    console.error('❌ Leaderboard error:', error);
+    res.status(500).json({ message: 'Server Error', error: String(error) });
   }
 };
 

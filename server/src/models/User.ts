@@ -54,6 +54,7 @@ UserSchema.index({ role: 1 }); // For role-based filtering
 UserSchema.index({ hoursApproved: -1 }); // For leaderboard sorting (DESC)
 UserSchema.index({ email: 1 }); // Ensure email index for login (should be unique)
 UserSchema.index({ points: -1 }); // For points-based rankings
+UserSchema.index({ isTest: 1, role: 1 }); // For test/real user isolation queries
 
 // Export the Mongoose model based on the schema and interface
 export default mongoose.model<IUser>('User', UserSchema);
