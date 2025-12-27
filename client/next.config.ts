@@ -1,16 +1,25 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
   // Trigger Vercel redeploy
   reactCompiler: true,
   
-  // Aggressive Cache Control - Prevent Stale Data
+  // Optimized Cache Control - Cache static assets, fresh dynamic data
   async headers() {
     return [
       {
-        // Apply to all routes
-        source: '/:path*',
+        // Cache static assets (fonts, images, CSS, JS) aggressively
+        source: '/(.*)\\.(woff|woff2|ttf|otf|eot|jpg|jpeg|png|gif|svg|webp|ico|css|js)$',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=31536000, immutable',
+          },
+        ],
+      },
+      {
+        // No cache for API routes and pages
+        source: '/(api|dashboard)/:path*',
         headers: [
           {
             key: 'Cache-Control',
@@ -28,6 +37,20 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+  
+  // Enable compression
+  compress: true,
+  
+  // Image optimization
+  images: {
+    formats: ['image/webp', 'image/avif'],
+    deviceSizes: [640, 750, 828, 1080, 1200],
+    imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
+  },
+  
+  // Production optimizations
+  poweredByHeader: false,
+  generateEtags: true,
 };
 
 export default nextConfig;

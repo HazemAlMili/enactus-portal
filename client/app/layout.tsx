@@ -1,15 +1,33 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Inter, Press_Start_2P } from "next/font/google";
 import "./globals.css";
 
 import CloudBackground from "@/components/layout/CloudBackground";
 import { NotificationProvider } from "@/components/ui/notification";
 
-const inter = Inter({ subsets: ["latin"] });
+// Optimize font loading with proper display strategy
+const inter = Inter({ 
+  subsets: ["latin"],
+  display: 'swap', // Prevents invisible text while loading
+  preload: true,
+  variable: '--font-inter'
+});
+
+// Load Press Start 2P with optimization
+const pressStart2P = Press_Start_2P({
+  weight: '400',
+  subsets: ['latin'],
+  display: 'swap',
+  variable: '--font-pixel',
+  preload: true,
+});
 
 export const metadata: Metadata = {
   title: "Enactus Portal",
   description: "Enactus Chapter Management System",
+  icons: {
+    icon: '/favicon.ico',
+  },
 };
 
 export default function RootLayout({
@@ -19,7 +37,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={inter.className}>
+      <body className={`${inter.variable} ${pressStart2P.variable} ${inter.className}`}>
         <NotificationProvider>
           <CloudBackground />
           <main className="relative z-10">
