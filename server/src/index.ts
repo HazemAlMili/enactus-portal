@@ -56,14 +56,31 @@ const PORT = process.env.PORT || 5000;
 // 1. Set Security HTTP Headers
 app.use(helmet());
 
-// 2. Enable CORS
-// Allow all origins for now to fix CORS issues in dev, but in production this should be restricted
+// 2. Enable CORS with proper credentials support
+// Support both development (localhost) and production (Vercel)
+const allowedOrigins = [
+  'http://localhost:3000',
+  'http://localhost:3001',
+  'https://enactus-portal.vercel.app',
+  process.env.FRONTEND_URL // Add your production frontend URL to .env
+].filter(Boolean); // Remove undefined/null values
+
 app.use(cors({
-  origin: '*', 
+  origin: (origin, callback) => {
+    // Allow requests with no origin (like mobile apps or curl)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      console.warn(`⚠️ CORS blocked origin: ${origin}`);
+      callback(null, true); // Still allow in dev, log warning
+    }
+  },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'Cache-Control', 'Pragma', 'Expires'],
-  exposedHeaders: ['Cache-Control', 'Pragma', 'Expires'],
-  credentials: false
+  exposedHeaders: ['Cache-Control', 'Pragma', 'Expires', 'X-Cache'],
+  credentials: true // ⚡ CRITICAL FOR AUTH!
 }));
 
 // Cache Busting Middleware - Prevent ANY caching

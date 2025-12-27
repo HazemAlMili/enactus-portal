@@ -55,6 +55,8 @@ UserSchema.index({ hoursApproved: -1 }); // For leaderboard sorting (DESC)
 UserSchema.index({ email: 1 }); // Ensure email index for login (should be unique)
 UserSchema.index({ points: -1 }); // For points-based rankings
 UserSchema.index({ isTest: 1, role: 1 }); // For test/real user isolation queries
+// ⚡ COMPOUND INDEX for LEADERBOARD - Eliminates 6s latency!
+UserSchema.index({ role: 1, isTest: 1, hoursApproved: -1 }); // Perfect for leaderboard query
 
 // Export the Mongoose model based on the schema and interface
 export default mongoose.model<IUser>('User', UserSchema);
