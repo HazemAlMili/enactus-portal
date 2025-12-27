@@ -25,15 +25,26 @@ interface UserProfile {
 export default function ProfilePage() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
-
+  const [error, setError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
     const fetchProfile = async () => {
       try {
+        // Check sessionStorage first
         const token = sessionStorage.getItem('token');
+        const userStr = sessionStorage.getItem('user');
+        
+        console.log('🔍 Profile page - Checking auth...');
+        console.log('Token exists:', !!token);
+        console.log('User in storage:', !!userStr);
+        
         if (!token) {
-          console.log('⚠️ No token found in sessionStorage');
+          console.error('❌ No token found - redirecting to login');
+          setError('Not authenticated. Please log in.');
+          setTimeout(() => {
+            window.location.href = '/';
+          }, 2000);
           setLoading(false);
           return;
         }
@@ -41,10 +52,29 @@ export default function ProfilePage() {
         // Fetch fresh user data from /api/auth/me with cache-busting timestamp
         console.log('🔄 Fetching fresh profile data...');
         const res = await api.get(`/auth/me?_t=${Date.now()}`);
-        console.log('✅ Profile data loaded:', res.data.name);
+        console.log('✅ Profile data loaded successfully:', {
+          name: res.data.name,
+          role: res.data.role,
+          department: res.data.department
+        });
         setProfile(res.data);
-      } catch (err) {
+        setError(null);
+      } catch (err: any) {
         console.error("❌ Failed to fetch profile:", err);
+        console.error("Error response:", err.response?.data);
+        console.error("Error status:", err.response?.status);
+        
+        const errorMessage = err.response?.data?.message || err.message || 'Failed to load profile';
+        setError(errorMessage);
+        
+        // If 401 or 403, redirect to login
+        if (err.response?.status === 401 || err.response?.status === 403) {
+          console.error('🚨 Auth error - clearing session and redirecting');
+          sessionStorage.clear();
+          setTimeout(() => {
+            window.location.href = '/';
+          }, 2000);
+        }
       } finally {
         setLoading(false);
       }
@@ -106,7 +136,46 @@ export default function ProfilePage() {
       );
   }
 
-  if (!profile) return null;
+  // Show error state instead of blank screen!
+  if (error || !profile) {
+    return (
+      <div className="flex h-[80vh] items-center justify-center">
+        <Card className="bg-card border-2 border-destructive pixel-corners max-w-md">
+          <CardHeader>
+            <CardTitle className="text-destructive pixel-font">ERROR: ACCESS DENIED</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-white/80 pixel-font text-sm">
+              {error || 'Profile data not available'}
+            </p>
+            <div className="p-3 bg-destructive/10 border border-destructive/30 pixel-corners">
+              <p className="text-xs font-mono text-white/60">
+                Debug Info:
+              </p>
+              <p className="text-xs font-mono text-white/80">
+                • Token: {sessionStorage.getItem('token') ? 'Present' : 'Missing'}
+              </p>
+              <p className="text-xs font-mono text-white/80">
+                • User Storage: {sessionStorage.getItem('user') ? 'Present' : 'Missing'}
+              </p>
+              <p className="text-xs font-mono text-white/80">
+                • Profile Data: {profile ? 'Loaded' : 'Not Loaded'}
+              </p>
+            </div>
+            <p className="text-xs text-white/60 pixel-font">
+              Redirecting to login in 2 seconds...
+            </p>
+            <button
+              onClick={() => window.location.href = '/'}
+              className="w-full pixel-corners bg-primary hover:bg-primary/80 text-white px-4 py-2 pixel-font text-xs"
+            >
+              GO TO LOGIN NOW
+            </button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   // Determine Role Type
   const isBoss = ['Head', 'Vice Head', 'General President', 'Vice President', 'Operation Director', 'Creative Director', 'HR'].includes(profile.role);

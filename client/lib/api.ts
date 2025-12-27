@@ -11,6 +11,8 @@ console.log('🔌 Connected to Backend at:', API_URL);
 // Create an axios instance with the defined Base URL
 const api = axios.create({
   baseURL: API_URL,
+  withCredentials: true, // ⚡ CRITICAL: Send cookies/credentials with requests!
+  timeout: 30000, // 30 second timeout for Bahrain DB
 });
 
 // Add a request interceptor to inject the Authorization header
