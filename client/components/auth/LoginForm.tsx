@@ -195,9 +195,15 @@ export default function LoginForm() {
                 <span className="flex items-center justify-center gap-2">
                   <span className="text-xs">Deploying mission</span>
                   <span className="flex gap-0.5">
-                    <span className="inline-block text-xs animate-bounce" style={{ animationDelay: '0ms' }}>█</span>
-                    <span className="inline-block text-xs animate-bounce" style={{ animationDelay: '150ms' }}>█</span>
-                    <span className="inline-block text-xs animate-bounce" style={{ animationDelay: '300ms' }}>█</span>
+                    {[0, 150, 300].map((delay, i) => (
+                      <span 
+                        key={i} 
+                        className="inline-block text-xxs animate-bounce" 
+                        style={{ animationDelay: `${delay}ms` }}
+                      >
+                        █
+                      </span>
+                    ))}
                   </span>
                 </span>
               ) : (

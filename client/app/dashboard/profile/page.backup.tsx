@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -31,7 +31,6 @@ export default function ProfilePage() {
   const [uploading, setUploading] = useState(false);
   const [showNotification, setShowNotification] = useState(false);
   const [notification, setNotification] = useState<{ type: 'success' | 'error', text: string } | null>(null);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const showMessage = (type: 'success' | 'error', text: string) => {
     setNotification({ type, text });
@@ -45,12 +44,12 @@ export default function ProfilePage() {
         const token = sessionStorage.getItem('token');
         const userStr = sessionStorage.getItem('user');
         
-        console.log('🔍 Profile page - Checking auth...');
+        console.log('ðŸ” Profile page - Checking auth...');
         console.log('Token exists:', !!token);
         console.log('User in storage:', !!userStr);
         
         if (!token) {
-          console.error('❌ No token found - redirecting to login');
+          console.error('âŒ No token found - redirecting to login');
           setError('Not authenticated. Please log in.');
           setTimeout(() => {
             window.location.href = '/';
@@ -60,9 +59,9 @@ export default function ProfilePage() {
         }
 
         // Fetch fresh user data from /api/auth/me with cache-busting timestamp
-        console.log('🔄 Fetching fresh profile data...');
+        console.log('ðŸ”„ Fetching fresh profile data...');
         const res = await api.get(`/auth/me?_t=${Date.now()}`);
-        console.log('✅ Profile data loaded successfully:', {
+        console.log('âœ… Profile data loaded successfully:', {
           name: res.data.name,
           role: res.data.role,
           department: res.data.department
@@ -70,7 +69,7 @@ export default function ProfilePage() {
         setProfile(res.data);
         setError(null);
       } catch (err: any) {
-        console.error("❌ Failed to fetch profile:", err);
+        console.error("âŒ Failed to fetch profile:", err);
         console.error("Error response:", err.response?.data);
         console.error("Error status:", err.response?.status);
         
@@ -79,7 +78,7 @@ export default function ProfilePage() {
         
         // If 401 or 403, redirect to login
         if (err.response?.status === 401 || err.response?.status === 403) {
-          console.error('🚨 Auth error - clearing session and redirecting');
+          console.error('ðŸš¨ Auth error - clearing session and redirecting');
           sessionStorage.clear();
           setTimeout(() => {
             window.location.href = '/';
@@ -107,10 +106,10 @@ export default function ProfilePage() {
     reader.onloadend = async () => {
       try {
         const base64 = reader.result as string;
-        console.log('📤 Uploading avatar, size:', base64.length, 'chars');
+        console.log('ðŸ“¤ Uploading avatar, size:', base64.length, 'chars');
         
         const res = await api.put('/users/avatar', { avatar: base64 });
-        console.log('✅ Avatar uploaded successfully');
+        console.log('âœ… Avatar uploaded successfully');
         
         setProfile(res.data);
         
@@ -121,7 +120,7 @@ export default function ProfilePage() {
         
         showMessage('success', 'Avatar updated successfully!');
       } catch (err: any) {
-        console.error("❌ Upload failed:", err);
+        console.error("âŒ Upload failed:", err);
         console.error("Error response:", err.response?.data);
         
         const errorMsg = err.response?.data?.message || err.message || 'Upload failed';
@@ -131,7 +130,7 @@ export default function ProfilePage() {
       }
     };
     reader.onerror = () => {
-      console.error('❌ Failed to read file');
+      console.error('âŒ Failed to read file');
       showMessage('error', 'Failed to read image file');
       setUploading(false);
     };
@@ -139,13 +138,12 @@ export default function ProfilePage() {
   };
 
   const handleDeleteAvatar = async () => {
-    setShowDeleteConfirm(false); // Close confirmation dialog
+    if (!confirm('Are you sure you want to delete your avatar?')) return;
     
     setUploading(true);
     try {
-      // Send null avatar to delete it
-      const res = await api.put('/users/avatar', { avatar: null });
-      console.log('✅ Avatar deleted successfully');
+      const res = await api.delete('/users/avatar');
+      console.log('âœ… Avatar deleted successfully');
       
       setProfile(res.data);
       
@@ -156,7 +154,7 @@ export default function ProfilePage() {
       
       showMessage('success', 'Avatar deleted successfully!');
     } catch (err: any) {
-      console.error("❌ Delete failed:", err);
+      console.error("âŒ Delete failed:", err);
       const errorMsg = err.response?.data?.message || err.message || 'Delete failed';
       showMessage('error', `Delete failed: ${errorMsg}`);
     } finally {
@@ -189,13 +187,13 @@ export default function ProfilePage() {
                 Debug Info:
               </p>
               <p className="text-xs font-mono text-white/80">
-                • Token: {sessionStorage.getItem('token') ? 'Present' : 'Missing'}
+                â€¢ Token: {sessionStorage.getItem('token') ? 'Present' : 'Missing'}
               </p>
               <p className="text-xs font-mono text-white/80">
-                • User Storage: {sessionStorage.getItem('user') ? 'Present' : 'Missing'}
+                â€¢ User Storage: {sessionStorage.getItem('user') ? 'Present' : 'Missing'}
               </p>
               <p className="text-xs font-mono text-white/80">
-                • Profile Data: {profile ? 'Loaded' : 'Not Loaded'}
+                â€¢ Profile Data: {profile ? 'Loaded' : 'Not Loaded'}
               </p>
             </div>
             <p className="text-xs text-white/60 pixel-font">
@@ -257,44 +255,40 @@ export default function ProfilePage() {
            
            <CardContent className="p-6 md:p-8 flex flex-col md:flex-row gap-8 items-center md:items-start text-center md:text-left z-10 relative">
                 
-                             {/* Avatar Section with Actions */}
-                 <div className="shrink-0 relative flex flex-col items-center gap-3">
-                     <input type="file" id="avatar-upload" accept="image/*" className="hidden" onChange={handleImageUpload} disabled={uploading} />
-                     
-                     <div className={`w-32 h-32 bg-black/50 pixel-corners flex items-center justify-center border-2 ${roleColor} relative overflow-hidden`}>
-                          {profile.avatar ? (
-                              <img src={profile.avatar} alt="Avatar" className="w-full h-full object-cover" />
-                          ) : (
-                              <User className={`w-16 h-16 ${roleColor.split(' ')[0]}`} />
-                          )}
-                          {!uploading && <div className="absolute inset-0 bg-gradient-to-b from-transparent via-white/10 to-transparent h-[20%] w-full animate-scanline pointer-events-none" />}
-                          {uploading && (
-                            <div className="absolute inset-0 bg-black/80 flex items-center justify-center">
-                              <div className="flex flex-col items-center gap-2">
-                                <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                <span className="text-xs pixel-font text-white">UPLOADING...</span>
-                              </div>
-                            </div>
-                          )}
-                     </div>
-                     
-                     <Badge className={`pixel-corners pixel-font text-[10px] px-3 py-1 bg-black border ${roleColor}`}>{profile.role}</Badge>
+                {/* Avatar Section (Clickable for Upload) */}
+                <div className="shrink-0 relative group">
+                    <label 
+                        className={`w-32 h-32 bg-black/50 pixel-corners flex items-center justify-center border-2 ${roleColor} relative overflow-hidden cursor-pointer hover:opacity-90 transition-opacity`}
+                    >
+                         {/* File Input */}
+                         <input 
+                            type="file" 
+                            accept="image/*" 
+                            className="hidden" 
+                            onChange={handleImageUpload}
+                            disabled={uploading}
+                         />
 
-                     <div className="flex gap-2">
-                        <button onClick={() => document.getElementById('avatar-upload')?.click()} disabled={uploading} className="group pixel-corners bg-secondary/10 hover:bg-secondary/20 border border-secondary/30 hover:border-secondary/50 p-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed" title="Change avatar">
-                          <svg className="w-4 h-4 text-secondary group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                          </svg>
-                        </button>
-                        {profile.avatar && (
-                          <button onClick={() => setShowDeleteConfirm(true)} disabled={uploading} className="group pixel-corners bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 hover:border-red-500/50 p-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed" title="Delete avatar">
-                            <svg className="w-4 h-4 text-red-400 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                            </svg>
-                          </button>
-                        )}
-                     </div>
-                 </div>
+                         {/* Image or Icon */}
+                         {profile.avatar ? (
+                             <img src={profile.avatar} alt="Avatar" className="w-full h-full object-cover" />
+                         ) : (
+                             <User className={`w-16 h-16 ${roleColor.split(' ')[0]}`} />
+                         )}
+
+                         {/* Upload Overlay */}
+                         <div className="absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                             {/* Note: Icons from Lucide need to be imported or they default to User if missing */}
+                             <span className="text-xs text-white pixel-font">UPLOAD</span>
+                         </div>
+
+                         {/* Scanline Animation (only if not uploading) */}
+                         {!uploading && <div className="absolute inset-0 bg-gradient-to-b from-transparent via-white/10 to-transparent h-[20%] w-full animate-scanline pointer-events-none" />}
+                    </label>
+                     <Badge className={`absolute -bottom-3 left-1/2 -translate-x-1/2 pixel-corners pixel-font text-[10px] px-3 py-1 bg-black border ${roleColor}`}>
+                        {profile.role}
+                    </Badge>
+                </div>
 
                 {/* Info Section */}
                 <div className="flex-1 space-y-4 w-full">
@@ -459,51 +453,6 @@ export default function ProfilePage() {
         </div>
       </div>
     )}
-
-    {/* Delete Confirmation Dialog */}
-    {showDeleteConfirm && (
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-        <div className="bg-card border-4 border-red-500 pixel-corners shadow-2xl max-w-md w-full animate-in zoom-in-95 duration-200">
-          {/* Header */}
-          <div className="p-4 border-b-2 border-red-500/20 bg-red-500/10">
-            <h3 className="text-lg pixel-font text-white tracking-wider">⚠️  CONFIRM DELETE</h3>
-          </div>
-
-          {/* Body */}
-          <div className="p-6">
-            <div className="flex items-start gap-4">
-              <div className="p-3 rounded-full bg-red-500/20">
-                <AlertCircle className="w-8 h-8 text-red-400" />
-              </div>
-              <div className="flex-1 pt-2">
-                <p className="text-base pixel-font text-red-400">
-                  Are you sure you want to delete your avatar?
-                </p>
-                <p className="text-sm text-gray-400 mt-2 font-mono">
-                  This action cannot be undone.
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Footer */}
-          <div className="p-4 border-t-2 border-red-500/20 flex justify-end gap-3">
-            <button
-              onClick={() => setShowDeleteConfirm(false)}
-              className="pixel-corners bg-gray-500/10 hover:bg-gray-500/20 border border-gray-500/30 hover:border-gray-500/50 text-white px-6 py-2 pixel-font text-sm transition-all hover:scale-105 active:scale-95"
-            >
-              CANCEL
-            </button>
-            <button
-              onClick={handleDeleteAvatar}
-              className="pixel-corners bg-red-500 hover:bg-red-600 text-white px-6 py-2 pixel-font text-sm transition-all hover:scale-105 active:scale-95"
-            >
-              DELETE
-            </button>
-          </div>
-        </div>
-      </div>
-    )}
   </>
   );
 }
@@ -523,3 +472,4 @@ function StatCard({ icon: Icon, label, value, color, bg, border }: { icon: any, 
         </Card>
     );
 }
+

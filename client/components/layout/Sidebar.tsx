@@ -114,7 +114,7 @@ export function Sidebar({ user, className }: { user: any, className?: string }) 
           handleLogout();
         }}>
           <LogOut className="mr-2 h-4 w-4" />
-          Logout
+          Quit
         </Button>
       </div>
     </div>

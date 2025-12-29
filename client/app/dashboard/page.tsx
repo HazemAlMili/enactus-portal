@@ -101,42 +101,30 @@ export default function Dashboard() {
             WELCOME,<br />
             <span className="mt-1 text-3xl">{user.name.toUpperCase()}</span>
           </h1>
-          <div className="flex items-center gap-2 text-white/80 font-mono text-sm">
-            <span className="bg-primary/20 px-2 py-1 rounded-none border border-primary pixel-corners">
-              {user.role === 'General President' 
-                ? 'President'
-                : user.role === 'Vice President'
-                ? 'Vice'
-                : user.role === 'Operation Director' || user.role === 'Creative Director' 
-                ? 'Director' 
-                : (user.department || 'NO_DEPT')}
-            </span>
-            <span className="bg-secondary/20 px-2 py-1 rounded-none border border-secondary pixel-corners text-secondary">
-              {user.role}
-            </span>
-          </div>
-          
-
         </div>
-        <Button 
-          variant="destructive" 
-          className="pixel-corners"
-          onClick={() => {
-            sessionStorage.removeItem('token');
-            sessionStorage.removeItem('user');
-            sessionStorage.removeItem('lastTaskCheck');
-            sessionStorage.removeItem('taskNotificationShown');
-            router.replace('/');
-          }}
-        >
-          LOGOUT (QUIT)
-        </Button>
+        
+        {/* Badges moved to top right */}
+        <div className="flex flex-col items-end gap-2 text-white/80 font-mono">
+          <span className="bg-secondary/20 px-4 py-2 rounded-none border border-secondary pixel-corners text-secondary text-base">
+            {user.role}
+          </span>
+          <span className="bg-primary/20 px-4 py-2 rounded-none border border-primary pixel-corners text-base">
+            {user.role === 'General President' 
+              ? 'President'
+              : user.role === 'Vice President'
+              ? 'Vice'
+              : user.role === 'Operation Director' || user.role === 'Creative Director' 
+              ? 'Director' 
+              : (user.department || 'NO_DEPT')}
+          </span>
+          
+        </div>
       </div>
 
       <div className="flex-1 flex flex-col justify-center space-y-8">
       {/* Level Progress Section */}
       <Card className="bg-card border-2 border-primary pixel-corners">
-        <CardContent className="p-6">
+        <CardContent className="p-5">
           {(() => {
              const isBoss = ['Head', 'Vice Head', 'General President', 'Vice President', 'Operation Director', 'Creative Director', 'HR'].includes(user.role);
              const xpForNextLevel = 100;

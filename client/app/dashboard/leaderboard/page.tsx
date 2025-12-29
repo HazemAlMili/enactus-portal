@@ -46,7 +46,17 @@ export default function LeaderboardPage() {
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showAll, setShowAll] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const router = useRouter();
+
+  // Detect mobile screen
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   useEffect(() => {
     const userStr = sessionStorage.getItem('user');
@@ -165,7 +175,8 @@ export default function LeaderboardPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {users.map((user, index) => (
+                {/* Mobile: Show 10, Desktop: Show all */}
+                {(isMobile && !showAll ? users.slice(0, 10) : users).map((user, index) => (
                   <LeaderboardRow key={user._id} user={user} index={index} />
                 ))}
               </TableBody>
@@ -173,6 +184,18 @@ export default function LeaderboardPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Show More Button - Mobile Only */}
+      {isMobile && !showAll && users.length > 10 && (
+        <div className="text-center">
+          <button
+            onClick={() => setShowAll(true)}
+            className="pixel-corners bg-secondary hover:bg-secondary/80 text-white px-6 py-3 pixel-font text-xs transition-all"
+          >
+            SHOW MORE ({users.length - 10} HIDDEN)
+          </button>
+        </div>
+      )}
     </div>
   );
 }
