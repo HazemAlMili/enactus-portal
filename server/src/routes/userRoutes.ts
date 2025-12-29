@@ -8,8 +8,9 @@ import { protect, authorize, authorizeHROnly } from '../middleware/authMiddlewar
 // Initialize Router
 const router = express.Router();
 
-// Update Avatar Route
+// Avatar Routes
 router.put('/avatar', protect, updateAvatar);
+router.delete('/avatar', protect, updateAvatar); // Reuse updateAvatar with null payload
 
 // Public/Private Leaderboard Route
 router.get('/leaderboard', protect, getLeaderboard); // Fetch Top Users

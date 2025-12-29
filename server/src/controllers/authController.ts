@@ -122,3 +122,71 @@ export const getMe = async (req: Request, res: Response) => {
     res.status(404).json({ message: 'User not found' });
   }
 };
+
+/**
+ * Controller to change user password
+ * Route: POST /api/auth/change-password
+ * Access: Private (Requires Auth Middleware)
+ */
+export const changePassword = async (req: Request, res: Response) => {
+  await dbConnect();
+  
+  try {
+    const { currentPassword, newPassword } = req.body;
+    const userId = (req as any).user?._id;
+
+    // Validate input
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ message: 'Current password and new password are required' });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({ message: 'New password must be at least 6 characters' });
+    }
+
+    if (currentPassword === newPassword) {
+      return res.status(400).json({ message: 'New password must be different from current password' });
+    }
+
+    // Find user in User model first
+    let user: any = await User.findById(userId);
+    let isHighBoard = false;
+
+    // If not found in User, check HighBoard
+    if (!user) {
+      user = await HighBoard.findById(userId);
+      isHighBoard = true;
+    }
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Verify current password
+    const isPasswordValid = await bcrypt.compare(currentPassword, user.password);
+    if (!isPasswordValid) {
+      return res.status(401).json({ message: 'Current password is incorrect' });
+    }
+
+    // Hash new password
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(newPassword, salt);
+
+    // Update password
+    user.password = hashedPassword;
+    await user.save();
+
+    console.log(`✅ Password changed successfully for user: ${user.name} (${user.email})`);
+
+    res.json({ 
+      message: 'Password changed successfully',
+      success: true 
+    });
+  } catch (error) {
+    console.error('Change password error:', error);
+    res.status(500).json({ 
+      message: 'Server error during password change', 
+      error: error instanceof Error ? error.message : String(error) 
+    });
+  }
+};

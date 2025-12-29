@@ -375,14 +375,17 @@ export const updateAvatar = async (req: Request, res: Response) => {
     console.log('🖼️ Avatar upload request from user:', userId);
     console.log('Avatar data length:', avatar?.length || 0, 'chars');
 
-    if (!avatar) {
+    // Allow null avatar for DELETE requests
+    if (avatar === undefined) {
       console.log('❌ No avatar data provided');
       return res.status(400).json({ message: 'Avatar data is required' });
     }
 
+    const avatarValue = avatar || null; // null for deletion, base64 string for upload
+
     let user = await User.findByIdAndUpdate(
       userId,
-      { avatar },
+      { avatar: avatarValue },
       { new: true, select: '-password' }
     );
 
@@ -390,7 +393,7 @@ export const updateAvatar = async (req: Request, res: Response) => {
        console.log('🔍 User not found in User collection, checking HighBoard...');
        user = await HighBoard.findByIdAndUpdate(
         userId,
-        { avatar },
+        { avatar: avatarValue },
         { new: true, select: '-password' }
       );
     }
