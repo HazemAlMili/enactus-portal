@@ -53,11 +53,12 @@ export default function HoursPage() {
     setUser(u);
     
     // Restrict Access: Only Leaders can access Hours Page
-    // Also ALLOW HR Coordinators (Member, HR, Title check) and Directors
+    // Also ALLOW HR Coordinators (Member, HR, Title check), Directors, and GUESTS
     const isHRCoordinator = u.role === 'Member' && u.department === 'HR' && u.title?.startsWith('HR Coordinator');
     const isDirector = u.role === 'Operation Director' || u.role === 'Creative Director';
+    const isGuest = u.role === 'guest';
 
-    if (!['Head', 'Vice Head', 'HR', 'General President', 'Vice President'].includes(u.role) && !isHRCoordinator && !isDirector) {
+    if (!['Head', 'Vice Head', 'HR', 'General President', 'Vice President'].includes(u.role) && !isHRCoordinator && !isDirector && !isGuest) {
        router.push('/dashboard');
        return;
     }
@@ -98,9 +99,9 @@ export default function HoursPage() {
       console.log('📊 Raw hours data from backend:', data);
       console.log('📊 Total hours received:', data.length);
       
-      // Filter list to only show Members
-      const filtered = data.filter((log: any) => log.user?.role === 'Member');
-      console.log('📊 Filtered hours (Members only):', filtered);
+      // Filter list to only show Members and Guests
+      const filtered = data.filter((log: any) => log.user?.role === 'Member' || log.user?.role === 'guest');
+      console.log('📊 Filtered hours (Members/Guests):', filtered);
       console.log('📊 Filtered count:', filtered.length);
       
       setHours(filtered);
@@ -151,7 +152,7 @@ export default function HoursPage() {
   };
 
   const canGrant = user && (user.role === 'HR' || user.department === 'HR' || (user.role === 'Member' && user.department === 'HR' && user.title?.startsWith('HR Coordinator'))); // HR check includes Coord
-  const isMember = user && user.role === 'Member';
+  const isMember = user && (user.role === 'Member' || user.role === 'guest');
   
   // Show form if canGrant (HR) OR isMember (Self-Log)
   // Heads/GP/VP/Directors (who are not HR) will NOT see the form.

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -20,6 +21,7 @@ interface User {
 }
 
 export default function DepartmentsPage() {
+  const router = useRouter();
   const [users, setUsers] = useState<User[]>([]);
   const [groupedUsers, setGroupedUsers] = useState<Record<string, User[]>>({});
   const [selectedDept, setSelectedDept] = useState<string>('All');
@@ -32,9 +34,15 @@ export default function DepartmentsPage() {
         const u = JSON.parse(storedUser);
         setUser(u);
         
-        // Check if HR Coordinator
         const isHRCoordinator = u.role === 'Member' && u.department === 'HR' && u.title?.startsWith('HR Coordinator');
+        const isDirector = u.role === 'Operation Director' || u.role === 'Creative Director';
+        const isGuest = u.role === 'guest';
         
+        if (!['Head', 'Vice Head', 'HR', 'General President', 'Vice President'].includes(u.role) && !isHRCoordinator && !isDirector && !isGuest) {
+            router.push('/dashboard');
+            return;
+        }
+
         // If Head/Vice Head, force selection to their department
         if (['Head', 'Vice Head'].includes(u.role) && u.department) {
             setSelectedDept(u.department);
@@ -53,16 +61,17 @@ export default function DepartmentsPage() {
         else if (u.role === 'Creative Director') {
             setSelectedDept('Marketing'); // Default to first dept: Marketing, Multi-Media, Presentation, Organization
         }
+    } else {
+        router.push('/');
+        return;
     }
     fetchUsers();
-  }, []);
+  }, [router]);
 
   // Check if user should be locked to a specific department
   const isHRCoordinator = user?.role === 'Member' && user?.department === 'HR' && user?.title?.startsWith('HR Coordinator');
   const isHead = user && ['Head', 'Vice Head'].includes(user.role);
   const isLocked = isHead || isHRCoordinator; // Both Heads and HR Coordinators are locked
-
-  // ... (keep fetchUsers logic)
 
   const fetchUsers = async () => {
     try {

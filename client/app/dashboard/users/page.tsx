@@ -2,6 +2,7 @@
 
 // Import hooks and API
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
 // Import UI Components from shadcn and lucide icons
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -21,6 +22,7 @@ export const dynamic = 'force-dynamic';
 
 // Define UsersPage Component (Squad Management)
 export default function UsersPage() {
+  const router = useRouter();
   const { showNotification, showAlert } = useNotification();
   
   const [users, setUsers] = useState<any[]>([]);
@@ -59,6 +61,22 @@ export default function UsersPage() {
 
   // Fetch users AND current profile on component mount
   useEffect(() => {
+    const storedUser = sessionStorage.getItem('user');
+    if (storedUser) {
+        const u = JSON.parse(storedUser);
+        const isHRCoordinator = u.role === 'Member' && u.department === 'HR' && u.title?.startsWith('HR Coordinator');
+        const isDirector = u.role === 'Operation Director' || u.role === 'Creative Director';
+        const isGuest = u.role === 'guest';
+        
+        if (!['Head', 'Vice Head', 'HR', 'General President', 'Vice President'].includes(u.role) && !isHRCoordinator && !isDirector && !isGuest) {
+            router.push('/dashboard');
+            return;
+        }
+    } else {
+        router.push('/');
+        return;
+    }
+
     fetchUsers();
     api.get('/auth/me').then(res => {
       setCurrentUser(res.data);
@@ -70,7 +88,7 @@ export default function UsersPage() {
         setDeptFilter('Marketing'); // Default to first assigned department
       }
     }).catch(console.error);
-  }, []);
+  }, [router]);
 
   // Effect to reset form and set defaults when Modal opens
   useEffect(() => {
@@ -127,16 +145,28 @@ export default function UsersPage() {
 
   // Handler for creating a new user
   const handleCreate = async () => {
+    // ⚔️ UNIFIED FRONTEND VALIDATION
+    if (formData.name.trim().length < 3) {
+      showNotification("NAME MUST BE AT LEAST 3 CHARACTERS", 'error');
+      return;
+    }
+    if (!formData.email.trim().toLowerCase().endsWith('@enactus.com')) {
+      showNotification("INVALID DOMAIN: ACCOUNT MUST USE @enactus.com", 'error');
+      return;
+    }
+    if (formData.password.length < 6) {
+      showNotification("PASSWORD MUST BE AT LEAST 6 CHARACTERS", 'error');
+      return;
+    }
+
     try {
       const token = sessionStorage.getItem('token');
       // POST to /users with form data
-      let payload = { ...formData };
+      let payload: any = { ...formData };
       
       // LOGIC: If Creating HR Member and Responsibility is set
       if (formData.department === 'HR' && formData.role !== 'Head' && formData.hrResponsibility) {
-          // User requested: "name and email and password in DB the same thinng which written"
-          // We will NOT override name or email.
-          // We WILL store the responsibility in the 'title' so we know what they do.
+          // Store the responsibility in the 'title' so we know what they do.
           payload.title = `HR Coordinator - ${formData.hrResponsibility}`;
       }
 

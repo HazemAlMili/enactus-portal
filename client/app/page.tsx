@@ -10,14 +10,14 @@ export default function Home() {
   const router = useRouter();
   
   useEffect(() => {
-    // Clear any existing session data when on login page
-    // This prevents "forward" navigation from working after logout
-    const token = sessionStorage.getItem('token');
-    if (token) {
-      // If there's a token, user might have used back button
-      // Clear everything and ensure they stay on login
-      sessionStorage.clear();
-    }
+    // 🧹 DEEP CLEAN: Clear any existing session or demo data when on login page
+    // This prevents state leakage between Guest and Real sessions
+    sessionStorage.clear();
+    localStorage.removeItem('demo_users');
+    localStorage.removeItem('demo_tasks');
+    localStorage.removeItem('demo_hours');
+    
+    console.log('🧹 Session cleared for fresh login');
   }, []);
   
   return (

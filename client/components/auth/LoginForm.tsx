@@ -44,8 +44,8 @@ export default function LoginForm() {
       setPasswordError('Password is required');
       return false;
     }
-    if (password.length < 5) {
-      setPasswordError('Password must be at least 5 characters');
+    if (password.length < 6) {
+      setPasswordError('Password must be at least 6 characters');
       return false;
     }
     setPasswordError('');
@@ -79,6 +79,12 @@ export default function LoginForm() {
       // Store token and user data in session storage (cleared on browser close)
       sessionStorage.setItem('token', data.token);
       sessionStorage.setItem('user', JSON.stringify(data));
+      sessionStorage.removeItem('isDemo'); // 🛡️ CLEAR GUEST FLAG on real login
+      
+      // Also clear any leftover demo local data to ensure total isolation
+      localStorage.removeItem('demo_users');
+      localStorage.removeItem('demo_tasks');
+      localStorage.removeItem('demo_hours');
       
       playSuccess(); // 🔊 Play success sound
       
@@ -93,15 +99,36 @@ export default function LoginForm() {
   };
 
   // 🛡️ Portfolio Demo Helper
-  const handleGuestLogin = async () => {
-    setEmail('visitor@enactus.com');
-    setPassword('visitor2025');
-    // We'll call the logic directly or just wait for state update and user to click?
-    // Better to just autofill and trigger login
+  const handleGuestLogin = () => {
+    setIsLoading(true);
+    
+    // Simulate network delay for realism
     setTimeout(() => {
-        const fakeEvent = { preventDefault: () => {} } as React.FormEvent;
-        handleLogin(fakeEvent);
-    }, 100);
+      // Import mock user directly (avoiding server call)
+      const mockUser = {
+        _id: 'demo-user-id',
+        name: 'Visitor Guest',
+        email: 'visitor@enactus.com',
+        role: 'guest', // Using specialized role for Demo Mode detection
+        department: 'IT',
+        points: 1250,
+        isTest: true,
+        createdAt: new Date().toISOString()
+      };
+
+      // 🧹 RESET DEMO DATA (Revert to default on every entry)
+      localStorage.removeItem('demo_users');
+      localStorage.removeItem('demo_tasks');
+      localStorage.removeItem('demo_hours');
+
+      // Set Demo Flags
+      sessionStorage.setItem('token', 'demo-token-123'); // Fake token
+      sessionStorage.setItem('user', JSON.stringify(mockUser));
+      sessionStorage.setItem('isDemo', 'true'); // <--- CRITICAL FLAG used by api.ts interceptor
+
+      playSuccess();
+      router.push('/dashboard');
+    }, 800);
   };
 
   return (

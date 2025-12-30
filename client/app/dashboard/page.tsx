@@ -99,22 +99,29 @@ export default function Dashboard() {
         <div>
           <h1 className="text-3xl text-primary pixel-font mb-2 drop-shadow-md">
             WELCOME,<br />
-            <span className="mt-1 text-3xl">{user.name.toUpperCase()}</span>
+            <span className="mt-1 text-3xl">{user.name?.toUpperCase() || 'GUEST'}</span>
           </h1>
+          {user.role === 'guest' && (
+            <div className="mt-1 inline-block bg-yellow-500/20 border border-yellow-500 text-yellow-500 px-2 py-0.5 text-[10px] pixel-font animate-pulse">
+              ⚠️ GUEST SESSION (DATA NOT PERSISTED TO ATLAS)
+            </div>
+          )}
         </div>
         
         {/* Badges moved to top right */}
         <div className="flex flex-col items-end gap-2 text-white/80 font-mono">
           <span className="bg-secondary/20 px-4 py-2 rounded-none border border-secondary pixel-corners text-secondary text-base">
-            {user.role}
+            {user.role === 'guest' ? 'TRAINING' : user.role}
           </span>
           <span className="bg-primary/20 px-4 py-2 rounded-none border border-primary pixel-corners text-base">
             {user.role === 'General President' 
               ? 'President'
               : user.role === 'Vice President'
               ? 'Vice'
-              : user.role === 'Operation Director' || user.role === 'Creative Director' 
+              : (user.role === 'Operation Director' || user.role === 'Creative Director') 
               ? 'Director' 
+              : user.role === 'guest'
+              ? 'PORTFOLIO DEMO'
               : (user.department || 'NO_DEPT')}
           </span>
           
