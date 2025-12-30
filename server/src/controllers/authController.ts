@@ -25,29 +25,22 @@ const generateToken = (id: string) => {
 export const loginUser = async (req: Request, res: Response) => {
   await dbConnect();
   try {
-    // Destructure email and password from the request body
-    const { email, password } = req.body;
+    // Destructure email and password from the validated body
+    // ✅ VALIDATED via loginSchema (Unified rules)
+    const { email, password } = (req as any).validatedBody;
 
     // DEBUG: Log incoming request
     if (process.env.NODE_ENV === 'development') {
-      console.log('📧 Login attempt:', { email, passwordLength: password?.length, bodyKeys: Object.keys(req.body) });
-    }
-
-    // Validate that email and password are strings (not objects after sanitization)
-    if (typeof email !== 'string' || typeof password !== 'string') {
-      if (process.env.NODE_ENV === 'development') {
-        console.log('❌ Validation failed:', { emailType: typeof email, passwordType: typeof password });
-      }
-      return res.status(400).json({ message: 'Invalid email or password format' });
+      console.log('📧 Login attempt:', { email, passwordLength: password?.length });
     }
 
     // Check if a user with the provided email exists in the database
     // Default to User model (Members)
-    let user: any = await User.findOne({ email });
+    let user: any = await User.findOne({ email }).lean();
 
     // If not found in User, check HighBoard (Heads, Board)
     if (!user) {
-      user = await HighBoard.findOne({ email });
+      user = await HighBoard.findOne({ email }).lean();
     }
 
     // Validate the user exists, has a password, and the provided password matches the hashed password
@@ -92,11 +85,11 @@ export const getMe = async (req: Request, res: Response) => {
   await dbConnect();
   // Find the user by ID with select() to only fetch needed fields
   // Try User first
-  let user: any = await User.findById((req as any).user?._id).select('-password');
+  let user: any = await User.findById((req as any).user?._id).select('-password').lean();
 
   // If not found, try HighBoard
   if (!user) {
-    user = await HighBoard.findById((req as any).user?._id).select('-password');
+    user = await HighBoard.findById((req as any).user?._id).select('-password').lean();
   }
   
   if (user) {

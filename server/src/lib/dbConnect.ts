@@ -57,10 +57,12 @@ async function dbConnect(): Promise<typeof mongoose> {
     const startTime = Date.now();
     console.log('🔌 Initiating MongoDB connection to Bahrain...');
     
+    // ⚡ OPTIMIZED FOR M0 FREE TIER (500 connection limit)
+    // Conservative pool sizing to avoid hitting connection limits
     const opts = {
       bufferCommands: false,
-      maxPoolSize: 15,
-      minPoolSize: 5,
+      maxPoolSize: 10, // Reduced from 15 for M0 tier
+      minPoolSize: 2,  // Reduced from 5 for M0 tier
       serverSelectionTimeoutMS: 30000,
       socketTimeoutMS: 60000,
       connectTimeoutMS: 30000,

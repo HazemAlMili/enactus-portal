@@ -142,8 +142,8 @@ export const getUsers = async (req: Request, res: Response) => {
     // General President sees all
 
     // Query BOTH User and HighBoard collections
-    const usersFromUser = await User.find(query).select('-password');
-    const usersFromHighBoard = await HighBoard.find(query).select('-password');
+    const usersFromUser = await User.find(query).select('-password').lean();
+    const usersFromHighBoard = await HighBoard.find(query).select('-password').lean();
     let users = [...usersFromUser, ...usersFromHighBoard];
     
     // Custom Sort by Role Hierarchy
@@ -181,7 +181,7 @@ export const getUsers = async (req: Request, res: Response) => {
 export const createUser = async (req: Request, res: Response) => {
   await dbConnect();
   try {
-    const { name, email, password, role, department, team, title } = req.body;
+    const { name, email, password, role, department, team, title } = (req as any).validatedBody;
     const currentUser = (req as any).user;
     // 1. HR Recruitment Rules
     // HR Head can recruit anyone.

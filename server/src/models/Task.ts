@@ -52,6 +52,10 @@ TaskSchema.index({ assignedTo: 1, status: 1 }); // Member's tasks by status (mos
 TaskSchema.index({ department: 1, status: 1 }); // Head's department tasks
 TaskSchema.index({ createdAt: -1 }); // Recent tasks sorting
 TaskSchema.index({ assignedBy: 1, status: 1 }); // Creator's tasks by status
+// ⚡ M0 OPTIMIZATION - Additional indexes for frequent queries
+TaskSchema.index({ taskGroupId: 1, status: 1 }); // Batch task queries (when editing/deleting task groups)
+TaskSchema.index({ isTest: 1 }); // Fast isolation filtering (test vs real data)
+TaskSchema.index({ assignedTo: 1, isTest: 1, status: 1 }); // Member's tasks with isolation
 
 // Export the Task model
 export default mongoose.model<ITask>('Task', TaskSchema);

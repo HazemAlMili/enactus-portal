@@ -31,6 +31,8 @@ const HourLogSchema: Schema = new Schema({
 HourLogSchema.index({ user: 1, status: 1 }); // User's hours by status
 HourLogSchema.index({ status: 1, createdAt: -1 }); // Pending queue sorted by date
 HourLogSchema.index({ createdAt: -1 }); // Recent logs
+// ⚡ M0 OPTIMIZATION - Index for isolation filtering
+HourLogSchema.index({ user: 1, isTest: 1, status: 1 }); // User's hours with test/real isolation
 
 // Export Model
 export default mongoose.model<IHourLog>('HourLog', HourLogSchema);

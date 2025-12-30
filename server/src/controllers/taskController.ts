@@ -4,6 +4,8 @@ import { Request, Response } from 'express';
 import Task from '../models/Task';
 import User from '../models/User';
 import HourLog from '../models/HourLog';
+// Import validation utilities
+import { validate, createTaskSchema, submitTaskSchema, updateTaskSchema } from '../lib/validation';
 
 /**
  * Controller to create a new task.
@@ -12,8 +14,20 @@ import HourLog from '../models/HourLog';
  */
 export const createTask = async (req: Request, res: Response) => {
   try {
-    // Destructure task details from request body
-    const { title, description, resourcesLink, deadline, taskHours, team } = req.body;
+    // ✅ VALIDATE INPUT DATA (M0 Optimization - Prevent Junk Data)
+    const validationResult = validate(createTaskSchema, req.body);
+    if (!validationResult.success) {
+      return res.status(400).json({
+        message: 'Invalid task data',
+        errors: validationResult.errors.issues.map((err: any) => ({
+          field: err.path.join('.'),
+          message: err.message
+        }))
+      });
+    }
+
+    // Destructure task details from validated body
+    const { title, description, resourcesLink, deadline, taskHours, team } = validationResult.data;
     const currentUser = (req as any).user;
 
     if (!currentUser.department) {
@@ -156,6 +170,18 @@ export const updateTask = async (req: Request, res: Response) => {
     const currentUser = (req as any).user;
     if (currentUser?.isTest !== task.isTest) {
         return res.status(403).json({ message: 'Security Breach: Isolation mismatch.' });
+    }
+
+    // ✅ VALIDATE UPDATE DATA (M0 Optimization)
+    const validationResult = validate(updateTaskSchema, req.body);
+    if (!validationResult.success) {
+      return res.status(400).json({
+        message: 'Invalid update data',
+        errors: validationResult.errors.issues.map((err: any) => ({
+          field: err.path.join('.'),
+          message: err.message
+        }))
+      });
     }
 
     // Handle Status Updates

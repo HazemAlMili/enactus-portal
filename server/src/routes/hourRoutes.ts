@@ -5,12 +5,15 @@ import { submitHours, getHours, updateHourStatus } from '../controllers/hourCont
 // Import Auth Middleware
 import { protect, authorize } from '../middleware/authMiddleware';
 
+// Import Validation
+import { createHourLogSchema, validationMiddleware } from '../lib/validation';
+
 // Initialize Router
 const router = express.Router();
 
 // Route: /api/hours
 router.route('/')
-  .post(protect, submitHours) // Submit new hours (Authenticated users)
+  .post(protect, validationMiddleware(createHourLogSchema), submitHours) // Submit new hours (Authenticated users)
   .get(protect, getHours); // Get history (Authenticated users)
 
 // Route: /api/hours/:id

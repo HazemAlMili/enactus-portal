@@ -5,6 +5,10 @@ import { getLeaderboard, getUsers, createUser, deleteUser, updateAvatar, addWarn
 // Import Auth Middleware
 import { protect, authorize, authorizeHROnly } from '../middleware/authMiddleware';
 
+// Import Validation
+import { createUserSchema } from '../lib/validation';
+import { validationMiddleware } from '../lib/validation';
+
 // Initialize Router
 const router = express.Router();
 
@@ -18,7 +22,7 @@ router.get('/leaderboard', protect, getLeaderboard); // Fetch Top Users
 // Route: /api/users (User Management)
 router.route('/')
   .get(protect, authorize('HR', 'General President', 'Vice President', 'Operation Director', 'Creative Director', 'Head', 'Vice Head'), getUsers)
-  .post(protect, authorizeHROnly, createUser); // ONLY HR DEPARTMENT can recruit
+  .post(protect, authorizeHROnly, validationMiddleware(createUserSchema), createUser); // ONLY HR DEPARTMENT can recruit
 
 // Route: /api/users/:id/warning - ONLY HR DEPARTMENT
 router.post('/:id/warning', protect, authorizeHROnly, addWarning);
