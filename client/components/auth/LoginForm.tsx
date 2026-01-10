@@ -136,7 +136,7 @@ export default function LoginForm() {
     // Centered Container - Removed bg-background to let body pattern show
     <div className="flex items-center justify-center min-h-screen p-4">
       {/* Login Card */}
-      <Card className="w-[350px] border-primary shadow-lg shadow-purple-900/50 bg-card/95 backdrop-blur-sm">
+      <Card className="w-full max-w-[350px] sm:w-[350px] border-primary shadow-lg shadow-purple-900/50 bg-card/95 backdrop-blur-sm">
         <CardHeader>
           <CardTitle className="text-2xl text-center pixel-font bg-gradient-to-r from-secondary to-accent bg-clip-text text-transparent pb-2">
             WELCOME TO ENACTUS PORTAL

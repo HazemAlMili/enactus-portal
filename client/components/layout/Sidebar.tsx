@@ -62,8 +62,8 @@ export function Sidebar({ user, className }: { user: any, className?: string }) 
   const isMember = user?.role === 'Member';
 
   return (
-    // Fixed width side navigation container
-    <div className={cn("flex flex-col h-screen w-64 bg-card border-r border-primary/50", className)}>
+    // Fixed width side navigation container - responsive based on screen size
+    <div className={cn("flex flex-col h-screen w-64 bg-card border-r border-primary/50", !className?.includes('flex') && "hidden md:flex", className)}>
       {/* Brand Logo Section */}
       <div className="p-6">
         <h1 className="text-2xl font-bold bg-gradient-to-r from-secondary to-accent bg-clip-text text-transparent">

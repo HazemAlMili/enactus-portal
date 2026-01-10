@@ -97,23 +97,23 @@ export default function Dashboard() {
       {/* Header Section: Gamified Welcome */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-3xl text-primary pixel-font mb-2 drop-shadow-md">
+          <h1 className="text-2xl sm:text-3xl text-primary pixel-font mb-2 drop-shadow-md break-words">
             WELCOME,<br />
-            <span className="mt-1 text-3xl">{user.name?.toUpperCase() || 'GUEST'}</span>
+            <span className="mt-1 text-2xl sm:text-3xl">{user.name?.toUpperCase() || 'GUEST'}</span>
           </h1>
           {user.role === 'guest' && (
-            <div className="mt-1 inline-block bg-yellow-500/20 border border-yellow-500 text-yellow-500 px-2 py-0.5 text-[10px] pixel-font animate-pulse">
+            <div className="mt-1 inline-block bg-yellow-500/20 border border-yellow-500 text-yellow-500 px-2 py-0.5 text-[8px] sm:text-[10px] pixel-font animate-pulse">
               ⚠️ GUEST SESSION (DATA NOT PERSISTED TO ATLAS)
             </div>
           )}
         </div>
         
         {/* Badges moved to top right */}
-        <div className="flex flex-col items-end gap-2 text-white/80 font-mono">
-          <span className="bg-secondary/20 px-4 py-2 rounded-none border border-secondary pixel-corners text-secondary text-base">
+        <div className="flex flex-col items-start sm:items-end gap-2 text-white/80 font-mono w-full sm:w-auto">
+          <span className="bg-secondary/20 px-3 sm:px-4 py-2 rounded-none border border-secondary pixel-corners text-secondary text-sm sm:text-base truncate max-w-full">
             {user.role === 'guest' ? 'TRAINING' : user.role}
           </span>
-          <span className="bg-primary/20 px-4 py-2 rounded-none border border-primary pixel-corners text-base">
+          <span className="bg-primary/20 px-3 sm:px-4 py-2 rounded-none border border-primary pixel-corners text-sm sm:text-base truncate max-w-full">
             {user.role === 'General President' 
               ? 'President'
               : user.role === 'Vice President'
@@ -244,8 +244,8 @@ export default function Dashboard() {
       )}
 
       {/* Quote Footer (Replacing Press Start) */}
-      <div className="mt-8 text-center max-w-2xl mx-auto">
-        <p className="text-white/40 text-xl pixel-font animate-pulse italic">
+      <div className="mt-8 text-center max-w-2xl mx-auto px-4">
+        <p className="text-white/40 text-sm sm:text-base md:text-xl pixel-font animate-pulse italic leading-relaxed break-words">
           "{(() => {
              const quotes: Record<string, string[]> = {
                  'IT': [

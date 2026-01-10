@@ -241,12 +241,12 @@ export default function ProfilePage() {
       
       {/* Page Title */}
       <div className="flex items-center gap-3 border-b border-primary/20 pb-4">
-        <div className="p-2 bg-primary/10 rounded pixel-corners">
-            <User className="w-6 h-6 text-secondary" />
+        <div className="p-2 bg-primary/10 rounded pixel-corners shrink-0">
+            <User className="w-5 h-5 sm:w-6 sm:h-6 text-secondary" />
         </div>
-        <div>
-            <h1 className="text-2xl pixel-font text-white glow-text">OPERATIVE PROFILE</h1>
-            <p className="text-gray-500 font-mono text-xs">PERSONNEL FILE #{profile._id.slice(-6).toUpperCase()}</p>
+        <div className="min-w-0">
+            <h1 className="text-xl sm:text-2xl pixel-font text-white glow-text truncate">OPERATIVE PROFILE</h1>
+            <p className="text-gray-500 font-mono text-[10px] sm:text-xs truncate">PERSONNEL FILE #{profile._id.slice(-6).toUpperCase()}</p>
         </div>
       </div>
 
@@ -297,9 +297,9 @@ export default function ProfilePage() {
                  </div>
 
                 {/* Info Section */}
-                <div className="flex-1 space-y-4 w-full">
+                <div className="flex-1 space-y-4 w-full min-w-0">
                      <div className="space-y-1">
-                        <h2 className="text-3xl pixel-font text-white tracking-wide uppercase">{profile.name}</h2>
+                        <h2 className="text-2xl sm:text-3xl pixel-font text-white tracking-wide uppercase break-words">{profile.name}</h2>
                         <div className="flex flex-wrap gap-4 justify-center md:justify-start text-xs font-mono text-gray-400">
                              <div className="flex items-center gap-1.5">
                                 <Briefcase className="w-3 h-3 text-secondary" /> 

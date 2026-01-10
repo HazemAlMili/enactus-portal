@@ -421,8 +421,9 @@ export default function UsersPage() {
 
       {/* Users List Table */}
       <Card className="bg-card border-2 border-primary pixel-corners">
-        <CardContent className="p-0 overflow-x-auto">
-          <Table>
+        <CardContent className="p-0">
+          <div className="overflow-x-auto">
+          <Table className="min-w-[600px]">
             <TableHeader>
               <TableRow className="hover:bg-transparent border-b border-primary/20">
                 <TableHead className="text-primary pixel-font text-xs">PLAYER NAME</TableHead>
@@ -521,6 +522,7 @@ export default function UsersPage() {
               ))}
             </TableBody>
           </Table>
+          </div>
         </CardContent>
       </Card>
       

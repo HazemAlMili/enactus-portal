@@ -297,7 +297,8 @@ export default function HoursPage() {
 
         </CardHeader>
         <CardContent className="p-0">
-          <Table>
+          <div className="overflow-x-auto">
+          <Table className="min-w-[600px]">
             <TableHeader>
               <TableRow className="hover:bg-transparent border-b border-secondary/20">
                 <TableHead className="text-secondary pixel-font text-xs">DATE</TableHead>
@@ -335,6 +336,7 @@ export default function HoursPage() {
               ))}
             </TableBody>
           </Table>
+          </div>
         </CardContent>
       </Card>
     </div>

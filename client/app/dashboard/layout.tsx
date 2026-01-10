@@ -44,10 +44,10 @@ export default function DashboardLayout({
 
   return (
     // Main layout container: Full screen height, background color, hidden overflow
-    <div className="flex h-screen overflow-hidden flex-col lg:flex-row">
+    <div className="flex h-screen overflow-hidden flex-col md:flex-row">
       
       {/* Mobile/Tablet Header / Sidebar Trigger */}
-      <div className="lg:hidden p-4 border-b border-primary/20 flex items-center justify-between bg-card">
+      <div className="md:hidden p-4 border-b border-primary/20 flex items-center justify-between bg-card">
          <div className="font-bold text-lg text-primary pixel-font">ENACTUS PORTAL</div>
          <Sheet>
            <SheetTrigger asChild>
@@ -56,18 +56,18 @@ export default function DashboardLayout({
              </Button>
            </SheetTrigger>
            <SheetContent side="left" className="p-0 border-r border-primary/50 w-64 bg-card">
-             <Sidebar user={user} className="w-full h-full border-none" />
+             <Sidebar user={user} className="flex w-full h-full border-none" />
            </SheetContent>
          </Sheet>
       </div>
 
       {/* Desktop Sidebar navigation component - Hidden on Mobile/Tablet */}
-      <div className="hidden lg:flex">
+      <div className="hidden md:flex">
         <Sidebar user={user} />
       </div>
       
       {/* Main content area: Flex-1 to take remaining width, scrollable y-axis */}
-      <main className="flex-1 overflow-y-auto p-4 lg:p-8">
+      <main className="flex-1 overflow-y-auto p-4 md:p-8">
         {children}
       </main>
     </div>
