@@ -68,14 +68,17 @@ export default function TasksPage() {
       // Filter out empty links
       const filteredLinks = resourceLinks.filter(link => link.trim() !== '');
       
-      await api.post('/tasks', { 
-        title,
-        description, 
-        resourcesLink: filteredLinks, // Send array of links
-        deadline: deadline ? new Date(deadline) : undefined,
-        taskHours: taskHours ? Number(taskHours) : 0, // Hours auto-awarded on completion
-        team: team || undefined // Send team if selected
-      });
+      const taskData: any = {
+        description,
+      };
+      
+      if (title) taskData.title = title;
+      if (filteredLinks.length > 0) taskData.resourcesLink = filteredLinks;
+      if (deadline) taskData.deadline = new Date(deadline).toISOString();
+      if (taskHours) taskData.taskHours = Number(taskHours);
+      if (team) taskData.team = team;
+      
+      await api.post('/tasks', taskData);
       playWin(); // 🏆 Task deployed!
       // Reset form
       setTitle('');
@@ -87,10 +90,18 @@ export default function TasksPage() {
       // Refresh list
       fetchTasks();
     } catch (err: any) { 
-        console.error(err);
+        console.error('Task creation error:', err);
+        console.error('Error response:', err.response?.data);
         playError(); // ❌ Error buzz
         const msg = err.response?.data?.message || 'Failed to deploy mission.';
-        showNotification(`❌ MISSION FAILED: ${msg}`, 'error');
+        const errors = err.response?.data?.errors;
+        if (errors) {
+          console.error('Validation errors:', errors);
+          const errorMsg = errors.map((e: any) => `${e.field}: ${e.message}`).join(', ');
+          showNotification(`❌ VALIDATION ERROR: ${errorMsg}`, 'error');
+        } else {
+          showNotification(`❌ MISSION FAILED: ${msg}`, 'error');
+        }
     } finally {
         setIsCreating(false);
     }

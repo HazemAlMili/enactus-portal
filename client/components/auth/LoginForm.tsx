@@ -98,37 +98,38 @@ export default function LoginForm() {
     }
   };
 
-  // 🛡️ Portfolio Demo Helper
-  const handleGuestLogin = () => {
+  // 🛡️ Portfolio Demo Login - Uses Real Visitor Account
+  const handleGuestLogin = async () => {
+    playClick(); // 🔊 Play click sound
     setIsLoading(true);
+    setError('');
     
-    // Simulate network delay for realism
-    setTimeout(() => {
-      // Import mock user directly (avoiding server call)
-      const mockUser = {
-        _id: 'demo-user-id',
-        name: 'Visitor Guest',
-        email: 'visitor@enactus.com',
-        role: 'guest', // Using specialized role for Demo Mode detection
-        department: 'IT',
-        points: 1250,
-        isTest: true,
-        createdAt: new Date().toISOString()
-      };
-
-      // 🧹 RESET DEMO DATA (Revert to default on every entry)
+    try {
+      // Login with visitor account credentials
+      const { data } = await api.post('/auth/login', { 
+        email: 'visitor@enactus.com', 
+        password: 'visitor2025' 
+      });
+      
+      // Store token and user data (same as regular login)
+      sessionStorage.setItem('token', data.token);
+      sessionStorage.setItem('user', JSON.stringify(data));
+      sessionStorage.removeItem('isDemo'); // Not a mock demo, it's a real account
+      
+      // Clear any leftover demo local data
       localStorage.removeItem('demo_users');
       localStorage.removeItem('demo_tasks');
       localStorage.removeItem('demo_hours');
-
-      // Set Demo Flags
-      sessionStorage.setItem('token', 'demo-token-123'); // Fake token
-      sessionStorage.setItem('user', JSON.stringify(mockUser));
-      sessionStorage.setItem('isDemo', 'true'); // <--- CRITICAL FLAG used by api.ts interceptor
-
-      playSuccess();
+      
+      playSuccess(); // 🔊 Play success sound
+      
+      // Redirect to dashboard
       router.push('/dashboard');
-    }, 800);
+    } catch (err: any) {
+      playError(); // ❌ Error sound
+      setError('Guest login failed. Please try again.');
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -252,9 +253,10 @@ export default function LoginForm() {
             <button 
                 type="button"
                 onClick={handleGuestLogin}
-                className="w-full text-[10px] pixel-font text-gray-500 hover:text-secondary transition-colors uppercase tracking-tighter"
+                disabled={isLoading}
+                className="w-full text-[10px] pixel-font text-gray-500 hover:text-secondary transition-colors uppercase tracking-tighter disabled:opacity-50 disabled:cursor-not-allowed"
             >
-                GUEST ACCESS MODE
+                {isLoading ? 'Connecting to Demo...' : '🎮 DEMO MODE (Isolated Test Data)'}
             </button>
           </div>
         </CardContent>
