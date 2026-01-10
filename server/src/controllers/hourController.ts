@@ -32,6 +32,11 @@ export const submitHours = async (req: Request, res: Response) => {
        // Validate: If target user is in HR department, ONLY HR Head can add approved hours for them
        const targetUser = await User.findById(targetUserId);
        
+       // 🔐 CRITICAL ISOLATION CHECK: Prevent visitor from affecting real users
+       if (targetUser && currentUser?.isTest !== targetUser.isTest) {
+           return res.status(403).json({ message: 'Security Breach: Isolation mismatch. Cannot approve hours across test/real boundary.' });
+       }
+       
        if (targetUser && targetUser.department === 'HR' && currentUser.role !== 'Head' && currentUser.department === 'HR') {
            // If the current user is NOT the HR Head (e.g. is an HR Coordinator/Member), they cannot APPROVE hours for other HR members/themselves directly
            // But actually the user request says: "HR head ONLY Add hours for his department members"

@@ -16,31 +16,31 @@ const seedVisitor = async () => {
     const hashedPassword = await bcrypt.hash(rawPassword, 10);
 
     const visitorData = {
-      name: 'Portfolio Visitor',
+      name: 'Visitor',
       email: email,
       password: hashedPassword,
-      role: 'General President',
+      role: 'HR',
       title: 'Demo Account (Full Access)',
-      department: 'PM',
+      department: 'HR',
       points: 5000,
       hoursApproved: 100,
       isTest: true
     };
 
-    // Upsert into HighBoard (since it's a President role)
-    const visitor = await HighBoard.findOneAndUpdate(
+    // Upsert into User collection (since HR is not a board role)
+    const visitor = await User.findOneAndUpdate(
       { email },
       { $set: visitorData },
       { upsert: true, new: true }
     );
 
-    // Ensure not in User collection
-    await User.deleteOne({ email });
+    // Ensure not in HighBoard collection
+    await HighBoard.deleteOne({ email });
 
     // Seed some Test Members for the Visitor to manage
     const testMembers = [
-      { name: 'Demo Member 1', email: 'demo1@enactus.com', role: 'Member', department: 'PM', points: 150, hoursApproved: 5, isTest: true },
-      { name: 'Demo Member 2', email: 'demo2@enactus.com', role: 'Member', department: 'PM', points: 300, hoursApproved: 12, isTest: true },
+      { name: 'Demo Member 1', email: 'demo1@enactus.com', role: 'Member', department: 'HR', points: 150, hoursApproved: 5, isTest: true },
+      { name: 'Demo Member 2', email: 'demo2@enactus.com', role: 'Member', department: 'HR', points: 300, hoursApproved: 12, isTest: true },
     ];
 
     for (const m of testMembers) {
@@ -56,8 +56,8 @@ const seedVisitor = async () => {
           description: 'Try creating a new task, recruiting a member, or approving hours!',
           assignedTo: (await User.findOne({ email: 'demo1@enactus.com' }))?._id,
           assignedBy: visitor._id,
-          assignedByModel: 'HighBoard',
-          department: 'PM',
+          assignedByModel: 'User',
+          department: 'HR',
           status: 'Pending',
           scoreValue: 100,
           isTest: true
@@ -70,8 +70,8 @@ const seedVisitor = async () => {
     console.log('✅ Shadow Test account created for Portfolio!');
     console.log(`📧 Email: ${email}`);
     console.log(`🔑 Password: ${rawPassword}`);
-    console.log('🛡️ Role: General President (Full Access)');
-    console.log('👻 Mode: ISOLATED (Hidden from real members)');
+    console.log('🛡️ Role: HR (Full Recruitment Access)');
+    console.log('👻 Mode: ISOLATED (Can only see Demo Members, hidden from real members)');
     console.log('--------------------------------------------------');
 
     process.exit(0);
