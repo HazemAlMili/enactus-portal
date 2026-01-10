@@ -55,6 +55,6 @@ describe('Enactus Portal - Security Implementation Verification', () => {
     // So it returns 400 Bad Request
     expect(response.status).toBe(400);
     expect(response.body).toHaveProperty('message');
-    expect(response.body.message).toContain('Invalid');
+    expect(response.body.message).toContain('Validation');
   });
 });
