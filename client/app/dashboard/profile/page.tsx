@@ -365,37 +365,40 @@ export default function ProfilePage() {
       <Card className="bg-card border-2 border-primary/20 pixel-corners shadow-lg hover:border-secondary/40 transition-colors">
         <CardHeader className="border-b border-primary/10">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-secondary/10 rounded pixel-corners">
+            <div className="p-2 bg-secondary/10 rounded pixel-corners shrink-0">
               <Shield className="w-5 h-5 text-secondary" />
             </div>
-            <CardTitle className="pixel-font text-white">SECURITY</CardTitle>
+            <CardTitle className="pixel-font text-white text-sm sm:text-base">SECURITY</CardTitle>
           </div>
         </CardHeader>
-        <CardContent className="p-6">
+        <CardContent className="p-4 sm:p-6">
           <div className="space-y-3">
-            <div className="flex items-center justify-between p-4 bg-black/20 pixel-corners border border-primary/10 hover:border-secondary/30 transition-colors group">
+            {/* Password Row - Responsive */}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-3 sm:p-4 bg-black/20 pixel-corners border border-primary/10 hover:border-secondary/30 transition-colors group">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-secondary/10 rounded pixel-corners group-hover:bg-secondary/20 transition-colors">
-                  <KeyRound className="w-5 h-5 text-secondary" />
+                <div className="p-2 bg-secondary/10 rounded pixel-corners group-hover:bg-secondary/20 transition-colors shrink-0">
+                  <KeyRound className="w-4 h-4 sm:w-5 sm:h-5 text-secondary" />
                 </div>
-                <div>
-                  <p className="text-sm pixel-font text-white">PASSWORD</p>
-                  <p className="text-xs text-gray-400 font-mono">Last changed: Never</p>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs sm:text-sm pixel-font text-white">PASSWORD</p>
+                  <p className="text-[10px] sm:text-xs text-gray-400 font-mono truncate">Last changed: Never</p>
                 </div>
               </div>
               <button
                 onClick={() => router.push('/dashboard/change-password')}
-                className="pixel-corners bg-secondary hover:bg-secondary/80 text-white px-4 py-2 pixel-font text-xs transition-all hover:scale-105 active:scale-95"
+                className="pixel-corners bg-secondary hover:bg-secondary/80 text-white px-4 py-2 pixel-font text-xs sm:text-sm transition-all hover:scale-105 active:scale-95 w-full sm:w-auto shrink-0"
               >
                 CHANGE
               </button>
             </div>
+            
+            {/* Account Secured Notice - Responsive */}
             <div className="p-3 bg-green-500/5 border border-green-500/20 pixel-corners">
               <div className="flex items-start gap-2">
-                <Lock className="w-4 h-4 text-green-400 mt-0.5" />
-                <div>
-                  <p className="text-xs pixel-font text-green-400">ACCOUNT SECURED</p>
-                  <p className="text-[10px] text-gray-400 font-mono mt-1">Your account is protected with encrypted credentials</p>
+                <Lock className="w-3 h-3 sm:w-4 sm:h-4 text-green-400 mt-0.5 shrink-0" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-[10px] sm:text-xs pixel-font text-green-400">ACCOUNT SECURED</p>
+                  <p className="text-[9px] sm:text-[10px] text-gray-400 font-mono mt-1 break-words">Your account is protected with encrypted credentials</p>
                 </div>
               </div>
             </div>

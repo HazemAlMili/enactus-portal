@@ -6,7 +6,8 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 // Import the Sidebar layout component
 import { Sidebar } from '@/components/layout/Sidebar';
-import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetTrigger, SheetTitle } from '@/components/ui/sheet';
+import { VisuallyHidden } from '@/components/ui/visually-hidden';
 import { Menu } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -56,6 +57,9 @@ export default function DashboardLayout({
              </Button>
            </SheetTrigger>
            <SheetContent side="left" className="p-0 border-r border-primary/50 w-64 bg-card">
+             <VisuallyHidden>
+               <SheetTitle>Navigation Menu</SheetTitle>
+             </VisuallyHidden>
              <Sidebar user={user} className="flex w-full h-full border-none" />
            </SheetContent>
          </Sheet>

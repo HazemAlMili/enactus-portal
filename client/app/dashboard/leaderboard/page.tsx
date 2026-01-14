@@ -12,10 +12,10 @@ export const dynamic = 'force-dynamic';
 // ⚡ Optimized row - React.memo prevents re-renders
 const LeaderboardRow = memo(({ user, index }: { user: any; index: number }) => (
   <TableRow className="border-b border-primary/10">
-    {/* Rank - 10% width */}
-    <TableCell className="font-bold text-white pixel-font text-xs w-[10%]">
+    {/* Rank - Fixed width for mobile to match header */}
+    <TableCell className="font-bold text-white pixel-font text-[10px] sm:text-xs w-[55px] sm:w-[10%] px-2 sm:px-4">
       {index < 3 ? (
-        <div className={`flex items-center justify-center w-7 h-7 pixel-corners text-xs ${
+        <div className={`flex items-center justify-center w-5 h-5 sm:w-7 sm:h-7 pixel-corners text-[9px] sm:text-xs ${
           index === 0 ? 'bg-yellow-500 text-black' : 
           index === 1 ? 'bg-gray-400 text-black' : 
           'bg-amber-700 text-white'
@@ -26,16 +26,16 @@ const LeaderboardRow = memo(({ user, index }: { user: any; index: number }) => (
         <span className="text-gray-500">#{index + 1}</span>
       )}
     </TableCell>
-    {/* Player - 60% width */}
-    <TableCell className="text-white pixel-font text-xs w-[60%]">{user.name}</TableCell>
-    {/* Guild - 15% width */}
-    <TableCell className="w-[15%]">
-      <span className="inline-block px-2 py-1 text-accent border border-accent/50 pixel-corners pixel-font text-[10px]">
+    {/* Player - Matches header width */}
+    <TableCell className="text-white pixel-font text-[10px] sm:text-xs w-[40%] sm:w-[60%] px-2 sm:px-4 truncate">{user.name}</TableCell>
+    {/* Guild - Matches header width, centered for mobile balance */}
+    <TableCell className="w-[30%] sm:w-[15%] px-2 sm:px-4 text-center">
+      <span className="inline-block px-1 sm:px-2 py-0.5 sm:py-1 text-accent border border-accent/50 pixel-corners pixel-font text-[8px] sm:text-[10px]">
         {user.department || 'N/A'}
       </span>
     </TableCell>
-    {/* Hours - 15% width */}
-    <TableCell className="text-right pixel-font text-secondary text-xs font-bold w-[15%]">
+    {/* Hours - Matches header width */}
+    <TableCell className="text-right pixel-font text-secondary text-[10px] sm:text-xs font-bold w-[20%] sm:w-[15%] px-2 sm:px-4">
       {user.hoursApproved || 0}
     </TableCell>
   </TableRow>
@@ -109,10 +109,10 @@ export default function LeaderboardPage() {
     return (
       <div className="space-y-6">
         <div className="flex items-center gap-3 mb-6 bg-card p-6 border-b-4 border-b-destructive pixel-corners">
-          <div className="w-8 h-8 flex items-center justify-center">
-            <Trophy className="h-8 w-8 text-destructive" />
+          <div className="w-6 h-6 sm:w-8 sm:h-8 flex items-center justify-center shrink-0">
+            <Trophy className="h-6 w-6 sm:h-8 sm:w-8 text-destructive" />
           </div>
-          <h2 className="text-3xl pixel-font text-white">ERROR</h2>
+          <h2 className="text-xl sm:text-2xl md:text-3xl pixel-font text-white">ERROR</h2>
         </div>
         <Card className="bg-card border-2 border-destructive pixel-corners">
           <CardContent className="p-8 text-center">
@@ -134,10 +134,10 @@ export default function LeaderboardPage() {
     return (
       <div className="space-y-6">
         <div className="flex items-center gap-3 mb-6 bg-card p-6 border-b-4 border-b-secondary pixel-corners">
-          <div className="w-8 h-8 flex items-center justify-center">
-            <Trophy className="h-8 w-8 text-secondary" />
+          <div className="w-6 h-6 sm:w-8 sm:h-8 flex items-center justify-center shrink-0">
+            <Trophy className="h-6 w-6 sm:h-8 sm:w-8 text-secondary" />
           </div>
-          <h2 className="text-3xl pixel-font text-white">LEADERBOARD</h2>
+          <h2 className="text-xl sm:text-2xl md:text-3xl pixel-font text-white">LEADERBOARD</h2>
         </div>
         <Card className="bg-card border-2 border-primary pixel-corners">
           <CardContent className="p-8 text-center">
@@ -152,27 +152,29 @@ export default function LeaderboardPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center gap-3 mb-6 bg-card p-6 border-b-4 border-b-secondary pixel-corners">
-        <div className="w-8 h-8 flex items-center justify-center">
-          <Trophy className="h-8 w-8 text-secondary" />
+      <div className="flex items-center gap-2 sm:gap-3 mb-4 sm:mb-6 bg-card p-4 sm:p-6 border-b-4 border-b-secondary pixel-corners">
+        <div className="w-6 h-6 sm:w-8 sm:h-8 flex items-center justify-center shrink-0">
+          <Trophy className="h-6 w-6 sm:h-8 sm:w-8 text-secondary" />
         </div>
-        <h2 className="text-3xl pixel-font text-white">LEADERBOARD</h2>
-        <div className="ml-auto text-sm text-white/60 pixel-font">TOP {users.length}</div>
+        <div className="flex flex-col sm:flex-row sm:items-center w-full">
+          <h2 className="text-xl sm:text-2xl md:text-3xl pixel-font text-white">LEADERBOARD</h2>
+          <div className="sm:ml-auto text-s sm:text-sm text-white/60 pixel-font mt-0.5 sm:mt-0">TOP {users.length}</div>
+        </div>
       </div>
 
       {/* Table with fixed layout - prevents expensive calculations! */}
       <Card className="bg-card border-2 border-primary pixel-corners">
         <CardContent className="p-0">
-          <div className="w-full overflow-x-auto">
-            {/* ⚡ table-fixed + explicit widths = FAST! */}
-            <Table className="w-full table-fixed">
+          <div className="w-full overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+            {/* ⚡ Optimized min-width and hidden scrollbar for a clean mobile look */}
+            <Table className="w-full table-fixed min-w-[420px]">
               <TableHeader>
                 <TableRow className="border-b border-primary/30">
-                  {/* Widths: 10% + 60% + 15% + 15% = 100% */}
-                  <TableHead className="text-primary pixel-font text-xs w-[10%]">RANK</TableHead>
-                  <TableHead className="text-primary pixel-font text-xs w-[60%]">PLAYER</TableHead>
-                  <TableHead className="text-primary pixel-font text-xs w-[15%]">GUILD</TableHead>
-                  <TableHead className="text-right text-primary pixel-font text-xs w-[15%]">HOURS</TableHead>
+                  {/* Narrower columns for mobile to fit better */}
+                  <TableHead className="text-primary pixel-font text-[10px] sm:text-xs w-[55px] sm:w-[10%] whitespace-nowrap px-2 sm:px-4 tracking-tighter sm:tracking-normal">RANK</TableHead>
+                  <TableHead className="text-primary pixel-font text-[10px] sm:text-xs w-[40%] sm:w-[60%] whitespace-nowrap px-2 sm:px-4">PLAYER</TableHead>
+                  <TableHead className="text-primary pixel-font text-[10px] sm:text-xs w-[30%] sm:w-[15%] whitespace-nowrap px-2 sm:px-4 text-center">GUILD</TableHead>
+                  <TableHead className="text-right text-primary pixel-font text-[10px] sm:text-xs w-[20%] sm:w-[15%] whitespace-nowrap px-2 sm:px-4">HOURS</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>

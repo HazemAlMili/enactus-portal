@@ -208,7 +208,7 @@ export default function UsersPage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-card p-6 border-l-4 border-l-accent pixel-corners">
-        <h2 className="text-3xl text-white pixel-font text-glow">SQUAD ROSTER</h2>
+        <h2 className="text-2xl text-white pixel-font text-glow">SQUAD ROSTER</h2>
         
         {/* Add Member Dialog (Modal) - ONLY HR can recruit */}
         {(() => {

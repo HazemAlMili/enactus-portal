@@ -99,7 +99,7 @@ export default function Dashboard() {
         <div>
           <h1 className="text-2xl sm:text-3xl text-primary pixel-font mb-2 drop-shadow-md break-words">
             WELCOME,<br />
-            <span className="mt-1 text-2xl sm:text-3xl">{user.name?.toUpperCase() || 'GUEST'}</span>
+            <span className="mt-1 text-xl sm:text-3xl">{user.name?.toUpperCase() || 'GUEST'}</span>
           </h1>
           {user.role === 'guest' && (
             <div className="mt-1 inline-block bg-yellow-500/20 border border-yellow-500 text-yellow-500 px-2 py-0.5 text-[8px] sm:text-[10px] pixel-font animate-pulse">

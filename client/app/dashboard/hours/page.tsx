@@ -161,7 +161,7 @@ export default function HoursPage() {
   return (
     <div className="space-y-6">
       <div className="bg-card p-6 border-b-4 border-b-secondary pixel-corners">
-        <h2 className="text-3xl text-white pixel-font text-glow">TIME LOG (SAVE STATION)</h2>
+        <h2 className="text-xl text-white pixel-font text-glow">TIME LOG (SAVE STATION)</h2>
       </div>
       
       {/* Submission Form Card */}
