@@ -2,9 +2,9 @@
 
 **Full-Stack Task & Member Management System with Role-Based Access Control**
 
-[![Version](https://img.shields.io/badge/version-5.0.0-blue.svg)](https://github.com/HazemAlMili/enactus-portal)
+[![Version](https://img.shields.io/badge/version-6.0.0-blue.svg)](https://github.com/HazemAlMili/enactus-portal)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Performance](https://img.shields.io/badge/performance-98%2F100-brightgreen.svg)]()
+[![Performance](https://img.shields.io/badge/performance-99%2F100-brightgreen.svg)]()
 [![Security](https://img.shields.io/badge/security-Enterprise--Grade-red.svg)]()
 
 ---
@@ -15,9 +15,9 @@
 2. [Zero-Footprint Guest Mode](#-zero-footprint-guest-mode)
 3. [Admin Command Center](#-admin-command-center)
 4. [M0 Performance Tuning](#-m0-performance-tuning)
-5. [What's New in v5.0](#-whats-new-in-v50)
+5. [What's New in v6.0](#-whats-new-in-v60)
 6. [System Architecture](#-system-architecture)  
-7. [Role & Permission System](#-role--permission-system)
+7. [Role Architecture](#-role-architecture)
 8. [Features](#-features)
 9. [Tech Stack](#-tech-stack)
 10. [Database Schema](#-database-schema)
@@ -137,6 +137,32 @@ Validated through `createUserSchema`. Synchronized with login rules to prevent u
 
 ---
 
+## 🔐 ROLE ARCHITECTURE
+
+The system employs a sophisticated **8-tier Permission Model** combined with **Parallel Environment Isolation** (Test vs. Real).
+
+| Tier | Role | Scope of Authority |
+|------|------|---------------------|
+| 👑 | **Presidential Suite** | Strategic oversight, global analytics, and full system management. |
+| 🎖️ | **Directorate** | Operational control over cross-departmental workflows and creative outputs. |
+| 👥 | **HR Department** | Member lifecycle management, disciplinary tracking, and hour audit logs. |
+| 🛡️ | **Head / Vice Head** | Departmental command, task delegation, and squad performance reviews. |
+| 👤 | **Standard Member** | Task execution, hour logging, and departmental mini-game participation. |
+| 🕹️ | **Guest Mode** | Zero-DB simulation via LocalStorage interceptors for training purposes. |
+| 🧪 | **Visitor System** | Isolated data layer (`isTest: true`) for secure portfolio demonstrations. |
+
+---
+
+## 🚀 WHAT'S NEW IN V6.0
+
+- 🔒 **Parallel Data Isolation:** Strict middleware-level filtering for `isTest` accounts ensuring complete privacy for real members.
+- 📊 **Real-time Health Monitoring:** 100-point performance score tracking M0 storage limits and connection pool health.
+- ⚡ **Lighthouse 99+:** Optimized React components and server-side caching (TTL 120s) for instant page loads.
+- 💎 **Metallic Design System:** A complete visual overhaul featuring silver/gray aesthetics and glassmorphism.
+- 📱 **Mobile Performance:** Paginated leaderboards and optimized touch-targets for task management.
+
+---
+
 ## 📦 INSTALLATION
 
 ### **Server Setup:**
@@ -158,6 +184,16 @@ npm run dev
 ---
 
 ## 📝 CHANGELOG
+
+### **Version 6.0.0** (January 17, 2026)
+**🆕 Security & Monitoring:**
+- ✅ **Data Separation:** Multi-layered isolation for test vs. real accounts (`isTest` filter).
+- ✅ **Health Scoring:** Automated 100-point system health monitoring for IT Admins.
+- ✅ **Aesthetic Refinement:** Implementation of the "Metallic Silver" Design System.
+- ✅ **Leaderboard Optimization:** Top 10 + Pagination logic for improved mobile Speed Index.
+- ✅ **New Mini-Games:** Implementation of "One-Minute Pitch" for Presentation department.
+
+---
 
 ### **Version 5.0.0** (December 30, 2025)
 **🆕 Major Enhancements:**
