@@ -22,6 +22,7 @@ const seedVisitor = async () => {
       role: 'HR',
       title: 'Demo Account (Full Access)',
       department: 'HR',
+      position: 'Team Leader',
       points: 5000,
       hoursApproved: 100,
       isTest: true
@@ -39,8 +40,9 @@ const seedVisitor = async () => {
 
     // Seed some Test Members for the Visitor to manage
     const testMembers = [
-      { name: 'Demo Member 1', email: 'demo1@enactus.com', role: 'Member', department: 'HR', points: 150, hoursApproved: 5, isTest: true },
-      { name: 'Demo Member 2', email: 'demo2@enactus.com', role: 'Member', department: 'HR', points: 300, hoursApproved: 12, isTest: true },
+      { name: 'Demo Team Leader', email: 'demo-tl@enactus.com', role: 'Member', department: 'HR', position: 'Team Leader', points: 500, hoursApproved: 20, isTest: true },
+      { name: 'Demo Member 1', email: 'demo1@enactus.com', role: 'Member', department: 'HR', position: 'Member', points: 150, hoursApproved: 5, isTest: true },
+      { name: 'Demo Member 2', email: 'demo2@enactus.com', role: 'Member', department: 'HR', position: 'Member', points: 300, hoursApproved: 12, isTest: true },
     ];
 
     for (const m of testMembers) {
@@ -59,6 +61,7 @@ const seedVisitor = async () => {
           assignedByModel: 'User',
           department: 'HR',
           status: 'Pending',
+          targetPosition: 'Both',
           scoreValue: 100,
           isTest: true
         }
