@@ -2,7 +2,7 @@
 
 **Full-Stack Task & Member Management System with Role-Based Access Control**
 
-[![Version](https://img.shields.io/badge/version-6.0.0-blue.svg)](https://github.com/HazemAlMili/enactus-portal)
+[![Version](https://img.shields.io/badge/version-6.1.0-blue.svg)](https://github.com/HazemAlMili/enactus-portal)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Performance](https://img.shields.io/badge/performance-99%2F100-brightgreen.svg)]()
 [![Security](https://img.shields.io/badge/security-Enterprise--Grade-red.svg)]()
@@ -157,7 +157,9 @@ The system employs a sophisticated **8-tier Permission Model** combined with **P
 
 - 🔒 **Parallel Data Isolation:** Strict middleware-level filtering for `isTest` accounts ensuring complete privacy for real members.
 - 📊 **Real-time Health Monitoring:** 100-point performance score tracking M0 storage limits and connection pool health.
+- 👥 **HR Tiered Hierarchy:** Introduction of `Team Leader` and `Member` positions within the HR department for granular task targeting.
 - ⚡ **Lighthouse 99+:** Optimized React components and server-side caching (TTL 120s) for instant page loads.
+- 🏎️ **Memoized HUD:** Memoization of heavy task/leaderboard rows for smooth 60FPS mobile interactions.
 - 💎 **Metallic Design System:** A complete visual overhaul featuring silver/gray aesthetics and glassmorphism.
 - 📱 **Mobile Performance:** Paginated leaderboards and optimized touch-targets for task management.
 
@@ -184,6 +186,22 @@ npm run dev
 ---
 
 ## 📝 CHANGELOG
+
+---
+
+### **Version 6.1.0** (January 21, 2026)
+**🆕 HR Department Hierarchy:**
+- ✅ **New Positions:** Introduced `Team Leader` vs `Member` distinction for HR department personnel.
+- ✅ **Granular Tasking:** HR can now target missions to specific positions (Only TLs, Only Members, or Both).
+- ✅ **Identity Badges:** Automatic position badging in Dashboard, Profile Page, and Team Cards.
+- ✅ **Compact Recruitment:** Refactored the "Recruit Player" modal into a responsive 2-column grid to reduce vertical footprint.
+
+**🏎️ Performance & UX:**
+- ✅ **Row Memoization:** Wrapped all Task and Leaderboard rows in `React.memo` to eliminate redundant re-renders.
+- ✅ **Memoized Filtering:** Used `useMemo` for heavy grouping logic in Guild Hall and Squad Roster views.
+- ✅ **Table Polish:** Standardized column widths and removed redundant columns (e.g., "Class" in Squad table) for better mobile visibility.
+
+---
 
 ### **Version 6.0.0** (January 17, 2026)
 **🆕 Security & Monitoring:**
