@@ -23,6 +23,7 @@ interface User {
   email: string;
   department?: string;
   role: string;
+  position?: 'Member' | 'Team Leader';
   points?: number;
   hoursApproved?: number;
   tasksCompleted?: number;
@@ -111,7 +112,7 @@ export default function Dashboard() {
         {/* Badges moved to top right */}
         <div className="flex flex-col items-start sm:items-end gap-2 text-white/80 font-mono w-full sm:w-auto">
           <span className="bg-secondary/20 px-3 sm:px-4 py-2 rounded-none border border-secondary pixel-corners text-secondary text-sm sm:text-base truncate max-w-full">
-            {user.role === 'guest' ? 'TRAINING' : user.role}
+            {user.role === 'guest' ? 'TRAINING' : (user.department === 'HR' && user.role === 'Member' && user.position ? user.position : user.role)}
           </span>
           <span className="bg-primary/20 px-3 sm:px-4 py-2 rounded-none border border-primary pixel-corners text-sm sm:text-base truncate max-w-full">
             {user.role === 'General President' 

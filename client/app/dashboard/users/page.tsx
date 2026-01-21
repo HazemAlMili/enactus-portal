@@ -1,7 +1,7 @@
 "use client";
 
 // Import hooks and API
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
 // Import UI Components from shadcn and lucide icons
@@ -43,6 +43,7 @@ export default function UsersPage() {
     role: 'Member',
     department: 'IT',
     team: '', // Team within department
+    position: 'Member' as 'Member' | 'Team Leader', // New field for Member vs Team Leader
     hrResponsibility: '', // New field for HR Head
     title: '' // New field for Title
   });
@@ -116,18 +117,21 @@ export default function UsersPage() {
              role: 'Member', 
              department: defaultDept,
              team: '',
+             position: 'Member',
              hrResponsibility: '',
              title: ''
          });
      }
   }, [isOpen, currentUser]);
 
-  // Filtered Users
-  const filteredUsers = users.filter(u => {
+  // ⚡ PERFORMANCE: Memoize filtered list to prevent unnecessary calculations on every re-render
+  const filteredUsers = useMemo(() => {
+    return users.filter(u => {
       const matchName = u.name.toLowerCase().includes(nameFilter.toLowerCase());
       const matchDept = deptFilter === 'ALL' || u.department === deptFilter;
       return matchName && matchDept;
-  });
+    });
+  }, [users, nameFilter, deptFilter]);
 
   const issueWarning = async () => {
       if (!warningTarget) return;
@@ -228,132 +232,133 @@ export default function UsersPage() {
               RECRUIT PLAYER
             </Button>
           </DialogTrigger>
-          <DialogContent className="pixel-corners border-2 border-primary bg-card">
-            <DialogHeader>
-              <DialogTitle className="pixel-font text-primary">NEW PLAYER ENTRY</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4 py-4">
-               {/* ... (Existing Form Code) ... */}
-               <div className="space-y-2">
-                <Label className="pixel-font text-xs">PLAYER NAME</Label>
-                <Input className="pixel-corners bg-background/50 border-primary" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
-              </div>
-              <div className="space-y-2">
-                <Label className="pixel-font text-xs">EMAIL</Label>
-                <Input className="pixel-corners bg-background/50 border-primary" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
-              </div>
-              <div className="space-y-2">
-                <Label className="pixel-font text-xs">PASSWORD</Label>
-                <Input className="pixel-corners bg-background/50 border-primary" type="password" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} />
-              </div>
-              <div className="space-y-2">
-                <Label className="pixel-font text-xs">CLASS (ROLE)</Label>
-                <Select 
-                    onValueChange={v => setFormData({...formData, role: v})} 
-                    defaultValue={formData.role}
-                    // HR HEAD/VICE HEAD LOCKED TO MEMBER
-                    // HR COORDINATOR LOCKED TO MEMBER
-                    disabled={
-                        ((currentUser?.role === 'Head' || currentUser?.role === 'Vice Head') && currentUser?.department === 'HR') ||
-                        (currentUser?.role === 'Member' && currentUser?.department === 'HR' && currentUser?.title?.startsWith('HR Coordinator'))
-                    }
-                >
-                  <SelectTrigger className="pixel-corners border-primary bg-background/50"><SelectValue /></SelectTrigger>
-                  <SelectContent className="pixel-corners border-primary bg-card">
-                    <SelectItem value="Member">Member</SelectItem>
-                    {/* Only show other options if NOT HR Head or Vice Head */}
-                    {!((currentUser?.role === 'Head' || currentUser?.role === 'Vice Head') && currentUser?.department === 'HR') && (
-                        <>
-                            <SelectItem value="Vice Head">Vice Head</SelectItem>
-                            <SelectItem value="Head">Head</SelectItem>
-                            <SelectItem value="HR">HR</SelectItem>
-                        </>
-                    )}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label className="pixel-font text-xs">GUILD (DEPT)</Label>
-                <Select 
-                    onValueChange={v => setFormData({...formData, department: v})} 
-                    // Default Logic handled in useEffect
-                    defaultValue={formData.department}
-                    // HR HEAD/VICE HEAD LOCKED TO HR
-                    // HR COORDINATOR LOCKED TO THEIR DEPT (Set in useEffect)
-                    disabled={
-                        ((currentUser?.role === 'Head' || currentUser?.role === 'Vice Head') && currentUser?.department === 'HR') ||
-                        (currentUser?.role === 'Member' && currentUser?.department === 'HR' && currentUser?.title?.startsWith('HR Coordinator'))
-                    }
-                >
-                  <SelectTrigger className="pixel-corners border-primary bg-background/50"><SelectValue /></SelectTrigger>
-                  <SelectContent className="pixel-corners border-primary bg-card">
-                    {['IT','HR','PM','PR','FR','Logistics','Organization','Marketing','Multi-Media','Presentation'].map(d => (
+          <DialogContent className="pixel-corners border-2 border-primary bg-card max-w-md md:max-w-2xl overflow-y-auto max-h-[95vh]">
+        <DialogHeader>
+          <DialogTitle className="pixel-font text-primary">NEW PLAYER ENTRY</DialogTitle>
+        </DialogHeader>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
+          <div className="space-y-2 md:col-span-2">
+            <Label className="pixel-font text-xs">PLAYER NAME</Label>
+            <Input className="pixel-corners bg-background/50 border-primary h-9" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
+          </div>
+          <div className="space-y-2">
+            <Label className="pixel-font text-xs">EMAIL</Label>
+            <Input className="pixel-corners bg-background/50 border-primary h-9" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
+          </div>
+          <div className="space-y-2">
+            <Label className="pixel-font text-xs">PASSWORD</Label>
+            <Input className="pixel-corners bg-background/50 border-primary h-9" type="password" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} />
+          </div>
+          
+          <div className="space-y-2">
+            <Label className="pixel-font text-xs">CLASS (ROLE)</Label>
+            <Select 
+                onValueChange={v => setFormData({...formData, role: v})} 
+                defaultValue={formData.role}
+                disabled={
+                    ((currentUser?.role === 'Head' || currentUser?.role === 'Vice Head') && currentUser?.department === 'HR') ||
+                    (currentUser?.role === 'Member' && currentUser?.department === 'HR' && currentUser?.title?.startsWith('HR Coordinator'))
+                }
+            >
+              <SelectTrigger className="pixel-corners border-primary bg-background/50 h-9"><SelectValue /></SelectTrigger>
+              <SelectContent className="pixel-corners border-primary bg-card">
+                <SelectItem value="Member">Member</SelectItem>
+                {!((currentUser?.role === 'Head' || currentUser?.role === 'Vice Head') && currentUser?.department === 'HR') && (
+                    <>
+                        <SelectItem value="Vice Head">Vice Head</SelectItem>
+                        <SelectItem value="Head">Head</SelectItem>
+                        <SelectItem value="HR">HR</SelectItem>
+                    </>
+                )}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label className="pixel-font text-xs">GUILD (DEPT)</Label>
+            <Select 
+                onValueChange={v => setFormData({...formData, department: v})} 
+                defaultValue={formData.department}
+                disabled={
+                    ((currentUser?.role === 'Head' || currentUser?.role === 'Vice Head') && currentUser?.department === 'HR') ||
+                    (currentUser?.role === 'Member' && currentUser?.department === 'HR' && currentUser?.title?.startsWith('HR Coordinator'))
+                }
+            >
+              <SelectTrigger className="pixel-corners border-primary bg-background/50 h-9"><SelectValue /></SelectTrigger>
+              <SelectContent className="pixel-corners border-primary bg-card">
+                {['IT','HR','PM','PR','FR','Logistics','Organization','Marketing','Multi-Media','Presentation'].map(d => (
+                  <SelectItem key={d} value={d}>{d}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          
+          {formData.department === 'HR' && (
+            <div className="space-y-2 animate-in fade-in slide-in-from-top-1">
+              <Label className="pixel-font text-xs text-secondary">POSITION (WITHIN HR)</Label>
+              <Select 
+                  onValueChange={v => setFormData({...formData, position: v as 'Member' | 'Team Leader'})} 
+                  defaultValue={formData.position}
+              >
+                <SelectTrigger className="pixel-corners border-secondary bg-background/50 h-9"><SelectValue /></SelectTrigger>
+                <SelectContent className="pixel-corners border-secondary bg-card">
+                  <SelectItem value="Member">Member</SelectItem>
+                  <SelectItem value="Team Leader">Team Leader</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+           {(formData.department === 'IT' || formData.department === 'Multi-Media' || formData.department === 'Presentation') && (
+             <div className="space-y-2 animate-in fade-in slide-in-from-top-2">
+               <Label className="pixel-font text-xs text-purple-400">TEAM (OPTIONAL)</Label>
+               <Select onValueChange={v => setFormData({...formData, team: v})} value={formData.team}>
+                 <SelectTrigger className="pixel-corners border-purple-500 bg-background/50 h-9"><SelectValue placeholder="No Team" /></SelectTrigger>
+                 <SelectContent className="pixel-corners border-purple-500 bg-card">
+                   {formData.department === 'IT' && (
+                     <>
+                       <SelectItem value="Frontend">Frontend</SelectItem>
+                       <SelectItem value="UI/UX">UI/UX</SelectItem>
+                     </>
+                   )}
+                   {formData.department === 'Multi-Media' && (
+                     <>
+                       <SelectItem value="Graphics">Graphics</SelectItem>
+                       <SelectItem value="Photography">Photography</SelectItem>
+                     </>
+                   )}
+                   {formData.department === 'Presentation' && (
+                     <>
+                       <SelectItem value="Presentation">Presentation</SelectItem>
+                       <SelectItem value="Script Writing">Script Writing</SelectItem>
+                     </>
+                   )}
+                 </SelectContent>
+               </Select>
+             </div>
+           )}
+
+           {formData.department === 'HR' && formData.role === 'Member' && 
+            currentUser && ['Head', 'Vice Head', 'General President', 'Vice President'].includes(currentUser.role) && 
+            currentUser.department === 'HR' && (
+              <div className="space-y-2 animate-in fade-in slide-in-from-top-2">
+                <Label className="pixel-font text-xs text-yellow-400">ASSIGN RESPONSIBILITY (HR COORD)</Label>
+                <Select onValueChange={v => setFormData({...formData, hrResponsibility: v})}>
+                  <SelectTrigger className="pixel-corners border-yellow-500 bg-background/50 h-9"><SelectValue placeholder="Select Dept to Manage" /></SelectTrigger>
+                  <SelectContent className="pixel-corners border-yellow-500 bg-card">
+                    {['IT','PM','PR','FR','Logistics','Organization','Marketing','Multi-Media','Presentation'].map(d => (
                       <SelectItem key={d} value={d}>{d}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-                {((currentUser?.role === 'Head' || currentUser?.role === 'Vice Head') && currentUser?.department === 'HR') && (
-                    <p className="text-[10px] text-gray-500 font-mono mt-1">HR HEADS/VICE HEADS RECRUIT FOR HR ONLY</p>
-                )}
               </div>
-
-               {/* Team Selection - Only for IT, Multi-Media, and Presentation */}
-               {(formData.department === 'IT' || formData.department === 'Multi-Media' || formData.department === 'Presentation') && (
-                 <div className="space-y-2 animate-in fade-in slide-in-from-top-2">
-                   <Label className="pixel-font text-xs text-purple-400">TEAM (OPTIONAL)</Label>
-                   <Select onValueChange={v => setFormData({...formData, team: v})} value={formData.team}>
-                     <SelectTrigger className="pixel-corners border-purple-500 bg-background/50"><SelectValue placeholder="No Team" /></SelectTrigger>
-                     <SelectContent className="pixel-corners border-purple-500 bg-card">
-                       {formData.department === 'IT' && (
-                         <>
-                           <SelectItem value="Frontend">Frontend</SelectItem>
-                           <SelectItem value="UI/UX">UI/UX</SelectItem>
-                         </>
-                       )}
-                       {formData.department === 'Multi-Media' && (
-                         <>
-                           <SelectItem value="Graphics">Graphics</SelectItem>
-                           <SelectItem value="Photography">Photography</SelectItem>
-                         </>
-                       )}
-                       {formData.department === 'Presentation' && (
-                         <>
-                           <SelectItem value="Presentation">Presentation</SelectItem>
-                           <SelectItem value="Script Writing">Script Writing</SelectItem>
-                         </>
-                       )}
-                     </SelectContent>
-                   </Select>
-                   <p className="text-[10px] text-gray-400 font-mono">* Assign member to a specific team within the department.</p>
-                 </div>
-               )}
-
-               {/* SPECIAL HR HEAD DROPDOWN: Coordinator Responsibility */}
-               {/* 
-                 Show if:
-                 1. Department selected is HR (formData.department === 'HR')
-                 2. Role selected is Member (formData.role === 'Member')
-                 3. Current User is HR Head or Board (allowed to recruit HR)
-               */}
-               {formData.department === 'HR' && formData.role === 'Member' && 
-                currentUser && ['Head', 'Vice Head', 'General President', 'Vice President'].includes(currentUser.role) && 
-                currentUser.department === 'HR' && (
-                  <div className="space-y-2 animate-in fade-in slide-in-from-top-2">
-                    <Label className="pixel-font text-xs text-yellow-400">ASSIGN RESPONSIBILITY (HR COORD)</Label>
-                    <Select onValueChange={v => setFormData({...formData, hrResponsibility: v})}>
-                      <SelectTrigger className="pixel-corners border-yellow-500 bg-background/50"><SelectValue placeholder="Select Dept to Manage" /></SelectTrigger>
-                      <SelectContent className="pixel-corners border-yellow-500 bg-card">
-                        {['IT','PM','PR','FR','Logistics','Organization','Marketing','Multi-Media','Presentation'].map(d => (
-                          <SelectItem key={d} value={d}>{d}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <p className="text-[10px] text-gray-400 font-mono">* This will set their recruiting permissions.</p>
-                  </div>
-               )}
-              <Button onClick={handleCreate} className="w-full pixel-corners pixel-font">CONFIRM RECRUIT</Button>
-            </div>
-          </DialogContent>
+           )}
+          
+          <div className="md:col-span-2 pt-2">
+            <Button onClick={handleCreate} className="w-full pixel-corners pixel-font py-6">CONFIRM RECRUIT</Button>
+          </div>
+        </div>
+      </DialogContent>
         </Dialog>
           );
         })()}
@@ -427,7 +432,8 @@ export default function UsersPage() {
             <TableHeader>
               <TableRow className="hover:bg-transparent border-b border-primary/20">
                 <TableHead className="text-primary pixel-font text-xs">PLAYER NAME</TableHead>
-                <TableHead className="text-primary pixel-font text-xs">CLASS</TableHead>
+
+                <TableHead className="text-primary pixel-font text-xs">POSITION</TableHead>
                 {/* Show 'Responsible For' column only for HR Head/Vice Head */}
                 {((currentUser?.role === 'Head' || currentUser?.role === 'Vice Head') && currentUser?.department === 'HR') && (
                   <TableHead className="text-primary pixel-font text-xs">RESPONSIBLE FOR</TableHead>
@@ -441,7 +447,22 @@ export default function UsersPage() {
               {filteredUsers.map((u) => (
                 <TableRow key={u._id} className="hover:bg-primary/10 border-b border-primary/10">
                   <TableCell className="text-white font-medium pixel-font text-sm">{u.name}</TableCell>
-                  <TableCell className="text-gray-300 font-mono text-xs uppercase">{u.role}</TableCell>
+
+                  <TableCell>
+                    {u.department === 'HR' ? (
+                      u.position === 'Team Leader' ? (
+                        <Badge className="bg-purple-500/10 text-purple-400 border-purple-500/50 pixel-corners font-mono text-[10px] uppercase">
+                          Team Leader
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="border-blue-500/50 text-blue-400 pixel-corners font-mono text-[10px] uppercase bg-blue-500/5">
+                          Member
+                        </Badge>
+                      )
+                    ) : (
+                      <span className="text-gray-600 font-mono text-[10px]">-</span>
+                    )}
+                  </TableCell>
                   {/* Show responsible department for HR Coordinators (HR Head/Vice Head view only) */}
                   {((currentUser?.role === 'Head' || currentUser?.role === 'Vice Head') && currentUser?.department === 'HR') && (
                     <TableCell>

@@ -17,6 +17,7 @@ interface UserProfile {
   role: string;
   department: string;
   points: number;
+  position?: 'Member' | 'Team Leader';
   level: number;
   tasksCompleted: number;
   hoursApproved: number;
@@ -278,7 +279,9 @@ export default function ProfilePage() {
                           )}
                      </div>
                      
-                     <Badge className={`pixel-corners pixel-font text-[10px] px-3 py-1 bg-black border ${roleColor}`}>{profile.role}</Badge>
+                     <Badge className={`pixel-corners pixel-font text-[10px] px-3 py-1 bg-black border ${roleColor}`}>
+                         {profile.department === 'HR' && profile.role === 'Member' && profile.position ? profile.position : profile.role}
+                     </Badge>
 
                      <div className="flex gap-2">
                         <button onClick={() => document.getElementById('avatar-upload')?.click()} disabled={uploading} className="group pixel-corners bg-secondary/10 hover:bg-secondary/20 border border-secondary/30 hover:border-secondary/50 p-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed" title="Change avatar">

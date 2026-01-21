@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -17,13 +17,14 @@ interface User {
   name: string;
   department: string;
   role: string;
+  position?: string;
   hoursApproved: number;
 }
 
 export default function DepartmentsPage() {
   const router = useRouter();
   const [users, setUsers] = useState<User[]>([]);
-  const [groupedUsers, setGroupedUsers] = useState<Record<string, User[]>>({});
+
   const [selectedDept, setSelectedDept] = useState<string>('All');
   const [user, setUser] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -71,29 +72,30 @@ export default function DepartmentsPage() {
   // Check if user should be locked to a specific department
   const isHRCoordinator = user?.role === 'Member' && user?.department === 'HR' && user?.title?.startsWith('HR Coordinator');
   const isHead = user && ['Head', 'Vice Head'].includes(user.role);
-  const isLocked = isHead || isHRCoordinator; // Both Heads and HR Coordinators are locked
+  const isLocked = isHead || isHRCoordinator; 
 
   const fetchUsers = async () => {
     try {
       const { data } = await api.get('/users');
       setUsers(data);
-      
-      // Group users by department (Members Only)
-      const groups = data
-        .filter((user: User) => user.role === 'Member')
-        .reduce((acc: any, user: User) => {
-          const dept = user.department || 'Unassigned';
-          if (!acc[dept]) acc[dept] = [];
-          acc[dept].push(user);
-          return acc;
-        }, {});
-      setGroupedUsers(groups);
     } catch (error) {
       console.error("Failed to fetch guild data", error);
     } finally {
       setIsLoading(false);
     }
   };
+
+  // ⚡ PERFORMANCE: Memoize grouping logic to avoid heavy calculations on every re-render
+  const groupedUsers = useMemo(() => {
+    return users
+      .filter((u: User) => u.role === 'Member')
+      .reduce((acc: Record<string, User[]>, u: User) => {
+        const dept = u.department || 'Unassigned';
+        if (!acc[dept]) acc[dept] = [];
+        acc[dept].push(u);
+        return acc;
+      }, {});
+  }, [users]);
 
   // Filter groups based on selection
   const displayedGroups = selectedDept === 'All' 
@@ -175,7 +177,20 @@ export default function DepartmentsPage() {
                     <CardHeader className="pb-2">
                       <div className="flex justify-between items-start">
                         <CardTitle className="text-sm font-bold text-white pixel-font truncate pr-2 w-full">{member.name}</CardTitle>
-                        <span className="text-[10px] bg-white/10 px-1 py-0.5 rounded text-gray-300 font-mono shrink-0">{member.role}</span>
+                        <div className="flex flex-col items-end gap-1 shrink-0">
+                          <span className="text-[10px] bg-white/10 px-1 py-0.5 rounded text-gray-300 font-mono">{member.role}</span>
+                          {member.department === 'HR' && (
+                            member.position === 'Team Leader' ? (
+                              <Badge className="bg-purple-500/10 text-purple-400 border-purple-500/50 pixel-corners font-mono text-[8px] h-4 py-0 uppercase">
+                                TL
+                              </Badge>
+                            ) : (
+                              <Badge variant="outline" className="border-blue-500/50 text-blue-400 pixel-corners font-mono text-[8px] h-4 py-0 uppercase bg-blue-500/5">
+                                MB
+                              </Badge>
+                            )
+                          )}
+                        </div>
                       </div>
                     </CardHeader>
                     <CardContent>

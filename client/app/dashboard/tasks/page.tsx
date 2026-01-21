@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, memo } from 'react';
 import api from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -34,6 +34,7 @@ export default function TasksPage() {
   const [deadline, setDeadline] = useState('');
   const [taskHours, setTaskHours] = useState(''); // Hours awarded on completion
   const [team, setTeam] = useState(''); // Selected team for task assignment
+  const [targetPosition, setTargetPosition] = useState<'Member' | 'Team Leader' | 'Both'>('Both'); // Selective assignment
   const [isCreating, setIsCreating] = useState(false);
 
   // Selected Task for Details
@@ -77,6 +78,7 @@ export default function TasksPage() {
       if (deadline) taskData.deadline = new Date(deadline).toISOString();
       if (taskHours) taskData.taskHours = Number(taskHours);
       if (team) taskData.team = team;
+      if (targetPosition) taskData.targetPosition = targetPosition;
       
       await api.post('/tasks', taskData);
       playWin(); // 🏆 Task deployed!
@@ -87,6 +89,7 @@ export default function TasksPage() {
       setDeadline('');
       setTaskHours(''); // Reset hours
       setTeam(''); // Reset team
+      setTargetPosition('Both'); // Reset target position
       // Refresh list
       fetchTasks();
     } catch (err: any) { 
@@ -495,6 +498,25 @@ export default function TasksPage() {
                           </select>
                         </div>
                       )}
+
+                      {/* Target Position Selection - ONLY FOR HR */}
+                      {user && user.department === 'HR' && (
+                        <div className="space-y-1.5 w-48 animate-in fade-in slide-in-from-top-1">
+                          <Label htmlFor="targetPosition" className="pixel-font text-[10px] text-primary flex items-center gap-1.5">
+                             🎯 ASSIGN TO (HR)
+                          </Label>
+                          <select
+                            id="targetPosition"
+                            value={targetPosition}
+                            onChange={e => setTargetPosition(e.target.value as any)}
+                            className="w-full bg-black/40 border border-primary/30 focus:border-primary hover:border-primary/50 pixel-corners font-mono text-xs h-9 text-white px-2 cursor-pointer transition-colors outline-none [&>option]:bg-card [&>option]:text-white"
+                          >
+                            <option value="Both">Everyone</option>
+                            <option value="Member">Members Only</option>
+                            <option value="Team Leader">Team Leaders Only</option>
+                          </select>
+                        </div>
+                      )}
                     </div>
                    
                    <Button 
@@ -585,7 +607,8 @@ export default function TasksPage() {
 }
 
 // Extracted Component to avoid code duplication errors and maintain structure
-const TaskItem = ({ task, canCreate, isHeadView, isStrictMember, getStatusColor, user, updateStatus, selectedTask, setSelectedTask, submissionLinks, setSubmissionLinks, updateSubmissionLink, removeSubmissionLink, handleSubmissionLinkBlur, handleEditTask, handleDeleteTask }: any) => {
+// ⚡ PERFORMANCE: Memoized to prevent re-renders when list updates
+const TaskItem = memo(({ task, canCreate, isHeadView, isStrictMember, getStatusColor, user, updateStatus, selectedTask, setSelectedTask, submissionLinks, setSubmissionLinks, updateSubmissionLink, removeSubmissionLink, handleSubmissionLinkBlur, handleEditTask, handleDeleteTask }: any) => {
     const [open, setOpen] = useState(false);
     const [isEditMode, setIsEditMode] = useState(false);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -621,6 +644,16 @@ const TaskItem = ({ task, canCreate, isHeadView, isStrictMember, getStatusColor,
                             </Badge>
                         )}
                         <span className="text-secondary pixel-font text-xs">{task.scoreValue} XP</span>
+                        {task.department === 'HR' && task.targetPosition === 'Team Leader' && (
+                            <Badge className="pixel-corners border-purple-500/50 text-purple-400 px-1.5 py-0 text-[8px] font-mono uppercase bg-purple-500/10">
+                                Team Leaders
+                            </Badge>
+                        )}
+                        {task.department === 'HR' && task.targetPosition === 'Member' && (
+                            <Badge className="pixel-corners border-blue-500/50 text-blue-400 px-1.5 py-0 text-[8px] font-mono uppercase bg-blue-500/10">
+                                Members
+                            </Badge>
+                        )}
                     </div>
                     {task.deadline && (
                         <div className={`
@@ -1158,5 +1191,4 @@ const TaskItem = ({ task, canCreate, isHeadView, isStrictMember, getStatusColor,
             </DialogContent>
         </Dialog>
     );
-
-}
+});
