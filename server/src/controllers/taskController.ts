@@ -27,7 +27,7 @@ export const createTask = async (req: Request, res: Response) => {
     }
 
     // Destructure task details from validated body
-    const { title, description, resourcesLink, deadline, taskHours, team } = validationResult.data;
+    const { title, description, resourcesLink, deadline, taskHours, team, targetPosition } = validationResult.data;
     const currentUser = (req as any).user;
 
     if (!currentUser.department) {
@@ -44,6 +44,11 @@ export const createTask = async (req: Request, res: Response) => {
     // If team is specified, filter by team
     if (team) {
       query.team = team;
+    }
+
+    // If targetPosition is specified and NOT 'Both', filter by position
+    if (targetPosition && targetPosition !== 'Both') {
+      query.position = targetPosition;
     }
 
     // ISOLATION: Test accounts only assign to other test accounts
@@ -73,6 +78,7 @@ export const createTask = async (req: Request, res: Response) => {
       assignedByModel: ['Head', 'Vice Head', 'General President', 'Vice President', 'Operation Director', 'Creative Director'].includes(currentUser.role) ? 'HighBoard' : 'User',
       department: currentUser.department,
       team: team || undefined, // Store team if specified
+      targetPosition: targetPosition || 'Both',
       scoreValue: 50, // Default XP Reward
       resourcesLink: resourcesLink || [], // Multiple resource links
       deadline,

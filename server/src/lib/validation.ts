@@ -35,6 +35,7 @@ export const createTaskSchema = z.object({
   deadline: z.string().datetime().optional(),
   taskHours: z.number().min(0).max(100).optional(),
   team: z.string().optional(),
+  targetPosition: z.enum(['Member', 'Team Leader', 'Both']).optional().default('Both'),
 });
 
 // ✅ Task Submission Validation
@@ -70,6 +71,7 @@ export const createUserSchema = credentialsSchema.extend({
   role: z.enum(['General President', 'Vice President', 'Operation Director', 'Creative Director', 'HR', 'Head', 'Vice Head', 'Member']),
   department: z.enum(['General', 'IT', 'HR', 'PM', 'PR', 'FR', 'Logistics', 'Organization', 'Marketing', 'Multi-Media', 'Presentation']).optional(),
   team: z.string().max(50).optional(),
+  position: z.enum(['Member', 'Team Leader']).optional().default('Member'),
   title: z.string().max(100).optional(),
 });
 

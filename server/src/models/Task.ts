@@ -11,6 +11,7 @@ export interface ITask extends Document {
   deadline?: Date;
   department?: string;
   team?: string; // Sub-team within department (optional)
+  targetPosition?: 'Member' | 'Team Leader' | 'Both'; // Filter for assignees
   status: 'Pending' | 'Submitted' | 'Completed' | 'Rejected'; // Current status of the task
   scoreValue: number; // Points awarded for completing the task
   dueDate?: Date; // Optional deadline
@@ -33,6 +34,11 @@ const TaskSchema: Schema = new Schema({
   deadline: { type: Date },
   department: { type: String, index: true }, // Department of the task
   team: { type: String, index: true }, // Sub-team within department
+  targetPosition: { 
+    type: String, 
+    enum: ['Member', 'Team Leader', 'Both'], 
+    default: 'Both' 
+  },
   status: { 
     type: String, 
     enum: ['Pending', 'Submitted', 'Completed', 'Rejected'], // Allowed status values

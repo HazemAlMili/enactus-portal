@@ -13,6 +13,7 @@ export interface IUser extends Document {
   hoursApproved: number; // Tracking approved volunteer hours
   tasksCompleted: number; // Tracking number of tasks completed
   points: number; // Gamification points
+  position?: 'Member' | 'Team Leader'; // Local position within department
   avatar?: string; // URL or Base64 string of user avatar
   warnings?: { reason: string; date: Date; issuer: string }[];
   isTest?: boolean;
@@ -36,6 +37,11 @@ const UserSchema: Schema = new Schema({
   hoursApproved: { type: Number, default: 0 }, // Initialize hours to 0
   tasksCompleted: { type: Number, default: 0 }, // Initialize tasks completed to 0
   points: { type: Number, default: 0 }, // Initialize points to 0
+  position: { 
+    type: String, 
+    enum: ['Member', 'Team Leader'], 
+    default: 'Member' 
+  },
   avatar: { type: String }, // Profile picture (Base64 or URL)
   warnings: [{
     reason: { type: String },

@@ -56,6 +56,7 @@ export const loginUser = async (req: Request, res: Response) => {
         hoursApproved: user.hoursApproved,
         tasksCompleted: user.tasksCompleted,
         title: user.title, // Include Title (Important for HR Coordinators)
+        position: user.position || 'Member', // Include local position
         warnings: user.warnings || [], // Include warnings
         isTest: user.isTest || false,
         token: generateToken(user._id.toString()), // Generated JWT Token
@@ -107,6 +108,7 @@ export const getMe = async (req: Request, res: Response) => {
       hoursApproved: user.hoursApproved || 0,
       tasksCompleted: user.tasksCompleted || 0,
       title: user.title, // Include Title
+      position: user.position || 'Member', // Include position
       warnings: user.warnings || [], // Include warnings
       isTest: user.isTest || false,
       avatar: user.avatar // Include avatar
