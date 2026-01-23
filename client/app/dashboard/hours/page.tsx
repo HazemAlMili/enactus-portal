@@ -55,10 +55,11 @@ export default function HoursPage() {
     // Restrict Access: Only Leaders can access Hours Page
     // Also ALLOW HR Coordinators (Member, HR, Title check), Directors, and GUESTS
     const isHRCoordinator = u.role === 'Member' && u.department === 'HR' && u.title?.startsWith('HR Coordinator');
+    const isTeamLeader = u.department === 'HR' && u.position === 'Team Leader';
     const isDirector = u.role === 'Operation Director' || u.role === 'Creative Director';
     const isGuest = u.role === 'guest';
 
-    if (!['Head', 'Vice Head', 'HR', 'General President', 'Vice President'].includes(u.role) && !isHRCoordinator && !isDirector && !isGuest) {
+    if (!['Head', 'Vice Head', 'HR', 'General President', 'Vice President'].includes(u.role) && !isHRCoordinator && !isTeamLeader && !isDirector && !isGuest) {
        router.push('/dashboard');
        return;
     }
@@ -73,7 +74,7 @@ export default function HoursPage() {
     fetchHours(); // initial fetch without filter
     
     // If Leader, fetch users for assignment
-    if (['Head', 'Vice Head', 'HR', 'General President'].includes(u.role) || isHRCoordinator) {
+    if (['Head', 'Vice Head', 'HR', 'General President'].includes(u.role) || isHRCoordinator || isTeamLeader) {
        fetchAssignableUsers();
     }
   }, [router]);
@@ -253,9 +254,11 @@ export default function HoursPage() {
           <CardTitle className="text-white pixel-font text-sm">SESSION HISTORY</CardTitle>
           
           {/* Department Filter for HR / GP / VP / Directors */}
+          {/* Department Filter for HR / GP / VP / Directors / Team Leaders */}
           {(() => {
             const isDirector = user?.role === 'Operation Director' || user?.role === 'Creative Director';
-            const canFilter = user?.role === 'HR' || user?.role === 'General President' || user?.role === 'Vice President' || isDirector;
+            const isTeamLeader = user?.role === 'Member' && user?.department === 'HR' && user?.position === 'Team Leader';
+            const canFilter = user?.role === 'HR' || user?.role === 'General President' || user?.role === 'Vice President' || isDirector || isTeamLeader;
             
             if (!canFilter) return null;
             
@@ -266,6 +269,8 @@ export default function HoursPage() {
               departments = ['PR', 'FR', 'Logistics', 'PM'];
             } else if (user?.role === 'Creative Director') {
               departments = ['Marketing', 'Multi-Media', 'Presentation', 'Organization'];
+            } else if (isTeamLeader && user?.responsibleDepartments) {
+              departments = user.responsibleDepartments;
             }
             
             return (
@@ -275,8 +280,8 @@ export default function HoursPage() {
                     <SelectValue placeholder="FILTER GUILD" />
                   </SelectTrigger>
                   <SelectContent className="pixel-corners bg-card border-secondary">
-                    {/* Only show "ALL GUILDS" for users who can see all departments */}
-                    {(user?.role === 'HR' || user?.role === 'General President' || user?.role === 'Vice President') && (
+                    {/* Only show "ALL GUILDS" for users who can see all responsible departments */}
+                    {(user?.role === 'HR' || user?.role === 'General President' || user?.role === 'Vice President' || isTeamLeader) && (
                       <SelectItem value="All">ALL GUILDS</SelectItem>
                     )}
                     {departments.map(d => (

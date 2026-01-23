@@ -63,10 +63,11 @@ export default function LeaderboardPage() {
     if (userStr) {
        const user = JSON.parse(userStr);
        const isHRCoordinator = user.role === 'Member' && user.department === 'HR' && user.title?.startsWith('HR Coordinator');
+       const isTeamLeader = user.role === 'Member' && user.department === 'HR' && user.position === 'Team Leader';
        const isDirector = user.role === 'Operation Director' || user.role === 'Creative Director';
        const isGuest = user.role === 'guest';
        
-       if (!['Head', 'Vice Head', 'HR', 'General President', 'Vice President'].includes(user.role) && !isHRCoordinator && !isDirector && !isGuest) {
+       if (!['Head', 'Vice Head', 'HR', 'General President', 'Vice President'].includes(user.role) && !isHRCoordinator && !isTeamLeader && !isDirector && !isGuest) {
           router.push('/dashboard');
           return;
        }

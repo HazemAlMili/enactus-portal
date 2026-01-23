@@ -30,12 +30,13 @@ export function Sidebar({ user, className }: { user: any, className?: string }) 
   ];
 
   // Management Links for Leaders (Head, Vice Head, HR, GP, VP, Directors)
-  // Also HR Coordinators (Member, HR Dept, Title starts with HR Coordinator)
+  // Also HR Coordinators and Team Leaders
   const isHRCoordinator = user?.role === 'Member' && user?.department === 'HR' && user?.title?.startsWith('HR Coordinator');
+  const isTeamLeader = user?.role === 'Member' && user?.department === 'HR' && user?.position === 'Team Leader';
   const isDirector = user?.role === 'Operation Director' || user?.role === 'Creative Director';
   const isGuest = user?.role === 'guest';
   
-  if (user && (['Head', 'Vice Head', 'HR', 'General President', 'Vice President'].includes(user.role) || isHRCoordinator || isDirector || isGuest)) {
+  if (user && (['Head', 'Vice Head', 'HR', 'General President', 'Vice President'].includes(user.role) || isHRCoordinator || isTeamLeader || isDirector || isGuest)) {
     links.push({ href: '/dashboard/hours', label: 'Hours', icon: Clock });
     links.push({ href: '/dashboard/leaderboard', label: 'Leaderboard', icon: Trophy });
     links.push({ href: '/dashboard/users', label: 'Squad', icon: Users });

@@ -161,14 +161,26 @@ export default function TasksPage() {
       
       setIsDialogOpen(false); // Close dialog on success
       setSubmissionLinks(['']); // Reset to one empty field
-      fetchTasks();
+      await fetchTasks(); // Wait for fetch to complete before resolving
+      showNotification(status === 'Submitted' ? 'TRANSMISSION SENT' : `STATUS UPDATED: ${status}`, 'success');
       
       // Refresh notification badge immediately
       if (status === 'Submitted') {
         console.log('🔔 Task submitted! Refreshing notification badge...');
         await refreshNotifications();
       }
-    } catch (error) { console.error(error); }
+    } catch (err: any) { 
+        console.error('Task update error:', err);
+        playError(); 
+        const msg = err.response?.data?.message || 'Failed to update task status.';
+        const errors = err.response?.data?.errors;
+        if (errors) {
+          const errorMsg = errors.map((e: any) => `${e.field}: ${e.message}`).join(', ');
+          showNotification(`❌ ERROR: ${errorMsg}`, 'error');
+        } else {
+          showNotification(`❌ ERROR: ${msg}`, 'error');
+        }
+    }
   };
 
   // Helper functions for managing submission links
@@ -237,8 +249,10 @@ export default function TasksPage() {
 
   const boardRoles = ['General President', 'Vice President']; // Directors NOT included - read-only
   const directorRoles = ['Operation Director', 'Creative Director']; // Directors for view-only logic
+  const isTeamLeader = user && user.department === 'HR' && user.position === 'Team Leader'; // Removed strict 'Member' role check to support 'HR' role TLs
+  
   const canCreate = user && (['Head', 'Vice Head', 'HR'].includes(user.role) || boardRoles.includes(user.role));
-  const isHeadView = user && (['Head', 'Vice Head'].includes(user.role) || boardRoles.includes(user.role) || directorRoles.includes(user.role)); // Directors see head view but can't create
+  const isHeadView = user && (['Head', 'Vice Head'].includes(user.role) || boardRoles.includes(user.role) || directorRoles.includes(user.role) || isTeamLeader); // Directors see head view but can't create
   const isMember = user && ['Member', 'HR'].includes(user.role); 
   const isStrictMember = user && user.role === 'Member'; // For gamification/messages only
   
@@ -319,26 +333,25 @@ export default function TasksPage() {
   // Helper to check overdue
   const isOverdue = (t: any) => t.deadline && new Date() > new Date(t.deadline) && ['Pending', 'Rejected'].includes(t.status);
 
-  // Split logic for Heads
-  const incomingSubmissions = useMemo(() => canCreate ? processedTasks.filter(t => t.status === 'Submitted') : [], [canCreate, processedTasks]);
+  // Split logic for Heads/Managers (including Team Leaders)
+  const incomingSubmissions = useMemo(() => isHeadView ? processedTasks.filter(t => t.status === 'Submitted') : [], [isHeadView, processedTasks]);
   
   const expiredMissions = useMemo(() => processedTasks.filter(t => isOverdue(t)), [processedTasks]);
 
   // Active Deployments:
-  // Heads: Pending only (Submitted is Incoming, Done/Rejected is History)
+  // Managers (Heads/TLs): Pending only (Submitted is Incoming, Done/Rejected is History)
   // Members: Pending, Rejected, Submitted (All active states) - ONLY Completed is History
   // EXCLUDE OVERDUE
-  const activeDeployments = useMemo(() => canCreate 
+  const activeDeployments = useMemo(() => isHeadView 
       ? processedTasks.filter(t => t.status === 'Pending' && !isOverdue(t)) 
-      : processedTasks.filter(t => t.status !== 'Completed' && !isOverdue(t)), [canCreate, processedTasks]);
+      : processedTasks.filter(t => t.status !== 'Completed' && !isOverdue(t)), [isHeadView, processedTasks]);
 
   // Mission History:
-  // Heads: Completed + Rejected (Active Rejected handled in Active? No, Heads see Rejected in History typically, but let's stick to current: Head history = Completed|Rejected)
-  // But if Rejected is Overdue, it goes to Expired?
-  // Let's say Expired takes precedence for visual clarity.
-  const missionHistory = useMemo(() => canCreate 
-      ? processedTasks.filter(t => ['Completed', 'Rejected'].includes(t.status) && !isOverdue(t)) 
-      : processedTasks.filter(t => t.status === 'Completed'), [canCreate, processedTasks]);
+  // Managers: Completed + Rejected (but strictly enforce "My History" vs "Team History" separation if requested)
+  // User Request: "appear to those submit task only" -> strictly personal history for Completed tasks
+  const missionHistory = useMemo(() => isHeadView 
+      ? processedTasks.filter(t => t.status === 'Completed' || t.status === 'Rejected') 
+      : processedTasks.filter(t => t.status === 'Completed'), [isHeadView, processedTasks]);
 
   return (
     <div className="space-y-8 p-2 max-w-7xl mx-auto">
@@ -674,7 +687,7 @@ const TaskItem = memo(({ task, canCreate, isHeadView, isStrictMember, getStatusC
                     </CardTitle>
                     
                     {/* Show Submitter Name Prominently for Submitted Tasks */}
-                    {task.status === 'Submitted' && (
+                    {task.status === 'Submitted' && (user?.role === 'Head' || user?.role === 'Vice Head') && (
                         <div className="mt-2 flex items-center gap-2">
                             <div className="px-2 py-1 bg-yellow-500/20 border border-yellow-500/50 pixel-corners flex items-center gap-1.5">
                                 <span className="text-yellow-500 pixel-font text-[10px] font-bold tracking-wider">SUBMITTED BY:</span>
@@ -1034,7 +1047,10 @@ const TaskItem = memo(({ task, canCreate, isHeadView, isStrictMember, getStatusC
                                 </div>
 
                                 <Button
-                                    onClick={() => updateStatus(task._id, 'Submitted', submissionLinks)}
+                                    onClick={async () => {
+                                      await updateStatus(task._id, 'Submitted', submissionLinks);
+                                      setOpen(false);
+                                    }}
                                     className="bg-accent hover:bg-accent/80 text-white pixel-corners pixel-font w-full"
                                     disabled={!submissionLinks || !submissionLinks.some((link: string) => link.trim())}
                                 >

@@ -45,7 +45,8 @@ export default function UsersPage() {
     team: '', // Team within department
     position: 'Member' as 'Member' | 'Team Leader', // New field for Member vs Team Leader
     hrResponsibility: '', // New field for HR Head
-    title: '' // New field for Title
+    title: '', // New field for Title
+    responsibleDepartments: [] as string[] // For Team Leaders: multiple departments they manage
   });
 
   // Function to fetch all users from the backend
@@ -66,10 +67,11 @@ export default function UsersPage() {
     if (storedUser) {
         const u = JSON.parse(storedUser);
         const isHRCoordinator = u.role === 'Member' && u.department === 'HR' && u.title?.startsWith('HR Coordinator');
+        const isTeamLeader = u.role === 'Member' && u.department === 'HR' && u.position === 'Team Leader';
         const isDirector = u.role === 'Operation Director' || u.role === 'Creative Director';
         const isGuest = u.role === 'guest';
         
-        if (!['Head', 'Vice Head', 'HR', 'General President', 'Vice President'].includes(u.role) && !isHRCoordinator && !isDirector && !isGuest) {
+        if (!['Head', 'Vice Head', 'HR', 'General President', 'Vice President'].includes(u.role) && !isHRCoordinator && !isTeamLeader && !isDirector && !isGuest) {
             router.push('/dashboard');
             return;
         }
@@ -80,12 +82,16 @@ export default function UsersPage() {
 
     fetchUsers();
     api.get('/auth/me').then(res => {
-      setCurrentUser(res.data);
+      const freshUserData = res.data;
+      setCurrentUser(freshUserData);
+      
+      // 🔄 UPDATE SESSION STORAGE with fresh data (includes responsibleDepartments)
+      sessionStorage.setItem('user', JSON.stringify(freshUserData));
       
       // Set default department filter for Directors
-      if (res.data.role === 'Operation Director') {
+      if (freshUserData.role === 'Operation Director') {
         setDeptFilter('PR'); // Default to first assigned department
-      } else if (res.data.role === 'Creative Director') {
+      } else if (freshUserData.role === 'Creative Director') {
         setDeptFilter('Marketing'); // Default to first assigned department
       }
     }).catch(console.error);
@@ -98,9 +104,13 @@ export default function UsersPage() {
          const isHRHead = (currentUser?.role === 'Head' || currentUser?.role === 'Vice Head') && currentUser?.department === 'HR';
          // Check HR Coordinator
          const isHRCoordinator = currentUser?.role === 'Member' && currentUser?.department === 'HR' && currentUser?.title?.startsWith('HR Coordinator');
+         const isTeamLeader = currentUser?.department === 'HR' && currentUser?.position === 'Team Leader';
          
          let defaultDept = 'IT';
          if (isHRHead) defaultDept = 'HR';
+         else if (isTeamLeader) {
+             defaultDept = currentUser?.responsibleDepartments?.[0] || 'IT';
+         }
          else if (isHRCoordinator) {
              // Parse department from title "HR Coordinator - [Dept]"
              const coordDept = currentUser?.title?.split(' - ')[1];
@@ -119,7 +129,8 @@ export default function UsersPage() {
              team: '',
              position: 'Member',
              hrResponsibility: '',
-             title: ''
+             title: '',
+             responsibleDepartments: []
          });
      }
   }, [isOpen, currentUser]);
@@ -173,10 +184,25 @@ export default function UsersPage() {
           // Store the responsibility in the 'title' so we know what they do.
           payload.title = `HR Coordinator - ${formData.hrResponsibility}`;
       }
+      
+      // LOGIC: Auto-assign Title based on Team (for IT, etc.)
+      if (formData.team === 'Frontend') payload.title = 'Frontend Developer';
+      if (formData.team === 'UI/UX') payload.title = 'UI/UX Designer';
+      if (formData.team === 'Graphics') payload.title = 'Graphic Designer';
+      if (formData.team === 'Photography') payload.title = 'Photographer';
+      if (formData.team === 'Script Writing') payload.title = 'Script Writer';
+      if (formData.team === 'Presentation' && formData.department === 'Presentation') payload.title = 'Presenter';
 
-      // HR Head or Vice Head must assign responsibility when creating HR Members
-      if ((currentUser?.role === 'Head' || currentUser?.role === 'Vice Head') && currentUser?.department === 'HR' && formData.department === 'HR' && !formData.hrResponsibility && formData.role !== 'Head') {
-         showAlert("YOU MUST ASSIGN A RESPONSIBILITY TO THIS NEW HR MEMBER.", 'warning');
+      // HR Head or Vice Head must assign responsibility when creating HR Coordinators (position: Member)
+      // Team Leaders use responsibleDepartments instead, so this validation doesn't apply to them
+      if ((currentUser?.role === 'Head' || currentUser?.role === 'Vice Head') && currentUser?.department === 'HR' && formData.department === 'HR' && formData.position === 'Member' && !formData.hrResponsibility && formData.role !== 'Head') {
+         showAlert("YOU MUST ASSIGN A RESPONSIBILITY TO THIS NEW HR COORDINATOR.", 'warning');
+         return;
+      }
+
+      // Validate Team Leaders have at least one responsible department
+      if (formData.department === 'HR' && formData.position === 'Team Leader' && (!formData.responsibleDepartments || formData.responsibleDepartments.length === 0)) {
+         showAlert("TEAM LEADERS MUST BE ASSIGNED AT LEAST ONE DEPARTMENT.", 'warning');
          return;
       }
 
@@ -220,7 +246,7 @@ export default function UsersPage() {
                       (currentUser?.role === 'Head' || 
                        currentUser?.role === 'Vice Head' || 
                        currentUser?.role === 'HR' ||
-                       (currentUser?.role === 'Member' && currentUser?.title?.startsWith('HR Coordinator')));
+                       (currentUser?.role === 'Member' && (currentUser?.title?.startsWith('HR Coordinator') || currentUser?.position === 'Team Leader')));
           
           if (!isHR) return null; // Directors and other roles cannot recruit
           
@@ -275,43 +301,128 @@ export default function UsersPage() {
           </div>
 
           <div className="space-y-2">
-            <Label className="pixel-font text-xs">GUILD (DEPT)</Label>
+            <Label className="pixel-font text-xs">DEPARTMENT</Label>
             <Select 
                 onValueChange={v => setFormData({...formData, department: v})} 
                 defaultValue={formData.department}
                 disabled={
                     ((currentUser?.role === 'Head' || currentUser?.role === 'Vice Head') && currentUser?.department === 'HR') ||
                     (currentUser?.role === 'Member' && currentUser?.department === 'HR' && currentUser?.title?.startsWith('HR Coordinator'))
+                    // Don't disable for Team Leader, let them select from responsible departments
                 }
             >
               <SelectTrigger className="pixel-corners border-primary bg-background/50 h-9"><SelectValue /></SelectTrigger>
               <SelectContent className="pixel-corners border-primary bg-card">
-                {['IT','HR','PM','PR','FR','Logistics','Organization','Marketing','Multi-Media','Presentation'].map(d => (
-                  <SelectItem key={d} value={d}>{d}</SelectItem>
-                ))}
+                {(() => {
+                   const isTeamLeader = currentUser?.department === 'HR' && currentUser?.position === 'Team Leader';
+                   let departments = ['IT','HR','PM','PR','FR','Logistics','Organization','Marketing','Multi-Media','Presentation'];
+                   
+                   if (isTeamLeader && currentUser?.responsibleDepartments) {
+                       departments = currentUser.responsibleDepartments;
+                   }
+                   
+                   return departments.map(d => (
+                     <SelectItem key={d} value={d}>{d}</SelectItem>
+                   ));
+                })()}
               </SelectContent>
             </Select>
           </div>
           
           {formData.department === 'HR' && (
             <div className="space-y-2 animate-in fade-in slide-in-from-top-1">
-              <Label className="pixel-font text-xs text-secondary">POSITION (WITHIN HR)</Label>
+              <Label className="pixel-font text-xs text-secondary">POSITION</Label>
               <Select 
-                  onValueChange={v => setFormData({...formData, position: v as 'Member' | 'Team Leader'})} 
+                  onValueChange={v => setFormData({...formData, position: v as 'Member' | 'Team Leader', responsibleDepartments: v === 'Member' ? [] : formData.responsibleDepartments})} 
                   defaultValue={formData.position}
               >
                 <SelectTrigger className="pixel-corners border-secondary bg-background/50 h-9"><SelectValue /></SelectTrigger>
                 <SelectContent className="pixel-corners border-secondary bg-card">
-                  <SelectItem value="Member">Member</SelectItem>
+                  <SelectItem value="Member">HR Coordinator</SelectItem>
                   <SelectItem value="Team Leader">Team Leader</SelectItem>
                 </SelectContent>
               </Select>
             </div>
           )}
 
+          {/* Multi-Department Selector for Team Leaders */}
+          {formData.department === 'HR' && formData.position === 'Team Leader' && (
+            <div className="space-y-2 md:col-span-2 animate-in fade-in slide-in-from-top-2">
+              <Label className="pixel-font text-xs text-yellow-400">RESPONSIBLE DEPARTMENTS</Label>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-2 p-3 bg-yellow-500/5 border border-yellow-500/20 pixel-corners rounded">
+                {['IT','PM','PR','FR','Logistics','Organization','Marketing','Multi-Media','Presentation'].map(dept => {
+                  const isSelected = formData.responsibleDepartments.includes(dept);
+                  
+                  // Define colors for each department
+                  let activeClass = 'bg-cyan-500 text-white border-cyan-400';
+                  let inactiveClass = 'bg-background/50 text-gray-400 border-cyan-500/30 hover:border-cyan-500/50 hover:text-cyan-300';
+
+                  switch(dept) {
+                      case 'PM': 
+                          activeClass = 'bg-red-600 text-white border-red-500'; 
+                          inactiveClass = 'bg-background/50 text-gray-400 border-red-500/30 hover:border-red-500/50 hover:text-red-400';
+                          break;
+                      case 'PR': 
+                          activeClass = 'bg-green-600 text-white border-green-500'; 
+                          inactiveClass = 'bg-background/50 text-gray-400 border-green-500/30 hover:border-green-500/50 hover:text-green-400';
+                          break;
+                      case 'FR': 
+                          activeClass = 'bg-yellow-600 text-white border-yellow-500'; 
+                          inactiveClass = 'bg-background/50 text-gray-400 border-yellow-500/30 hover:border-yellow-500/50 hover:text-yellow-400';
+                          break;
+                      case 'Logistics': 
+                          activeClass = 'bg-amber-600 text-white border-amber-500'; 
+                          inactiveClass = 'bg-background/50 text-gray-400 border-amber-500/30 hover:border-amber-500/50 hover:text-amber-400';
+                          break;
+                      case 'Organization': 
+                          activeClass = 'bg-blue-600 text-white border-blue-500'; 
+                          inactiveClass = 'bg-background/50 text-gray-400 border-blue-500/30 hover:border-blue-500/50 hover:text-blue-400';
+                          break;
+                      case 'Marketing': 
+                          activeClass = 'bg-pink-600 text-white border-pink-500'; 
+                          inactiveClass = 'bg-background/50 text-gray-400 border-pink-500/30 hover:border-pink-500/50 hover:text-pink-400';
+                          break;
+                      case 'Multi-Media': 
+                          activeClass = 'bg-purple-600 text-white border-purple-500'; 
+                          inactiveClass = 'bg-background/50 text-gray-400 border-purple-500/30 hover:border-purple-500/50 hover:text-purple-400';
+                          break;
+                      case 'Presentation': 
+                          activeClass = 'bg-orange-600 text-white border-orange-500'; 
+                          inactiveClass = 'bg-background/50 text-gray-400 border-orange-500/30 hover:border-orange-500/50 hover:text-orange-400';
+                          break;
+                  }
+
+                  return (
+                    <button
+                      key={dept}
+                      type="button"
+                      onClick={() => {
+                        const newDepts = isSelected
+                          ? formData.responsibleDepartments.filter(d => d !== dept)
+                          : [...formData.responsibleDepartments, dept];
+                        setFormData({...formData, responsibleDepartments: newDepts});
+                      }}
+                      className={`
+                        px-3 py-2 text-xs font-mono pixel-corners transition-all border
+                        ${isSelected ? activeClass + ' font-bold' : inactiveClass}
+                      `}
+                    >
+                      {dept}
+                    </button>
+                    );
+                })}
+              </div>
+              {formData.responsibleDepartments.length > 0 && (
+                <p className="text-xs text-cyan-400 font-mono">
+                  ✓ Selected: {formData.responsibleDepartments.join(', ')}
+                </p>
+              )}
+            </div>
+          )}
+
            {(formData.department === 'IT' || formData.department === 'Multi-Media' || formData.department === 'Presentation') && (
              <div className="space-y-2 animate-in fade-in slide-in-from-top-2">
-               <Label className="pixel-font text-xs text-purple-400">TEAM (OPTIONAL)</Label>
+               <Label className="pixel-font text-xs text-purple-400">TEAM </Label>
                <Select onValueChange={v => setFormData({...formData, team: v})} value={formData.team}>
                  <SelectTrigger className="pixel-corners border-purple-500 bg-background/50 h-9"><SelectValue placeholder="No Team" /></SelectTrigger>
                  <SelectContent className="pixel-corners border-purple-500 bg-card">
@@ -338,11 +449,11 @@ export default function UsersPage() {
              </div>
            )}
 
-           {formData.department === 'HR' && formData.role === 'Member' && 
+           {formData.department === 'HR' && formData.position === 'Member' && 
             currentUser && ['Head', 'Vice Head', 'General President', 'Vice President'].includes(currentUser.role) && 
             currentUser.department === 'HR' && (
               <div className="space-y-2 animate-in fade-in slide-in-from-top-2">
-                <Label className="pixel-font text-xs text-yellow-400">ASSIGN RESPONSIBILITY (HR COORD)</Label>
+                <Label className="pixel-font text-xs text-yellow-400">ASSIGN RESPONSIBILITY</Label>
                 <Select onValueChange={v => setFormData({...formData, hrResponsibility: v})}>
                   <SelectTrigger className="pixel-corners border-yellow-500 bg-background/50 h-9"><SelectValue placeholder="Select Dept to Manage" /></SelectTrigger>
                   <SelectContent className="pixel-corners border-yellow-500 bg-card">
@@ -353,7 +464,7 @@ export default function UsersPage() {
                 </Select>
               </div>
            )}
-          
+
           <div className="md:col-span-2 pt-2">
             <Button onClick={handleCreate} className="w-full pixel-corners pixel-font py-6">CONFIRM RECRUIT</Button>
           </div>
@@ -391,8 +502,9 @@ export default function UsersPage() {
               className="md:w-64 pixel-corners bg-background/50 border-primary/50"
           />
           {(() => {
+            const isTeamLeader = currentUser?.department === 'HR' && currentUser?.position === 'Team Leader';
             const isDirector = currentUser?.role === 'Operation Director' || currentUser?.role === 'Creative Director';
-            const canFilter = currentUser && (['HR', 'General President', 'Vice President'].includes(currentUser.role) || isDirector);
+            const canFilter = currentUser && (['HR', 'General President', 'Vice President'].includes(currentUser.role) || isDirector || isTeamLeader);
             
             if (!canFilter) return null;
             
@@ -403,6 +515,8 @@ export default function UsersPage() {
               departments = ['PR', 'FR', 'Logistics', 'PM'];
             } else if (currentUser?.role === 'Creative Director') {
               departments = ['Marketing', 'Multi-Media', 'Presentation', 'Organization'];
+            } else if (isTeamLeader && currentUser?.responsibleDepartments) {
+              departments = currentUser.responsibleDepartments;
             }
             
             return (
@@ -460,13 +574,42 @@ export default function UsersPage() {
                         </Badge>
                       )
                     ) : (
-                      <span className="text-gray-600 font-mono text-[10px]">-</span>
+                      u.title ? (
+                        <Badge variant="outline" className={`pixel-corners font-mono text-[10px] uppercase ${
+                          u.department === 'IT' ? 'border-cyan-500/50 text-cyan-400 bg-cyan-500/5' :
+                          u.department === 'Multi-Media' ? 'border-purple-500/50 text-purple-400 bg-purple-500/5' :
+                          u.department === 'Marketing' ? 'border-pink-500/50 text-pink-400 bg-pink-500/5' :
+                          u.department === 'Presentation' ? 'border-orange-500/50 text-orange-400 bg-orange-500/5' :
+                          u.department === 'PM' ? 'border-red-500/50 text-red-400 bg-red-500/5' :
+                          u.department === 'PR' ? 'border-green-500/50 text-green-400 bg-green-500/5' :
+                          u.department === 'Logistics' ? 'border-amber-500/50 text-amber-400 bg-amber-500/5' :
+                          u.department === 'FR' ? 'border-yellow-500/50 text-yellow-400 bg-yellow-500/5' :
+                          u.department === 'Organization' ? 'border-blue-500/50 text-blue-400 bg-blue-500/5' :
+                          'border-gray-500/50 text-gray-400 bg-gray-500/5'
+                        }`}>
+                          {u.title}
+                        </Badge>
+                      ) : (
+                        <span className="text-gray-500 font-mono text-[10px] uppercase">{u.role === 'Member' ? 'MEMBER' : u.role}</span>
+                      )
                     )}
                   </TableCell>
                   {/* Show responsible department for HR Coordinators (HR Head/Vice Head view only) */}
                   {((currentUser?.role === 'Head' || currentUser?.role === 'Vice Head') && currentUser?.department === 'HR') && (
                     <TableCell>
-                      {u.title?.startsWith('HR Coordinator') ? (
+                      {u.position === 'Team Leader' && u.responsibleDepartments && u.responsibleDepartments.length > 0 ? (
+                        <div className="flex flex-wrap gap-1">
+                          {u.responsibleDepartments.map((dept: string) => (
+                            <Badge 
+                              key={dept}
+                              variant="secondary" 
+                              className="pixel-corners border-cyan-500 text-cyan-400 bg-cyan-500/10 text-[9px]"
+                            >
+                              {dept}
+                            </Badge>
+                          ))}
+                        </div>
+                      ) : u.title?.startsWith('HR Coordinator') ? (
                         <Badge variant="secondary" className="pixel-corners border-yellow-500 text-yellow-400 bg-yellow-500/10">
                           {u.title.split(' - ')[1] || 'N/A'}
                         </Badge>
@@ -484,6 +627,7 @@ export default function UsersPage() {
                     {(() => {
                       const isHRHead = (currentUser?.role === 'Head' || currentUser?.role === 'Vice Head') && currentUser?.department === 'HR';
                       const isHRCoordinator = currentUser?.role === 'Member' && currentUser?.department === 'HR' && currentUser?.title?.startsWith('HR Coordinator');
+                      const isTeamLeader = currentUser?.role === 'Member' && currentUser?.department === 'HR' && currentUser?.position === 'Team Leader';
                       
                       // HR Head/Vice Head: Show button only for HR members
                       if (isHRHead) {
@@ -504,6 +648,21 @@ export default function UsersPage() {
                       if (isHRCoordinator) {
                         const coordDept = currentUser?.title?.split(' - ')[1];
                         return u.role === 'Member' && u.department === coordDept && (
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            onClick={() => setWarningTarget(u)}
+                            className="text-yellow-500 hover:text-yellow-400 hover:bg-yellow-500/10 pixel-corners"
+                            title="Issue Warning"
+                          >
+                            <AlertTriangle className="h-4 w-4" />
+                          </Button>
+                        );
+                      }
+
+                      // Team Leader: Show button for members in their responsible departments
+                      if (isTeamLeader && currentUser?.responsibleDepartments && currentUser.responsibleDepartments.length > 0) {
+                        return u.role === 'Member' && currentUser.responsibleDepartments.includes(u.department) && (
                           <Button 
                             variant="ghost" 
                             size="sm" 

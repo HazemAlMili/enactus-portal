@@ -36,10 +36,11 @@ export default function DepartmentsPage() {
         setUser(u);
         
         const isHRCoordinator = u.role === 'Member' && u.department === 'HR' && u.title?.startsWith('HR Coordinator');
+        const isTeamLeader = u.department === 'HR' && u.position === 'Team Leader';
         const isDirector = u.role === 'Operation Director' || u.role === 'Creative Director';
         const isGuest = u.role === 'guest';
         
-        if (!['Head', 'Vice Head', 'HR', 'General President', 'Vice President'].includes(u.role) && !isHRCoordinator && !isDirector && !isGuest) {
+        if (!['Head', 'Vice Head', 'HR', 'General President', 'Vice President'].includes(u.role) && !isHRCoordinator && !isTeamLeader && !isDirector && !isGuest) {
             router.push('/dashboard');
             return;
         }
@@ -110,6 +111,10 @@ export default function DepartmentsPage() {
     allDepartments = ['PR', 'FR', 'Logistics', 'PM'];
   } else if (user?.role === 'Creative Director') {
     allDepartments = ['Marketing', 'Multi-Media', 'Presentation', 'Organization'];
+  } 
+  // Filter for Team Leaders (only show responsible departments)
+  else if (user?.department === 'HR' && user?.position === 'Team Leader' && user?.responsibleDepartments) {
+    allDepartments = user.responsibleDepartments;
   }
 
   if (isLoading) {
@@ -133,7 +138,7 @@ export default function DepartmentsPage() {
                 </SelectTrigger>
                     <SelectContent className="pixel-corners bg-card border-secondary">
                     {/* Only show "ALL GUILDS" for users who can see all departments */}
-                    {(user?.role === 'HR' || user?.role === 'General President' || user?.role === 'Vice President') && (
+                    {(user?.role === 'HR' || user?.role === 'General President' || user?.role === 'Vice President' || (user?.department === 'HR' && user?.position === 'Team Leader')) && (
                       <SelectItem value="All">ALL GUILDS</SelectItem>
                     )}
                     {allDepartments.map(dept => {
