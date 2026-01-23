@@ -23,10 +23,11 @@ export const submitHours = async (req: Request, res: Response) => {
     };
 
     // Check if Leaders are assigning hours to others (Restricted to HR Only or Board)
-    // Check if Leaders are assigning hours to others (Restricted to HR Only or Board)
     // Also HR Coordinators (Members in HR dept with title 'HR Coordinator - DEPT')
+    // Also HR Team Leaders (Members in HR dept with position 'Team Leader' and responsibleDepartments)
     const isHRCoordinator = currentUser.role === 'Member' && currentUser.department === 'HR' && currentUser.title?.startsWith('HR Coordinator');
-    const canGiveHours = ['HR', 'General President', 'Vice President'].includes(currentUser.role) || currentUser.department === 'HR' || isHRCoordinator;
+    const isTeamLeader = currentUser.role === 'Member' &&  currentUser.department === 'HR' && currentUser.position === 'Team Leader' && currentUser.responsibleDepartments && currentUser.responsibleDepartments.length > 0;
+    const canGiveHours = ['HR', 'General President', 'Vice President'].includes(currentUser.role) || currentUser.department === 'HR' || isHRCoordinator || isTeamLeader;
 
      if (targetUserId && canGiveHours) {
        // Validate: If target user is in HR department, ONLY HR Head can add approved hours for them
@@ -58,6 +59,13 @@ export const submitHours = async (req: Request, res: Response) => {
            const coordDept = currentUser.title.split(' - ')[1];
            if (coordDept && targetUser && targetUser.department !== coordDept) {
                return res.status(403).json({ message: `You are authorized to add hours only for the ${coordDept} department.` });
+           }
+       }
+
+       // HR Team Leader Check: Can only add hours for members in their responsible departments
+       if (isTeamLeader) {
+           if (targetUser && !currentUser.responsibleDepartments.includes(targetUser.department)) {
+               return res.status(403).json({ message: `You are authorized to add hours only for members in: ${currentUser.responsibleDepartments.join(', ')}` });
            }
        }
 
@@ -115,9 +123,18 @@ export const getHours = async (req: Request, res: Response) => {
     // ISOLATION LOGIC
     const testFilter = currentUser?.isTest ? { isTest: true } : { isTest: { $ne: true } };
     
-    // 1. HR Member (Coordinator) Logic - CHECK FIRST! (before general Member check)
+    // 1. HR Team Leader Logic - CHECK FIRST! (before HR Coordinator check)
+    if (currentUser?.role === 'Member' && currentUser?.department === 'HR' && currentUser?.position === 'Team Leader' && currentUser?.responsibleDepartments && currentUser?.responsibleDepartments.length > 0) {
+        // Team Leader can see hours from ALL their responsible departments
+        console.log('🎯 TEAM LEADER HOURS:', currentUser.responsibleDepartments);
+        const userDept = await User.find({ department: { $in: currentUser.responsibleDepartments }, ...testFilter }).select('_id');
+        const highboardDept = await HighBoard.find({ department: { $in: currentUser.responsibleDepartments }, ...testFilter }).select('_id');
+        const allDeptUsers = [...userDept.map(u => u._id), ...highboardDept.map(u => u._id)];
+        query = { user: { $in: allDeptUsers } };
+    }
+    // 2. HR Member (Coordinator) Logic
     // HR Coordinators have role='Member' but special title
-    if (currentUser?.department === 'HR' && currentUser?.role === 'Member') {
+    else if (currentUser?.department === 'HR' && currentUser?.role === 'Member') {
          // Check title for responsibility
          if (currentUser.title?.startsWith('HR Coordinator')) {
              const coordDept = currentUser.title.split(' - ')[1];
@@ -135,7 +152,7 @@ export const getHours = async (req: Request, res: Response) => {
              query = { user: currentUser._id };
          }
     }
-    // 2. Regular Members: See ONLY their own hours
+    // 3. Regular Members: See ONLY their own hours
     else if (currentUser?.role === 'Member') {
       query = { user: currentUser._id };
     } 
@@ -227,7 +244,7 @@ export const updateHourStatus = async (req: Request, res: Response) => {
       return res.status(403).json({ message: 'Directors have read-only access and cannot approve hours.' });
     }
     
-    const { status } = req.body;
+    // Verify Log Existence
     const log = await HourLog.findById(req.params.id);
     if (!log) return res.status(404).json({ message: 'Log not found' });
 
@@ -236,7 +253,40 @@ export const updateHourStatus = async (req: Request, res: Response) => {
         return res.status(403).json({ message: 'Security Breach: Isolation mismatch.' });
     }
 
+    // 🔒 PERMISSION CHECK
+    const targetUserId = log.user;
+    const targetUser = await User.findById(targetUserId);
+    if (!targetUser) return res.status(404).json({ message: 'User for this log not found' });
+
+    const isGenPresOrVP = ['General President', 'Vice President'].includes(currentUser.role);
+    const isHRRole = currentUser.role === 'HR'; // Explicit HR Role
+    const isHRMember = currentUser.department === 'HR' && currentUser.role === 'Member';
+    const isHRHead = currentUser.department === 'HR' && (currentUser.role === 'Head' || currentUser.role === 'Vice Head'); // HR Head
+
+    // HR Coordinator
+    if (isHRMember && currentUser.title?.startsWith('HR Coordinator')) {
+        const coordDept = currentUser.title.split(' - ')[1];
+        if (targetUser.department !== coordDept && coordDept !== 'HR') { // Allow if coord for HR?
+             return res.status(403).json({ message: `You can only approve hours for ${coordDept} department.` });
+        }
+    }
+    // HR Team Leader
+    else if (isHRMember && currentUser.position === 'Team Leader' && currentUser.responsibleDepartments) {
+        if (!currentUser.responsibleDepartments.includes(targetUser.department)) {
+             return res.status(403).json({ message: `You can only approve hours for your responsible departments: ${currentUser.responsibleDepartments.join(', ')}` });
+        }
+    }
+    // Regular Member (Block unless they fell into above)
+    else if (currentUser.role === 'Member') {
+         return res.status(403).json({ message: 'Members are not authorized to approve hours.' });
+    }
+    // Heads (non-HR) shouldn't be approving hours? Or maybe they do? 
+    // Assuming Heads generally can approve for their dept? 
+    // Existing logic didn't restricts Heads. I'll leave them be or check department match?
+    // For now, focusing on Member (Team Leader) security.
+
     // Update status and set who approved it
+    const { status } = req.body;
     log.status = status;
     if (status === 'Approved') {
       log.approvedBy = currentUser?._id;

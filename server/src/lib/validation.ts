@@ -11,8 +11,8 @@ import { z } from 'zod';
 
 // ✅ URL Validation Schema
 // Accepts common URL formats: http, https, ftp, etc.
-export const urlSchema = z.string().url({
-  message: "Invalid URL format. Please provide a valid URL (e.g., https://example.com)"
+export const urlSchema = z.string().min(3, {
+  message: "Link must be at least 3 characters"
 });
 
 // ✅ Array of URLs Validation
@@ -72,6 +72,7 @@ export const createUserSchema = credentialsSchema.extend({
   department: z.enum(['General', 'IT', 'HR', 'PM', 'PR', 'FR', 'Logistics', 'Organization', 'Marketing', 'Multi-Media', 'Presentation']).optional(),
   team: z.string().max(50).optional(),
   position: z.enum(['Member', 'Team Leader']).optional().default('Member'),
+  responsibleDepartments: z.array(z.enum(['IT', 'HR', 'PM', 'PR', 'FR', 'Logistics', 'Organization', 'Marketing', 'Multi-Media', 'Presentation'])).optional(), // For Team Leaders managing multiple departments
   title: z.string().max(100).optional(),
 });
 

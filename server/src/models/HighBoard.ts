@@ -14,6 +14,7 @@ export interface IUser extends Document {
   tasksCompleted: number; // Tracking number of tasks completed
   points: number; // Gamification points
   position?: 'Member' | 'Team Leader'; // Local position within department
+  responsibleDepartments?: string[]; // For Team Leaders: Array of departments they manage
   avatar?: string; // URL or Base64 string of user avatar
   warnings?: { reason: string; date: Date; issuer: string }[];
   isTest?: boolean;
@@ -42,6 +43,10 @@ const UserSchema: Schema = new Schema({
     enum: ['Member', 'Team Leader'], 
     default: 'Member' 
   },
+  responsibleDepartments: [{ 
+    type: String, 
+    enum: ['IT', 'HR', 'PM', 'PR', 'FR', 'Logistics', 'Organization', 'Marketing', 'Multi-Media', 'Presentation']
+  }], // Team Leaders can manage multiple departments
   avatar: { type: String }, // Profile picture (Base64 or URL)
   warnings: [{
     reason: { type: String },

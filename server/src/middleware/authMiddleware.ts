@@ -112,8 +112,11 @@ export const authorizeHROnly = (req: Request, res: Response, next: NextFunction)
   // Check if user is HR Head or Vice Head
   const isHRHead = (user.role === 'Head' || user.role === 'Vice Head') && user.department === 'HR';
   
-  // Allow if any HR department member (Head, Vice Head, or Coordinator)
-  if (isHRDepartment && (isHRHead || isHRCoordinator || user.role === 'HR')) {
+  // Check if user is HR Team Leader
+  const isTeamLeader = user.department === 'HR' && user.position === 'Team Leader';
+
+  // Allow if any HR department member (Head, Vice Head, Coordinator, or Team Leader)
+  if (isHRDepartment && (isHRHead || isHRCoordinator || isTeamLeader || user.role === 'HR')) {
     return next();
   }
   

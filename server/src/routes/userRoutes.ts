@@ -21,7 +21,7 @@ router.get('/leaderboard', protect, getLeaderboard); // Fetch Top Users
 
 // Route: /api/users (User Management)
 router.route('/')
-  .get(protect, authorize('HR', 'General President', 'Vice President', 'Operation Director', 'Creative Director', 'Head', 'Vice Head'), getUsers)
+  .get(protect, authorize('HR', 'General President', 'Vice President', 'Operation Director', 'Creative Director', 'Head', 'Vice Head', 'Member'), getUsers)
   .post(protect, authorizeHROnly, validationMiddleware(createUserSchema), createUser); // ONLY HR DEPARTMENT can recruit
 
 // Route: /api/users/:id/warning - ONLY HR DEPARTMENT

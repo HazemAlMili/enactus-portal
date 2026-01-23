@@ -95,6 +95,16 @@ export const getUsers = async (req: Request, res: Response) => {
       query.isTest = { $ne: true };
     }
 
+    // 🔍 DEBUG: Log current user info
+    console.log('🔍 CURRENT USER IN getUsers:', {
+      name: currentUser?.name,
+      role: currentUser?.role,
+      department: currentUser?.department,
+      position: currentUser?.position,
+      responsibleDepartments: currentUser?.responsibleDepartments,
+      title: currentUser?.title
+    });
+
     // 1. Head / Vice Head: See only their Department members
     if (currentUser?.role === 'Head' || currentUser?.role === 'Vice Head') {
       query.department = currentUser.department;
@@ -125,8 +135,20 @@ export const getUsers = async (req: Request, res: Response) => {
       }
       // General HR sees all (query remains {})
     }
-    // 2a. HR Coordinator Logic
-    else if (currentUser?.department === 'HR' && currentUser?.role === 'Member' && currentUser?.title?.startsWith('HR Coordinator')) {
+    // 2a. HR Team Leader Logic (Multi-Department) - CHECK BEFORE HR Coordinator!
+    else if (currentUser?.role === 'Member' && currentUser?.department === 'HR' && currentUser?.position === 'Team Leader' && currentUser?.responsibleDepartments && currentUser?.responsibleDepartments.length > 0) {
+        console.log('🎯 TEAM LEADER DETECTED:', {
+          name: currentUser.name,
+          position: currentUser.position,
+          responsibleDepartments: currentUser.responsibleDepartments
+        });
+        // Team Leader can see members from ALL their responsible departments
+        query.department = { $in: currentUser.responsibleDepartments };
+        console.log('📋 Team Leader Query:', query);
+        // Keep role and isTest filters intact
+    }
+    // 2b. HR Coordinator Logic (Single Department)
+    else if (currentUser?.role === 'Member' && currentUser?.department === 'HR' && currentUser?.title?.startsWith('HR Coordinator')) {
         // "HR Coordinator - IT" -> See IT members
         const coordDept = currentUser.title.split(' - ')[1];
         if (coordDept) {
@@ -138,6 +160,12 @@ export const getUsers = async (req: Request, res: Response) => {
              query.department = 'HR';
              // Keep role and isTest filters intact
         }
+    }
+    // 3. Regular Member Logic (Block access to others)
+    else if (currentUser?.role === 'Member') {
+        // If not caught by Team Leader or Coordinator logic above, they shouldn't see anyone
+        // Return only themselves for safety
+        query._id = currentUser._id;
     }
     // General President sees all
 
@@ -181,7 +209,7 @@ export const getUsers = async (req: Request, res: Response) => {
 export const createUser = async (req: Request, res: Response) => {
   await dbConnect();
   try {
-    const { name, email, password, role, department, team, position, title } = (req as any).validatedBody;
+    const { name, email, password, role, department, team, position, title, responsibleDepartments } = (req as any).validatedBody;
     const currentUser = (req as any).user;
     // 1. HR Recruitment Rules
     // HR Head can recruit anyone.
@@ -207,30 +235,38 @@ export const createUser = async (req: Request, res: Response) => {
     } else {
         // Recruiting for other departments (IT, PM, etc.)
         
-        // If current user is HR Member (Coordinator), they can only recruit for THEIR target department.
-        // But how do we know their target department? 
-        // Previously we used regex on email (hr-it@...).
-        if (currentUser.role === 'HR' && currentUser.department === 'HR') {
-             const email = currentUser.email || '';
-             const hrMatch = email.match(/^hr-(.+)@/);
-             
-             if (hrMatch) {
-                 const allowedDeptToken = hrMatch[1].toUpperCase().replace('MULTIMEDIA', 'Multi-Media');
-                 // Check if `department` matches `allowedDeptToken` (fuzzy match)
-                 // Just simple check
-                 const normalize = (s: string) => s.replace(/[^a-zA-Z]/g, '').toLowerCase();
-                 
-                 if (normalize(department) !== normalize(allowedDeptToken)) {
-                     return res.status(403).json({ message: `You are only authorized to recruit for the ${allowedDeptToken} department.` });
+        // Check permissions for HR department members
+        if (currentUser.department === 'HR') {
+             // 1. Team Leader Check
+             if (currentUser.position === 'Team Leader' && currentUser.responsibleDepartments && currentUser.responsibleDepartments.length > 0) {
+                 if (!currentUser.responsibleDepartments.includes(department)) {
+                     return res.status(403).json({ message: `You can only recruit for your responsible departments: ${currentUser.responsibleDepartments.join(', ')}` });
                  }
-             } else {
-                 // General HR User without specific email tag? 
-                 // Maybe fallback or deny? 
-                 // "Each HR coordinator (we will specify them later) can only add members of the departments them responsibales for"
-                 // If we can't determine responsibility, maybe default to allow or deny. 
-                 // Let's allow for now if they are "General HR", or strict if required. 
-                 // STRICT: If you are HR Member but not Head, and we can't find your tag, you can't recruit.
-                 // return res.status(403).json({ message: 'Unable to verify your department responsibility.' });
+             }
+             // 2. HR Coordinator Check
+             else if (currentUser.title && currentUser.title.startsWith('HR Coordinator')) {
+                  const coordDept = currentUser.title.split(' - ')[1];
+                  if (coordDept && coordDept !== department) {
+                      return res.status(403).json({ message: `You can only recruit for the ${coordDept} department.` });
+                  }
+             }
+             // 3. Fallback (Old Email Logic)
+             else {
+                  const email = currentUser.email || '';
+                  const hrMatch = email.match(/^hr-(.+)@/);
+                  if (hrMatch) {
+                      const allowedDeptToken = hrMatch[1].toUpperCase().replace('MULTIMEDIA', 'Multi-Media');
+                      const normalize = (s: string) => s.replace(/[^a-zA-Z]/g, '').toLowerCase();
+                      if (normalize(department) !== normalize(allowedDeptToken)) {
+                          return res.status(403).json({ message: `You are only authorized to recruit for the ${allowedDeptToken} department.` });
+                      }
+                  } else {
+                       // If explicit HR role but no specific responsibility found, maybe allow? 
+                       // But for 'Member' role, we should block if not TL/Coord.
+                       if (currentUser.role === 'Member') {
+                           return res.status(403).json({ message: 'You are not authorized to recruit for this department.' });
+                       }
+                  }
              }
         }
     }
@@ -254,6 +290,7 @@ export const createUser = async (req: Request, res: Response) => {
       department,
       team: team || undefined, // Add team field
       position: position || 'Member',
+      responsibleDepartments: position === 'Team Leader' && responsibleDepartments ? responsibleDepartments : undefined, // Store multiple departments for Team Leaders
       title,
       isTest: currentUser?.isTest || false // Mark as test user if created by test account
     });
@@ -262,12 +299,17 @@ export const createUser = async (req: Request, res: Response) => {
     if (department && (role === 'Member' || role === 'HR')) {
        // Find all tasks in this department (exclude rejected/archived if you want, but likely better to include active 'Pending' or 'Submitted' templates)
        // We only want the *Templates* essentially. Any task assigned to someone else in this dept represents a mission.
-       const deptTasks = await Task.find({ department });
+       // Find all tasks in this department (exclude test tasks to preventing looking at demo data)
+       // We only want to copy "Real" tasks as templates for the new user
+       const deptTasks = await Task.find({ department, isTest: { $ne: true } });
 
        // Deduplicate by Title + Description to identify unique "Missions"
        const uniqueMissions = new Map();
        deptTasks.forEach(t => {
-          const key = `${t.title}-${t.description}`;
+          // Filter by Team: If task is specific to a team (e.g. Frontend) and user is different (e.g. Backend), skip
+          if (t.team && team && t.team !== team) return;
+
+          const key = `${t.title?.trim()}-${t.description?.trim()}`;
           if (!uniqueMissions.has(key)) {
              uniqueMissions.set(key, t);
           }
@@ -280,9 +322,11 @@ export const createUser = async (req: Request, res: Response) => {
              description: template.description,
              assignedTo: user._id, // Assign to NEW user
              assignedBy: template.assignedBy,
+             assignedByModel: template.assignedByModel, // Maintain assigner role
              department: template.department,
+             team: template.team, // Maintain specific team scope
              scoreValue: template.scoreValue,
-             resourcesLink: template.resourcesLink,
+             resourcesLink: [...(template.resourcesLink || [])], // Clone array to avoid reference issues
              status: 'Pending', // Start as Pending
              isTest: user.isTest // Mark as test data if the user is a test user
           }));

@@ -18,7 +18,8 @@ const fixRealMemberIsolation = async () => {
     const testEmails = [
       'visitor@enactus.com',
       'demo1@enactus.com',
-      'demo2@enactus.com'
+      'demo2@enactus.com',
+      'demo-tl@enactus.com'
     ];
 
     // 1. Set isTest: false for ALL real members in User collection
@@ -37,7 +38,12 @@ const fixRealMemberIsolation = async () => {
 
     // 3. Set isTest: true for demo members
     const demoUserUpdate = await User.updateMany(
-      { email: { $in: testEmails } },  // IN test emails list
+      { 
+        $or: [
+          { email: { $in: testEmails } },
+          { name: { $regex: 'Demo', $options: 'i' } }
+        ]
+      },
       { $set: { isTest: true } }
     );
     console.log(`✅ Updated ${demoUserUpdate.modifiedCount} demo users in User collection`);
@@ -81,6 +87,18 @@ const fixRealMemberIsolation = async () => {
       { $set: { isTest: true } }
     );
     console.log(`✅ Updated ${testTaskUpdate.modifiedCount} test tasks`);
+    
+    // 7b. SPECIFIC FIX for "Portfolio Mission" leaks
+    const portfolioFix = await Task.updateMany(
+      { 
+        $or: [
+          { title: { $regex: 'Portfolio', $options: 'i' } },
+          { title: { $regex: 'Test', $options: 'i' } }
+        ]
+      },
+      { $set: { isTest: true } }
+    );
+     console.log(`✅ Hidden ${portfolioFix.modifiedCount} 'Portfolio/Test' tasks leaks`);
 
     // 8. Set isTest: false for hour logs belonging to real users
     const hourUpdate = await HourLog.updateMany(

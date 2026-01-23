@@ -109,9 +109,36 @@ export const getTasks = async (req: Request, res: Response) => {
     const userDept = (req as any).user?.department;
 
     // Logic to determine which tasks to return based on role
-    if (userRole === 'Member') {
-      // Members only see tasks assigned to them
-      query = { assignedTo: userId };
+    const loggedInUser = (req as any).user;
+    
+    // Check if this is an HR Team Leader (regardless of role 'Member' or 'HR')
+    if (loggedInUser?.department === 'HR' && loggedInUser?.position === 'Team Leader' && loggedInUser?.responsibleDepartments && loggedInUser?.responsibleDepartments.length > 0) {
+        // HR Team Leader: See tasks from all their responsible departments AND their own department
+        const visibleDepartments = [...loggedInUser.responsibleDepartments, loggedInUser.department];
+        query = { department: { $in: visibleDepartments } };
+        console.log('🎯 TEAM LEADER TASKS:', visibleDepartments);
+    }
+    // Check if this is an HR Coordinator (title starts with "HR Coordinator")
+    else if (loggedInUser?.department === 'HR' && loggedInUser?.title?.startsWith('HR Coordinator')) {
+        // HR Coordinator: See all tasks from their assigned department
+        const coordDept = loggedInUser.title.split(' - ')[1];
+        if (coordDept) {
+          // Coordinator: Monitor target department AND receive own tasks (from HR Head)
+          query = { 
+              $or: [
+                  { department: coordDept },
+                  { assignedTo: userId }
+              ] 
+          };
+          console.log('🎯 HR COORDINATOR TASKS for:', coordDept, '+ Self Tasks');
+        } else {
+          // Fallback: see tasks assigned to them
+          query = { assignedTo: userId };
+        }
+    }
+    else if (userRole === 'Member') {
+        // Regular members only see tasks assigned to them
+        query = { assignedTo: userId };
     } 
     else if (userRole === 'Head' || userRole === 'Vice Head') {
        // Heads/VPs see tasks they assigned OR tasks assigned to them (if any)
@@ -140,20 +167,68 @@ export const getTasks = async (req: Request, res: Response) => {
     }
 
     // ISOLATION LOGIC: Test users only see test tasks
-    const currentUser = (req as any).user;
-    if (currentUser?.isTest) {
+    if (loggedInUser?.isTest) {
       (query as any).isTest = true;
     } else {
       (query as any).isTest = { $ne: true };
     }
 
     // Retrieve tasks, populating assignee and assigner details
-    const tasks = await Task.find(query)
+    let tasks = await Task.find(query)
       .select('title description status assignedTo assignedBy department deadline scoreValue resourcesLink submissionLink createdAt taskGroupId')
       .populate('assignedTo', 'name email')
       .populate('assignedBy', 'name')
       .sort({ createdAt: -1 })
       .lean(); // ⚡ Returns plain objects - faster than Mongoose docs
+
+    // Smart Deduplication: Filter out redundant tasks for the same Assignee + Mission
+    // (e.g. If User has both Pending and Completed versions of the same task, show only Completed)
+    const uniqueMap = new Map();
+    const statusPriority: Record<string, number> = { 'Completed': 4, 'Rejected': 3, 'Submitted': 2, 'Pending': 1 };
+
+    tasks.forEach((t: any) => {
+        const assigneeId = t.assignedTo?._id?.toString() || t.assignedTo?.toString() || 'unassigned';
+        const title = t.title?.trim() || '';
+        const desc = t.description?.trim() || '';
+        
+        // Key: Unique per User per Mission
+        const key = `${assigneeId}|${title}|${desc}`; 
+
+        if (!uniqueMap.has(key)) {
+            uniqueMap.set(key, t);
+        } else {
+            const existing = uniqueMap.get(key);
+            const existingP = statusPriority[existing.status] || 0;
+            const currentP = statusPriority[t.status] || 0;
+            
+            // If new duplicate has higher status (e.g. Completed vs Pending), replace the existing one
+            // If equal status (e.g. duplicate Pendings), keep the one with recent creation (already sorted by createdAt -1) ? 
+            // Actually, keep the one we have or overwrite?
+            // Since we sorted by createdAt: -1 (newest first), the first one we see is the newest.
+            // If both are Pending, we keep the newest (first one).
+            // If we have Pending (Newest) and Completed (Oldest)... uniqueMap has Pending.
+            // Wait. If I finished a task yesterday (Completed), and duplicated it today (Pending).
+            // Logic: Pending (New) vs Completed (Old).
+            // Pending Priority = 1. Completed Priority = 4.
+            // We want to KEEP Completed.
+            // So if currentP (Completed) > existingP (Pending), replace.
+            
+            // Case 1: Loop sees Pending (New) first. Map has Pending.
+            // Next it sees Completed (Old). currentP (4) > existingP (1). REPLACE. Result: Completed. Correct.
+            
+            // Case 2: Loop sees Completed (New - e.g. redo) first. Map has Completed.
+            // Next it sees Pending (Old). currentP (1) < existingP (4). KEEP Exisiting. Result: Completed. Correct.
+            
+            // Case 3: Two Pendings. New first. Map has New Pending.
+            // Next sees Old Pending. currentP (1) == existingP (1). KEEP Existing (New). Result: Newest Pending. Correct.
+            
+            if (currentP > existingP) {
+                uniqueMap.set(key, t);
+            }
+        }
+    });
+
+    tasks = Array.from(uniqueMap.values());
       
     res.json(tasks);
   } catch (error) {
