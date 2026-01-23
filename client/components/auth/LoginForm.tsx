@@ -166,7 +166,7 @@ export default function LoginForm() {
                 }`}
               />
               {emailError && (
-                <p className="text-red-500 text-xs pixel-font">{emailError}</p>
+                <p className="text-red-500 text-xxs pixel-font">{emailError}</p>
               )}
             </div>
             {/* Password Input */}
@@ -202,13 +202,13 @@ export default function LoginForm() {
                 </button>
               </div>
               {passwordError && (
-                <p className="text-red-500 text-xs pixel-font">{passwordError}</p>
-              )}
+                <p className="text-red-500 text-xxs pixel-font">{passwordError}</p>
+              )}  
             </div>
             
             {/* Error Message Display */}
             {error && (
-              <div className="text-red-500 text-xs pixel-font text-center bg-red-900/20 p-2 border border-red-500/50">
+              <div className="text-red-500 text-xxs pixel-font text-center bg-red-900/20 p-2 border border-red-500/50">
                 {error}
               </div>
             )}
