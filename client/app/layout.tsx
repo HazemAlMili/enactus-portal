@@ -25,9 +25,6 @@ const pressStart2P = Press_Start_2P({
 export const metadata: Metadata = {
   title: "Enactus Portal",
   description: "Enactus Chapter Management System",
-  icons: {
-    icon: '/favicon.ico',
-  },
 };
 
 export default function RootLayout({
