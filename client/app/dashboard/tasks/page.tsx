@@ -279,7 +279,7 @@ export default function TasksPage() {
         tasks.forEach(task => {
           // Create unique key combining groupId and status
           // This creates separate cards for different statuses
-          const groupId = task.taskGroupId || task._id;
+          const groupId = task.taskGroupId || task.id;
           const groupKey = `${groupId}-${task.status}`; // KEY CHANGE: Group by status too!
           
           if (!grouped.has(groupKey)) {
@@ -315,8 +315,8 @@ export default function TasksPage() {
       }
 
       // For Members: Show individual tasks
-      const myWork = tasks.filter(t => t.assignedTo?._id === user._id);
-      const othersWork = tasks.filter(t => t.assignedTo?._id !== user._id);
+      const myWork = tasks.filter(t => t.assignedTo?.id === user.id || t.assignedTo === user.id);
+      const othersWork = tasks.filter(t => t.assignedTo?.id !== user.id && t.assignedTo !== user.id);
 
       // NO GROUPING for members - Show each task individually
       // Sort: My Work first, then others by status priority
@@ -561,7 +561,7 @@ export default function TasksPage() {
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {incomingSubmissions.map((task) => (
-                  <TaskItem key={task._id} task={task} canCreate={canCreate} isHeadView={isHeadView} isStrictMember={isStrictMember} getStatusColor={getStatusColor} user={user} updateStatus={updateStatus} selectedTask={selectedTask} setSelectedTask={setSelectedTask} submissionLinks={submissionLinks} setSubmissionLinks={setSubmissionLinks} updateSubmissionLink={updateSubmissionLink} removeSubmissionLink={removeSubmissionLink} handleSubmissionLinkBlur={handleSubmissionLinkBlur} handleEditTask={handleEditTask} handleDeleteTask={handleDeleteTask} />
+                  <TaskItem key={task.id} task={task} canCreate={canCreate} isHeadView={isHeadView} isStrictMember={isStrictMember} getStatusColor={getStatusColor} user={user} updateStatus={updateStatus} selectedTask={selectedTask} setSelectedTask={setSelectedTask} submissionLinks={submissionLinks} setSubmissionLinks={setSubmissionLinks} updateSubmissionLink={updateSubmissionLink} removeSubmissionLink={removeSubmissionLink} handleSubmissionLinkBlur={handleSubmissionLinkBlur} handleEditTask={handleEditTask} handleDeleteTask={handleDeleteTask} />
                 ))}
               </div>
           </div>
@@ -572,7 +572,7 @@ export default function TasksPage() {
           <h2 className="text-xl pixel-font text-blue-400 border-b border-blue-400/20 pb-2">ACTIVE DEPLOYMENTS</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {activeDeployments.map((task) => (
-               <TaskItem key={task._id} task={task} canCreate={canCreate} isHeadView={isHeadView} isStrictMember={isStrictMember} getStatusColor={getStatusColor} user={user} updateStatus={updateStatus} selectedTask={selectedTask} setSelectedTask={setSelectedTask} submissionLinks={submissionLinks} setSubmissionLinks={setSubmissionLinks} updateSubmissionLink={updateSubmissionLink} removeSubmissionLink={removeSubmissionLink} handleSubmissionLinkBlur={handleSubmissionLinkBlur} handleEditTask={handleEditTask} handleDeleteTask={handleDeleteTask} />
+               <TaskItem key={task.id} task={task} canCreate={canCreate} isHeadView={isHeadView} isStrictMember={isStrictMember} getStatusColor={getStatusColor} user={user} updateStatus={updateStatus} selectedTask={selectedTask} setSelectedTask={setSelectedTask} submissionLinks={submissionLinks} setSubmissionLinks={setSubmissionLinks} updateSubmissionLink={updateSubmissionLink} removeSubmissionLink={removeSubmissionLink} handleSubmissionLinkBlur={handleSubmissionLinkBlur} handleEditTask={handleEditTask} handleDeleteTask={handleDeleteTask} />
             ))}
             {activeDeployments.length === 0 && (
                 <div className="col-span-full text-center py-10 opacity-30 font-mono text-sm">
@@ -591,7 +591,7 @@ export default function TasksPage() {
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 opacity-90">
                 {expiredMissions.map((task) => (
-                  <TaskItem key={task._id} task={task} canCreate={canCreate} isHeadView={isHeadView} isStrictMember={isStrictMember} getStatusColor={getStatusColor} user={user} updateStatus={updateStatus} selectedTask={selectedTask} setSelectedTask={setSelectedTask} submissionLinks={submissionLinks} setSubmissionLinks={setSubmissionLinks} updateSubmissionLink={updateSubmissionLink} removeSubmissionLink={removeSubmissionLink} handleSubmissionLinkBlur={handleSubmissionLinkBlur} handleEditTask={handleEditTask} handleDeleteTask={handleDeleteTask} />
+                  <TaskItem key={task.id} task={task} canCreate={canCreate} isHeadView={isHeadView} isStrictMember={isStrictMember} getStatusColor={getStatusColor} user={user} updateStatus={updateStatus} selectedTask={selectedTask} setSelectedTask={setSelectedTask} submissionLinks={submissionLinks} setSubmissionLinks={setSubmissionLinks} updateSubmissionLink={updateSubmissionLink} removeSubmissionLink={removeSubmissionLink} handleSubmissionLinkBlur={handleSubmissionLinkBlur} handleEditTask={handleEditTask} handleDeleteTask={handleDeleteTask} />
                 ))}
               </div>
           </div>
@@ -603,7 +603,7 @@ export default function TasksPage() {
               <h2 className="text-xl pixel-font text-white/50 border-b border-white/10 pb-2">MISSION LOGS & HISTORY</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 opacity-80 hover:opacity-100 transition-opacity">
                 {missionHistory.map((task) => (
-                  <TaskItem key={task._id} task={task} canCreate={canCreate} isHeadView={isHeadView} isStrictMember={isStrictMember} getStatusColor={getStatusColor} user={user} updateStatus={updateStatus} selectedTask={selectedTask} setSelectedTask={setSelectedTask} submissionLinks={submissionLinks} setSubmissionLinks={setSubmissionLinks} updateSubmissionLink={updateSubmissionLink} removeSubmissionLink={removeSubmissionLink} handleSubmissionLinkBlur={handleSubmissionLinkBlur} handleEditTask={handleEditTask} handleDeleteTask={handleDeleteTask} />
+                  <TaskItem key={task.id} task={task} canCreate={canCreate} isHeadView={isHeadView} isStrictMember={isStrictMember} getStatusColor={getStatusColor} user={user} updateStatus={updateStatus} selectedTask={selectedTask} setSelectedTask={setSelectedTask} submissionLinks={submissionLinks} setSubmissionLinks={setSubmissionLinks} updateSubmissionLink={updateSubmissionLink} removeSubmissionLink={removeSubmissionLink} handleSubmissionLinkBlur={handleSubmissionLinkBlur} handleEditTask={handleEditTask} handleDeleteTask={handleDeleteTask} />
                 ))}
               </div>
           </div>
@@ -633,7 +633,7 @@ const TaskItem = memo(({ task, canCreate, isHeadView, isStrictMember, getStatusC
     const isOverdue = task.deadline && new Date() > new Date(task.deadline) && task.status === 'Pending';
     
     return (
-        <Dialog open={selectedTask?._id === task._id && open} onOpenChange={(val) => { setOpen(val); if(val) setSelectedTask(task); else setSelectedTask(null); }}>
+        <Dialog open={selectedTask?.id === task.id && open} onOpenChange={(val) => { setOpen(val); if(val) setSelectedTask(task); else setSelectedTask(null); }}>
             <DialogTrigger asChild>
             <Card 
                 className={`cursor-pointer group hover:border-accent transition-all duration-300 bg-card pixel-corners overflow-hidden relative
@@ -780,14 +780,19 @@ const TaskItem = memo(({ task, canCreate, isHeadView, isStrictMember, getStatusC
                             {task.status.toUpperCase()}
                         </Badge>
                     )}
-                    <span className="text-secondary pixel-font">{task.scoreValue} XP REWARD</span>
+                    <div className="flex flex-col items-end">
+                        <span className="text-secondary pixel-font">{task.scoreValue} XP REWARD</span>
+                        {task.taskHours && task.taskHours > 0 && (
+                            <span className="text-yellow-400 pixel-font text-xs mt-1">💎 {task.taskHours} HOURS</span>
+                        )}
+                    </div>
                 </div>
                 <DialogTitle className="text-2xl pixel-font text-accent mb-2">
                     {task.title || 'Mission Details'}
                 </DialogTitle>
 
                 {/* ADMIN CONTROLS: Edit & Delete (Creator Only) */}
-                {canCreate && String(task.assignedBy?._id || task.assignedBy) === String(user?._id) && task.status === 'Pending' && !isEditMode && (
+                {canCreate && String(task.assignedBy?.id || task.assignedBy) === String(user?.id) && task.status === 'Pending' && !isEditMode && (
                     <div className="flex gap-2 mb-4">
                         <Button
                             onClick={() => {
@@ -896,7 +901,7 @@ const TaskItem = memo(({ task, canCreate, isHeadView, isStrictMember, getStatusC
                                         if (editDeadline) updates.deadline = editDeadline;
                                         if (editHours) updates.taskHours = parseFloat(editHours);
                                         
-                                        handleEditTask(task._id, updates);
+                                        handleEditTask(task.id, updates);
                                         setIsEditMode(false);
                                         setOpen(false);
                                     }
@@ -942,7 +947,7 @@ const TaskItem = memo(({ task, canCreate, isHeadView, isStrictMember, getStatusC
                             <div className="flex gap-3">
                                 <Button
                                     onClick={() => {
-                                        handleDeleteTask(task._id);
+                                        handleDeleteTask(task.id);
                                         setShowDeleteConfirm(false);
                                         setOpen(false);
                                     }}
@@ -1008,7 +1013,7 @@ const TaskItem = memo(({ task, canCreate, isHeadView, isStrictMember, getStatusC
                 )}
 
                 {/* Submission Form */}
-                {['Pending', 'Rejected'].includes(task.status) && task.assignedTo?._id === user._id && (
+                {['Pending', 'Rejected'].includes(task.status) && (task.assignedTo?.id === user.id || task.assignedTo === user.id) && (
                     <>
                         {!isOverdue ? (
                             <div className="space-y-3 pt-4 border-t border-white/10">
@@ -1048,7 +1053,7 @@ const TaskItem = memo(({ task, canCreate, isHeadView, isStrictMember, getStatusC
 
                                 <Button
                                     onClick={async () => {
-                                      await updateStatus(task._id, 'Submitted', submissionLinks);
+                                      await updateStatus(task.id, 'Submitted', submissionLinks);
                                       setOpen(false);
                                     }}
                                     className="bg-accent hover:bg-accent/80 text-white pixel-corners pixel-font w-full"
@@ -1081,7 +1086,7 @@ const TaskItem = memo(({ task, canCreate, isHeadView, isStrictMember, getStatusC
                           {task.individualTasks
                             .filter((t: any) => t.status === 'Submitted')
                             .map((individualTask: any) => (
-                              <div key={individualTask._id} className="p-3 bg-yellow-500/5 border border-yellow-500/20 pixel-corners">
+                              <div key={individualTask.id} className="p-3 bg-yellow-500/5 border border-yellow-500/20 pixel-corners">
                                 <div className="flex justify-between items-center mb-2">
                                   <span className="text-yellow-400 pixel-font text-xs">{individualTask.assignedTo?.name}</span>
                                 </div>
@@ -1101,7 +1106,7 @@ const TaskItem = memo(({ task, canCreate, isHeadView, isStrictMember, getStatusC
                                 </div>
                                 <div className="space-y-2">
                                   <Button 
-                                    onClick={() => updateStatus(individualTask._id, 'Completed')}
+                                    onClick={() => updateStatus(individualTask.id, 'Completed')}
                                     size="sm"
                                     className="w-full bg-green-600 hover:bg-green-500 pixel-corners pixel-font text-xs"
                                   >
@@ -1109,7 +1114,7 @@ const TaskItem = memo(({ task, canCreate, isHeadView, isStrictMember, getStatusC
                                     APPROVE
                                   </Button>
                                   <Button 
-                                    onClick={() => updateStatus(individualTask._id, 'Rejected')}
+                                    onClick={() => updateStatus(individualTask.id, 'Rejected')}
                                     variant="destructive"
                                     size="sm"
                                     className="w-full pixel-corners pixel-font text-xs"
@@ -1142,7 +1147,7 @@ const TaskItem = memo(({ task, canCreate, isHeadView, isStrictMember, getStatusC
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                               <Button 
-                                onClick={() => updateStatus(task._id, 'Rejected')}
+                                onClick={() => updateStatus(task.id, 'Rejected')}
                                 variant="destructive"
                                 className="pixel-corners pixel-font"
                               >
@@ -1150,7 +1155,7 @@ const TaskItem = memo(({ task, canCreate, isHeadView, isStrictMember, getStatusC
                                 REJECT
                               </Button>
                               <Button 
-                                onClick={() => updateStatus(task._id, 'Completed')}
+                                onClick={() => updateStatus(task.id, 'Completed')}
                                 className="bg-green-600 hover:bg-green-500 pixel-corners pixel-font"
                               >
                                 <CheckCircle2 className="w-4 h-4 mr-2" />
@@ -1171,7 +1176,7 @@ const TaskItem = memo(({ task, canCreate, isHeadView, isStrictMember, getStatusC
                         {task.individualTasks
                             .filter((t: any) => t.status === 'Completed')
                             .map((individualTask: any) => (
-                              <div key={individualTask._id} className="p-3 bg-green-500/5 border border-green-500/20 pixel-corners">
+                              <div key={individualTask.id} className="p-3 bg-green-500/5 border border-green-500/20 pixel-corners">
                                 <div className="flex justify-between items-center mb-2">
                                   <span className="text-green-400 pixel-font text-xs">{individualTask.assignedTo?.name}</span>
                                 </div>

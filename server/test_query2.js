@@ -1,0 +1,1 @@
+const { createClient } = require('@supabase/supabase-js'); require('dotenv').config(); const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY); supabase.from('profiles').select('name, role, is_highboard, hours_approved').eq('role', 'Member').eq('is_highboard', false).then(res => console.log(res.data));

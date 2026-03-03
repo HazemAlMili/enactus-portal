@@ -13,7 +13,7 @@ import LoadingSpinner from '@/components/ui/loading-spinner';
 export const dynamic = 'force-dynamic';
 
 interface User {
-  _id: string;
+  id: string;
   name: string;
   department: string;
   role: string;
@@ -178,7 +178,7 @@ export default function DepartmentsPage() {
               {/* Department Members Grid */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                 {members.map(member => (
-                  <Card key={member._id} className="bg-card border-2 border-white/10 pixel-corners hover:border-primary transition-colors min-w-0">
+                  <Card key={member.id} className="bg-card border-2 border-white/10 pixel-corners hover:border-primary transition-colors min-w-0">
                     <CardHeader className="pb-2">
                       <div className="flex justify-between items-start">
                         <CardTitle className="text-sm font-bold text-white pixel-font truncate pr-2 w-full">{member.name}</CardTitle>

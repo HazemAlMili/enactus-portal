@@ -1,64 +1,55 @@
-// Import Express types
-import { Request, Response, NextFunction } from 'express';
-// Import jsonwebtoken for token verification
-import jwt from 'jsonwebtoken';
-// Import User model
-import User from '../models/User';
-import HighBoard from '../models/HighBoard';
+// server/src/middleware/authMiddleware.ts
+// Validates Supabase JWTs instead of custom JWTs.
+// Fetches the user's profile from public.profiles after token validation.
 
-// Define Interface for Decoded JWT Token
-interface DecodedToken {
-  id: string;
-  iat: number;
-  exp: number;
-}
+import { Request, Response, NextFunction } from 'express';
+import getSupabaseAdmin from '../lib/supabaseAdmin';
 
 /**
  * Middleware to protect routes.
- * Verifies the JWT token from the Authorization header.
- * Attaches the user object to the request if valid.
+ * Validates the Supabase JWT from the Authorization header.
+ * Attaches the full profile to req.user if valid.
  */
 export const protect = async (req: Request, res: Response, next: NextFunction) => {
-  let token;
+  let token: string | undefined;
 
-  // Check for Authorization header starting with 'Bearer'
   if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
-    try {
-      // Extract token from header ('Bearer <token>')
-      token = req.headers.authorization.split(' ')[1];
-      
-      // Verify token signature
-      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret123') as DecodedToken;
-      console.log('Decoded Token:', decoded);
-
-      // Find user associated with token ID, excluding password field
-      let user: any = await User.findById(decoded.id).select('-password');
-
-      // If not found in User, check HighBoard
-      if (!user) {
-        user = await HighBoard.findById(decoded.id).select('-password');
-      }
-      console.log('User found in DB:', user);
-      
-      if (!user) {
-        return res.status(401).json({ message: 'Not authorized, user not found' });
-      }
-
-      // Attach user to request object (using @ts-ignore to bypass Express type definition extension issue)
-      // @ts-ignore
-      req.user = user;
-      
-      // Proceed to next middleware/controller
-      next();
-    } catch (error) {
-      console.error('Auth Middleware Error:', error);
-      res.status(401).json({ message: 'Not authorized, token failed' });
-    }
+    token = req.headers.authorization.split(' ')[1];
   }
 
-  // Check if token was found
   if (!token) {
-    res.status(401).json({ message: 'Not authorized, no token' });
+    return res.status(401).json({ message: 'Not authorized, no token' });
+  }
+
+  try {
+    const supabase = getSupabaseAdmin();
+
+    // Validate the JWT against Supabase Auth
+    const { data: { user: authUser }, error: authError } = await supabase.auth.getUser(token);
+
+    if (authError || !authUser) {
+      return res.status(401).json({ message: 'Not authorized, token failed' });
+    }
+
+    // Fetch full profile from public.profiles
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', authUser.id)
+      .single();
+
+    if (profileError || !profile) {
+      return res.status(401).json({ message: 'Not authorized, user profile not found' });
+    }
+
+    // Attach profile to request (compatible shape — use 'id' everywhere, not '_id')
+    // @ts-ignore
+    req.user = profile;
+
+    next();
+  } catch (error) {
+    console.error('Auth Middleware Error:', error);
+    res.status(401).json({ message: 'Not authorized, token failed' });
   }
 };
 
@@ -68,17 +59,10 @@ export const protect = async (req: Request, res: Response, next: NextFunction) =
  */
 export const authorize = (...roles: string[]) => {
   return (req: Request, res: Response, next: NextFunction) => {
-    // Check if user is logged in (from protect middleware) and has allowed role
     // @ts-ignore
     const user = req.user;
-    
-    // Check if user is HR Coordinator (Member, HR, Title starts with HR Coordinator)
+
     const isHRCoordinator = user?.role === 'Member' && user?.department === 'HR' && user?.title?.startsWith('HR Coordinator');
-    
-    // If user is HR Coordinator, allow them potentially? 
-    // The authorize middleware is generic. We need to know if the route INTENDS to allow HR Coordinators.
-    // However, since HR Coordinators are "like Heads", maybe we just treat them as authorized if 'Head' or 'HR' is in the allowed roles?
-    // Let's assume if 'HR' or 'Head' is allowed, then HR Coordinator is allowed.
     const isAllowedRole = roles.includes(user?.role || '');
     const isAllowedHRCoord = isHRCoordinator && (roles.includes('HR') || roles.includes('Head'));
 
@@ -86,42 +70,31 @@ export const authorize = (...roles: string[]) => {
       // @ts-ignore
       return res.status(403).json({ message: `User role ${req.user?.role} is not authorized to access this route` });
     }
-    next(); // ✅ CRITICAL: Continue to next middleware/controller!
+    next();
   };
 };
 
 /**
  * Middleware to restrict access to HR department ONLY.
- * Allows: HR Head, HR Vice Head, HR Coordinators
- * Blocks: All other Heads (IT, PM, etc.), Presidents, Directors
  */
 export const authorizeHROnly = (req: Request, res: Response, next: NextFunction) => {
   // @ts-ignore
   const user = req.user;
-  
+
   if (!user) {
     return res.status(401).json({ message: 'Not authorized, no user found' });
   }
-  
-  // Check if user is from HR department
+
   const isHRDepartment = user.department === 'HR';
-  
-  // Check if user is HR Coordinator (Member role with HR department and HR Coordinator title)
   const isHRCoordinator = user.role === 'Member' && user.department === 'HR' && user.title?.startsWith('HR Coordinator');
-  
-  // Check if user is HR Head or Vice Head
   const isHRHead = (user.role === 'Head' || user.role === 'Vice Head') && user.department === 'HR';
-  
-  // Check if user is HR Team Leader
   const isTeamLeader = user.department === 'HR' && user.position === 'Team Leader';
 
-  // Allow if any HR department member (Head, Vice Head, Coordinator, or Team Leader)
   if (isHRDepartment && (isHRHead || isHRCoordinator || isTeamLeader || user.role === 'HR')) {
     return next();
   }
-  
-  // Block everyone else (IT Head, PM Head, General President, etc.)
-  return res.status(403).json({ 
-    message: `Access denied. Only HR department members can perform this action.` 
+
+  return res.status(403).json({
+    message: `Access denied. Only HR department members can perform this action.`
   });
 };

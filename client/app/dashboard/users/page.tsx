@@ -52,7 +52,6 @@ export default function UsersPage() {
   // Function to fetch all users from the backend
   const fetchUsers = async () => {
     try {
-      const token = sessionStorage.getItem('token');
       // GET /users
       const { data } = await api.get('/users');
       setUsers(data);
@@ -147,7 +146,7 @@ export default function UsersPage() {
   const issueWarning = async () => {
       if (!warningTarget) return;
       try {
-          await api.post(`/users/${warningTarget._id}/warning`, { reason: warningReason });
+          await api.post(`/users/${warningTarget.id}/warning`, { reason: warningReason });
           showNotification(`USER WARNED: ${warningTarget.name}`, 'success');
           setWarningTarget(null);
           setWarningReason('');
@@ -175,7 +174,6 @@ export default function UsersPage() {
     }
 
     try {
-      const token = sessionStorage.getItem('token');
       // POST to /users with form data
       let payload: any = { ...formData };
       
@@ -223,7 +221,6 @@ export default function UsersPage() {
   const confirmDelete = async () => {
     if (!deleteId) return;
     try {
-      const token = sessionStorage.getItem('token');
       await api.delete(`/users/${deleteId}`);
       fetchUsers();
       setDeleteId(null);
@@ -559,7 +556,7 @@ export default function UsersPage() {
             <TableBody>
               {/* Map through users array */}
               {filteredUsers.map((u) => (
-                <TableRow key={u._id} className="hover:bg-primary/10 border-b border-primary/10">
+                <TableRow key={u.id} className="hover:bg-primary/10 border-b border-primary/10">
                   <TableCell className="text-white font-medium pixel-font text-sm">{u.name}</TableCell>
 
                   <TableCell>
@@ -694,7 +691,7 @@ export default function UsersPage() {
                     })()}
 
                     {/* Delete Button */}
-                    <Button variant="ghost" size="sm" onClick={() => setDeleteId(u._id)} className="text-destructive hover:text-white hover:bg-destructive pixel-corners">
+                    <Button variant="ghost" size="sm" onClick={() => setDeleteId(u.id)} className="text-destructive hover:text-white hover:bg-destructive pixel-corners">
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   </TableCell>

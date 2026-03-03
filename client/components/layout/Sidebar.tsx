@@ -7,11 +7,12 @@ import { usePathname, useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 // Import UI components and icons
 import { Button } from '@/components/ui/button';
-import { LayoutDashboard, Clock, CheckSquare, Trophy, Users, LogOut, Building, User, Bell, Shield } from 'lucide-react';
+import { LayoutDashboard, Clock, CheckSquare, Trophy, Users, LogOut, Building, User } from 'lucide-react';
 // Import task notifications hook
 import { useTaskNotifications } from '@/hooks/useTaskNotifications';
 // Import sound effects
 import { playClick, playLoss } from '@/lib/sounds';
+import { createClient } from '@/lib/supabase';
 
 // Define Sidebar Component
 export function Sidebar({ user, className }: { user: any, className?: string }) {
@@ -27,6 +28,7 @@ export function Sidebar({ user, className }: { user: any, className?: string }) 
     { href: '/dashboard', label: 'Overview', icon: LayoutDashboard },
     { href: '/dashboard/tasks', label: 'Tasks', icon: CheckSquare, showBadge: true },
     { href: '/dashboard/profile', label: 'Identity', icon: User },
+    { href: '/dashboard/leaderboard', label: 'Leaderboard', icon: Trophy },
   ];
 
   // Management Links for Leaders (Head, Vice Head, HR, GP, VP, Directors)
@@ -38,18 +40,18 @@ export function Sidebar({ user, className }: { user: any, className?: string }) 
   
   if (user && (['Head', 'Vice Head', 'HR', 'General President', 'Vice President'].includes(user.role) || isHRCoordinator || isTeamLeader || isDirector || isGuest)) {
     links.push({ href: '/dashboard/hours', label: 'Hours', icon: Clock });
-    links.push({ href: '/dashboard/leaderboard', label: 'Leaderboard', icon: Trophy });
     links.push({ href: '/dashboard/users', label: 'Squad', icon: Users });
     links.push({ href: '/dashboard/departments', label: 'Departments', icon: Building });
   }
 
-  // Admin Dashboard (General President OR IT Head)
-  if (user && (user.role === 'Head' && user.department === 'IT')) {
-    links.push({ href: '/dashboard/admin', label: 'Admin', icon: Shield });
-  }
+
 
   // Handle Logout Logic
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    // Sign out from Supabase (clears the session cookie)
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    
     // Clear session storage
     sessionStorage.removeItem('token');
     sessionStorage.removeItem('user');

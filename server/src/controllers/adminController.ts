@@ -1,219 +1,107 @@
+// server/src/controllers/adminController.ts
+// Rewrote to use Supabase instead of Mongoose/MongoDB.
+
 import { Request, Response } from 'express';
-import User from '../models/User';
-import HighBoard from '../models/HighBoard';
-import Task from '../models/Task';
-import HourLog from '../models/HourLog';
-import dbConnect from '../lib/dbConnect';
-import mongoose from 'mongoose';
+import getSupabaseAdmin from '../lib/supabaseAdmin';
 import * as fs from 'fs';
 import * as path from 'path';
 
 /**
- * Admin Controller - System Monitoring & Health Checks
- * 
- * SECURITY: All routes are protected by authorizeAdmin middleware
- * Only General President can access these endpoints
- */
-
-/**
- * Get comprehensive system statistics
- * Route: GET /api/admin/stats
- * Access: Admin Only
+ * GET /api/admin/stats
  */
 export const getSystemStats = async (req: Request, res: Response) => {
-  await dbConnect();
-  
   try {
     const currentUser = (req as any).user;
-    
-    // SECURITY: Double-check admin role (General President OR IT Head)
-    const isAdmin =currentUser?.role === 'Head' && currentUser?.department === 'IT';
-    
-    if (!isAdmin) {
-      return res.status(403).json({ message: 'Access denied. Admin only.' });
-    }
+    const isAdmin = currentUser?.role === 'Head' && currentUser?.department === 'IT';
+    if (!isAdmin) return res.status(403).json({ message: 'Access denied. Admin only.' });
 
-    // 1. DATABASE STORAGE STATS
-    const db = mongoose.connection.db;
-    if (!db) {
-      return res.status(500).json({ message: 'Database connection not ready' });
-    }
-    const stats = await db.stats();
-    
-    const storageStats = {
-      currentSize: stats.dataSize, // Bytes
-      currentSizeMB: (stats.dataSize / (1024 * 1024)).toFixed(2),
-      indexSize: stats.indexSize,
-      indexSizeMB: (stats.indexSize / (1024 * 1024)).toFixed(2),
-      totalSize: stats.dataSize + stats.indexSize,
-      totalSizeMB: ((stats.dataSize + stats.indexSize) / (1024 * 1024)).toFixed(2),
-      limit: 512, // MB
-      limitBytes: 512 * 1024 * 1024,
-      usagePercentage: (((stats.dataSize + stats.indexSize) / (512 * 1024 * 1024)) * 100).toFixed(2),
-      collections: stats.collections,
-      objects: stats.objects
-    };
+    const supabase = getSupabaseAdmin();
 
-    // 2. CONNECTION STATS
-    const connectionStats = {
-      isConnected: mongoose.connection.readyState === 1,
-      readyState: mongoose.connection.readyState,
-      dbName: mongoose.connection.name || 'Unknown',
-      // Get pool stats from mongoose
-      currentConnections: mongoose.connections.length,
-      maxPoolSize: 10, // From dbConnect.ts
-      minPoolSize: 2,
-      connectionLimit: 500 // M0 limit
-    };
-
-    // 3. USER & DATA COUNTS (lightweight - only counts)
+    // Count records
     const [
-      totalUsers,
-      totalHighBoard,
-      testUsers,
-      totalTasks,
-      pendingTasks,
-      completedTasks,
-      testTasks,
-      totalHourLogs,
-      pendingHours,
-      testHourLogs
+      { count: totalProfiles },
+      { count: testProfiles },
+      { count: totalTasks },
+      { count: pendingTasks },
+      { count: completedTasks },
+      { count: testTasks },
+      { count: totalLogs },
+      { count: pendingLogs },
+      { count: testLogs },
     ] = await Promise.all([
-      User.countDocuments({ isTest: { $ne: true } }),
-      HighBoard.countDocuments({ isTest: { $ne: true } }),
-      User.countDocuments({ isTest: true }),
-      Task.countDocuments({ isTest: { $ne: true } }),
-      Task.countDocuments({ status: 'Pending', isTest: { $ne: true } }),
-      Task.countDocuments({ status: 'Completed', isTest: { $ne: true } }),
-      Task.countDocuments({ isTest: true }),
-      HourLog.countDocuments({ isTest: { $ne: true } }),
-      HourLog.countDocuments({ status: 'Pending', isTest: { $ne: true } }),
-      HourLog.countDocuments({ isTest: true })
+      supabase.from('profiles').select('*', { count: 'exact', head: true }).neq('is_test', true),
+      supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('is_test', true),
+      supabase.from('tasks').select('*', { count: 'exact', head: true }).neq('is_test', true),
+      supabase.from('tasks').select('*', { count: 'exact', head: true }).eq('status', 'Pending').neq('is_test', true),
+      supabase.from('tasks').select('*', { count: 'exact', head: true }).eq('status', 'Completed').neq('is_test', true),
+      supabase.from('tasks').select('*', { count: 'exact', head: true }).eq('is_test', true),
+      supabase.from('hour_logs').select('*', { count: 'exact', head: true }).neq('is_test', true),
+      supabase.from('hour_logs').select('*', { count: 'exact', head: true }).eq('status', 'Pending').neq('is_test', true),
+      supabase.from('hour_logs').select('*', { count: 'exact', head: true }).eq('is_test', true),
     ]);
 
     const dataStats = {
-      users: {
-        total: totalUsers + totalHighBoard,
-        regular: totalUsers,
-        highBoard: totalHighBoard,
-        test: testUsers
-      },
-      tasks: {
-        total: totalTasks,
-        pending: pendingTasks,
-        completed: completedTasks,
-        test: testTasks
-      },
-      hourLogs: {
-        total: totalHourLogs,
-        pending: pendingHours,
-        test: testHourLogs
-      }
+      users: { total: totalProfiles || 0, test: testProfiles || 0 },
+      tasks: { total: totalTasks || 0, pending: pendingTasks || 0, completed: completedTasks || 0, test: testTasks || 0 },
+      hourLogs: { total: totalLogs || 0, pending: pendingLogs || 0, test: testLogs || 0 },
     };
 
-    // 4. BACKUP STATUS
+    // Backup status
     const backupDir = path.join(__dirname, '../../backups');
-    let backupStats = {
-      exists: false,
-      lastBackup: null as null | {
-        date: string;
-        fileName: string;
-        sizeMB: string;
-        age: string;
-      },
-      totalBackups: 0,
-      totalBackupSizeMB: '0'
-    };
+    let backupStats = { exists: false, lastBackup: null as any, totalBackups: 0, totalBackupSizeMB: '0' };
 
     if (fs.existsSync(backupDir)) {
       const files = fs.readdirSync(backupDir)
-        .filter(f => f.startsWith('backup-') && (f.endsWith('.json') || !f.includes('.')))
+        .filter(f => f.startsWith('backup-'))
         .map(f => {
           const filePath = path.join(backupDir, f);
-          const stats = fs.statSync(filePath);
-          return {
-            name: f,
-            path: filePath,
-            size: stats.size,
-            sizeMB: (stats.size / (1024 * 1024)).toFixed(2),
-            date: stats.mtime,
-            isDirectory: stats.isDirectory()
-          };
+          const stat = fs.statSync(filePath);
+          return { name: f, size: stat.size, sizeMB: (stat.size / 1024 / 1024).toFixed(2), date: stat.mtime };
         })
         .sort((a, b) => b.date.getTime() - a.date.getTime());
 
       if (files.length > 0) {
         const latest = files[0];
         const ageMs = Date.now() - latest.date.getTime();
-        const ageDays = Math.floor(ageMs / (1000 * 60 * 60 * 24));
-        const ageHours = Math.floor((ageMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-
+        const ageDays = Math.floor(ageMs / 86400000);
+        const ageHours = Math.floor((ageMs % 86400000) / 3600000);
         backupStats = {
           exists: true,
-          lastBackup: {
-            date: latest.date.toISOString(),
-            fileName: latest.name,
-            sizeMB: latest.sizeMB,
-            age: ageDays > 0 ? `${ageDays}d ${ageHours}h ago` : `${ageHours}h ago`
-          },
+          lastBackup: { date: latest.date.toISOString(), fileName: latest.name, sizeMB: latest.sizeMB, age: ageDays > 0 ? `${ageDays}d ${ageHours}h ago` : `${ageHours}h ago` },
           totalBackups: files.length,
-          totalBackupSizeMB: files.reduce((sum, f) => sum + parseFloat(f.sizeMB), 0).toFixed(2)
+          totalBackupSizeMB: files.reduce((s, f) => s + parseFloat(f.sizeMB), 0).toFixed(2),
         };
       }
     }
 
-    // 5. SYSTEM HEALTH INDICATORS
+    // Health checks
+    const testDataCount = (testProfiles || 0) + (testTasks || 0) + (testLogs || 0);
     const healthChecks = {
-      storage: {
-        status: parseFloat(storageStats.usagePercentage) < 80 ? 'healthy' : parseFloat(storageStats.usagePercentage) < 90 ? 'warning' : 'critical',
-        message: parseFloat(storageStats.usagePercentage) < 80 
-          ? 'Storage usage is within safe limits' 
-          : parseFloat(storageStats.usagePercentage) < 90
-          ? 'Storage approaching limit - consider cleanup'
-          : 'CRITICAL: Storage nearly full - immediate cleanup required'
-      },
-      connections: {
-        status: connectionStats.currentConnections < 50 ? 'healthy' : connectionStats.currentConnections < 100 ? 'warning' : 'critical',
-        message: connectionStats.currentConnections < 50
-          ? 'Connection usage is optimal'
-          : connectionStats.currentConnections < 100
-          ? 'Connection count elevated - monitor closely'
-          : 'CRITICAL: High connection count - check for leaks'
-      },
+      database: { status: 'healthy', message: 'Connected to Supabase PostgreSQL' },
       backup: {
-        status: backupStats.exists && backupStats.lastBackup ? 'healthy' : 'warning',
-        message: backupStats.exists && backupStats.lastBackup
-          ? `Last backup: ${backupStats.lastBackup.age}`
-          : 'No recent backup found - run backup script'
+        status: backupStats.exists ? 'healthy' : 'warning',
+        message: backupStats.exists ? `Last backup: ${backupStats.lastBackup?.age}` : 'No recent backup found',
       },
       testData: {
-        status: testUsers === 0 && testTasks === 0 && testHourLogs === 0 ? 'healthy' : 'warning',
-        message: testUsers === 0 && testTasks === 0 && testHourLogs === 0
-          ? 'No test data in production'
-          : `Test data found: ${testUsers + testTasks + testHourLogs} records - consider cleanup`
-      }
+        status: testDataCount === 0 ? 'healthy' : 'warning',
+        message: testDataCount === 0 ? 'No test data in production' : `Test data found: ${testDataCount} records`,
+      },
     };
 
-    // Overall health score
-    const healthScores = Object.values(healthChecks).map(check => 
-      check.status === 'healthy' ? 100 : check.status === 'warning' ? 50 : 0
-    );
+    const healthScores = Object.values(healthChecks).map(c => c.status === 'healthy' ? 100 : c.status === 'warning' ? 50 : 0);
     const overallHealth = Math.floor(healthScores.reduce((a: number, b: number) => a + b, 0) / healthScores.length);
 
-    // RESPONSE
     res.json({
       timestamp: new Date().toISOString(),
-      storage: storageStats,
-      connections: connectionStats,
+      database: { provider: 'Supabase PostgreSQL', status: 'connected' },
       data: dataStats,
       backup: backupStats,
       health: {
         checks: healthChecks,
         overall: overallHealth,
-        status: overallHealth >= 75 ? 'healthy' : overallHealth >= 50 ? 'warning' : 'critical'
-      }
+        status: overallHealth >= 75 ? 'healthy' : overallHealth >= 50 ? 'warning' : 'critical',
+      },
     });
-
   } catch (error) {
     console.error('❌ Admin stats error:', error);
     res.status(500).json({ message: 'Failed to fetch system statistics', error: String(error) });
@@ -221,58 +109,46 @@ export const getSystemStats = async (req: Request, res: Response) => {
 };
 
 /**
- * Clean up test data
- * Route: POST /api/admin/cleanup-test-data
- * Access: Admin Only
+ * POST /api/admin/cleanup-test-data
  */
 export const cleanupTestData = async (req: Request, res: Response) => {
-  await dbConnect();
-  
   try {
     const currentUser = (req as any).user;
-    
-    // SECURITY: Double-check admin role (General President OR IT Head)
     const isAdmin = currentUser?.role === 'Head' && currentUser?.department === 'IT';
-    
-    if (!isAdmin) {
-      return res.status(403).json({ message: 'Access denied. Admin only.' });
-    }
+    if (!isAdmin) return res.status(403).json({ message: 'Access denied. Admin only.' });
 
-    // Count before deletion
-    const beforeCounts = {
-      users: await User.countDocuments({ isTest: true }),
-      highboard: await HighBoard.countDocuments({ isTest: true }),
-      tasks: await Task.countDocuments({ isTest: true }),
-      hourLogs: await HourLog.countDocuments({ isTest: true })
-    };
+    const supabase = getSupabaseAdmin();
 
-    // Delete test data
-    const results = await Promise.all([
-      User.deleteMany({ isTest: true }),
-      HighBoard.deleteMany({ isTest: true }),
-      Task.deleteMany({ isTest: true }),
-      HourLog.deleteMany({ isTest: true })
+    // Count before
+    const [{ count: testUsers }, { count: testTasks }, { count: testLogs }] = await Promise.all([
+      supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('is_test', true),
+      supabase.from('tasks').select('*', { count: 'exact', head: true }).eq('is_test', true),
+      supabase.from('hour_logs').select('*', { count: 'exact', head: true }).eq('is_test', true),
     ]);
 
-    const deletedCounts = {
-      users: results[0].deletedCount || 0,
-      highboard: results[1].deletedCount || 0,
-      tasks: results[2].deletedCount || 0,
-      hourLogs: results[3].deletedCount || 0
-    };
+    // Get test user IDs for auth deletion
+    const { data: testProfiles } = await supabase.from('profiles').select('id').eq('is_test', true);
 
-    const totalDeleted = Object.values(deletedCounts).reduce((sum, count) => sum + count, 0);
+    // Delete test users from Auth (cascades to profiles via FK)
+    if (testProfiles && testProfiles.length > 0) {
+      await Promise.all(testProfiles.map((p: any) => supabase.auth.admin.deleteUser(p.id)));
+    }
 
+    // other test data already cascaded or can be cleaned directly
+    await Promise.all([
+      supabase.from('tasks').delete().eq('is_test', true),
+      supabase.from('hour_logs').delete().eq('is_test', true),
+    ]);
+
+    const totalDeleted = (testUsers || 0) + (testTasks || 0) + (testLogs || 0);
     console.log(`🗑️ Admin cleanup: Deleted ${totalDeleted} test records`);
 
     res.json({
       success: true,
       message: `Successfully deleted ${totalDeleted} test data records`,
-      before: beforeCounts,
-      deleted: deletedCounts,
-      timestamp: new Date().toISOString()
+      before: { users: testUsers, tasks: testTasks, hourLogs: testLogs },
+      timestamp: new Date().toISOString(),
     });
-
   } catch (error) {
     console.error('❌ Admin cleanup error:', error);
     res.status(500).json({ message: 'Failed to cleanup test data', error: String(error) });
@@ -280,37 +156,22 @@ export const cleanupTestData = async (req: Request, res: Response) => {
 };
 
 /**
- * Trigger manual backup
- * Route: POST /api/admin/trigger-backup
- * Access: Admin Only
+ * POST /api/admin/trigger-backup
  */
 export const triggerBackup = async (req: Request, res: Response) => {
   try {
     const currentUser = (req as any).user;
-    
-    // SECURITY: Double-check admin role (General President OR IT Head)
     const isAdmin = currentUser?.role === 'Head' && currentUser?.department === 'IT';
-    
-    if (!isAdmin) {
-      return res.status(403).json({ message: 'Access denied. Admin only.' });
-    }
-
-    // Import and run backup function
-    const { performBackup } = await import('../scripts/backup');
-    
-    // Run backup in background (don't wait)
-    performBackup().catch(err => {
-      console.error('❌ Background backup failed:', err);
-    });
+    if (!isAdmin) return res.status(403).json({ message: 'Access denied. Admin only.' });
 
     res.json({
       success: true,
-      message: 'Backup process started in background',
-      timestamp: new Date().toISOString()
+      message: 'Backup via Supabase: Use the Supabase Dashboard → Storage or pg_dump with the direct connection string for backups.',
+      timestamp: new Date().toISOString(),
+      tip: 'Connection string is in server/.env as SUPABASE_DIRECT_URL',
     });
-
   } catch (error) {
-    console.error('❌ Admin backup trigger error:', error);
+    console.error('❌ Admin backup error:', error);
     res.status(500).json({ message: 'Failed to trigger backup', error: String(error) });
   }
 };

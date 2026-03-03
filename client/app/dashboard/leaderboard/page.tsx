@@ -60,18 +60,7 @@ export default function LeaderboardPage() {
 
   useEffect(() => {
     const userStr = sessionStorage.getItem('user');
-    if (userStr) {
-       const user = JSON.parse(userStr);
-       const isHRCoordinator = user.role === 'Member' && user.department === 'HR' && user.title?.startsWith('HR Coordinator');
-       const isTeamLeader = user.role === 'Member' && user.department === 'HR' && user.position === 'Team Leader';
-       const isDirector = user.role === 'Operation Director' || user.role === 'Creative Director';
-       const isGuest = user.role === 'guest';
-       
-       if (!['Head', 'Vice Head', 'HR', 'General President', 'Vice President'].includes(user.role) && !isHRCoordinator && !isTeamLeader && !isDirector && !isGuest) {
-          router.push('/dashboard');
-          return;
-       }
-    } else {
+    if (!userStr) {
        router.push('/');
        return;
     }
@@ -119,7 +108,14 @@ export default function LeaderboardPage() {
           <CardContent className="p-8 text-center">
             <p className="text-destructive pixel-font text-sm mb-4">{error}</p>
             <button 
-              onClick={() => window.location.reload()} 
+              onClick={() => {
+                setError(null);
+                setLoading(true);
+                api.get('/users/leaderboard')
+                  .then(res => setUsers(res.data))
+                  .catch(err => setError(err.message))
+                  .finally(() => setLoading(false));
+              }} 
               className="pixel-corners bg-primary hover:bg-primary/80 text-white px-6 py-3 pixel-font text-xs"
             >
               RETRY
@@ -181,7 +177,7 @@ export default function LeaderboardPage() {
               <TableBody>
                 {/* Mobile: Show 10, Desktop: Show all */}
                 {(isMobile && !showAll ? users.slice(0, 10) : users).map((user, index) => (
-                  <LeaderboardRow key={user._id} user={user} index={index} />
+                  <LeaderboardRow key={user.id || index} user={user} index={index} />
                 ))}
               </TableBody>
             </Table>

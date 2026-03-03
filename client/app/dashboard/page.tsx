@@ -51,7 +51,7 @@ export default function Dashboard() {
     // Fetch fresh user data with cache-busting
     const fetchUserData = async () => {
       try {
-        const { data } = await api.get(`/auth/me?_t=${Date.now()}`);
+        const { data } = await api.get('/auth/me');
         console.log('📊 Fetched user data:', data);
         console.log('⚠️ Warnings:', data.warnings);
         setUser(data);

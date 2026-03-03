@@ -2,7 +2,7 @@
 
 // Import hooks and API
 import { useState, useEffect } from 'react';
-import api from '@/lib/api';
+import { createClient } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import { playClick, playSuccess, playError } from '@/lib/sounds';
 import { motion } from 'framer-motion';
@@ -11,8 +11,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Eye, EyeOff } from 'lucide-react';
-// Import mascot and background
-import AnimatedMascot from './AnimatedMascot';
+// Import background
 import CloudBackground from '@/components/layout/CloudBackground';
 
 // Define LoginForm Component
@@ -25,56 +24,16 @@ export default function LoginForm() {
   const [passwordError, setPasswordError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
   const [isTypingEmail, setIsTypingEmail] = useState(false);
-  const [focusedField, setFocusedField] = useState<'email' | 'password' | null>(null);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [hasExistingSession, setHasExistingSession] = useState(false);
   const router = useRouter();
 
-  // Global mouse tracking for mascot (365 degree tracking)
+  // Global session check
   useEffect(() => {
-    let animationFrameId: number;
-    let lastTime = 0;
-    const throttleMs = 16; // ~60fps
-
-    const handleMouseMove = (e: MouseEvent) => {
-      const currentTime = Date.now();
-      
-      // Throttle to match ~60fps
-      if (currentTime - lastTime < throttleMs) {
-        return;
-      }
-      
-      lastTime = currentTime;
-      
-      // Always track mouse relative to mascot position
-      const mascotContainer = document.querySelector('.mascot-container');
-      if (mascotContainer) {
-        const rect = mascotContainer.getBoundingClientRect();
-        const mascotCenterX = rect.left + rect.width / 2;
-        const mascotCenterY = rect.top + rect.height / 2;
-        
-        const x = e.clientX - mascotCenterX;
-        const y = e.clientY - mascotCenterY;
-        
-        // Use requestAnimationFrame for smoother updates
-        if (animationFrameId) {
-          cancelAnimationFrame(animationFrameId);
-        }
-        
-        animationFrameId = requestAnimationFrame(() => {
-          setMousePosition({ x, y });
-        });
-      }
-    };
-
-    window.addEventListener('mousemove', handleMouseMove, { passive: true });
-    return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      if (animationFrameId) {
-        cancelAnimationFrame(animationFrameId);
-      }
-    };
+    if (sessionStorage.getItem('user')) {
+      setHasExistingSession(true);
+    }
   }, []); // No dependencies - always track
 
   // Validate email domain
@@ -110,47 +69,44 @@ export default function LoginForm() {
     e.preventDefault();
     setError('');
     
-    // Trim credentials to avoid issues with hidden spaces
     const cleanEmail = email.trim().toLowerCase();
     const cleanPassword = password.trim();
 
-    // Validate email and password
     const isEmailValid = validateEmail(cleanEmail);
     const isPasswordValid = validatePassword(cleanPassword);
-    
-    if (!isEmailValid || !isPasswordValid) {
-      return; // Stop if validation fails
-    }
+    if (!isEmailValid || !isPasswordValid) return;
     
     playClick();
     setIsLoading(true);
     
     try {
-      // POST request to login endpoint
-      const { data } = await api.post('/auth/login', { email: cleanEmail, password: cleanPassword });
-      
-      // Store token and user data in session storage
-      sessionStorage.setItem('token', data.token);
-      sessionStorage.setItem('user', JSON.stringify(data));
+      const supabase = createClient();
+
+      // Sign in with Supabase Auth
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        email: cleanEmail,
+        password: cleanPassword,
+      });
+
+      if (authError) throw authError;
+
+      // Fetch the full profile from public.profiles via the API
+      // (which validates the Supabase JWT using the protect middleware)
+      const { data: profile } = await (await import('@/lib/api')).default.get('/auth/me');
+
+      // Store profile in sessionStorage for dashboard layout backward-compat
+      sessionStorage.setItem('user', JSON.stringify(profile));
       sessionStorage.removeItem('isDemo');
-      
-      // Clear any leftover demo local data
       localStorage.removeItem('demo_users');
       localStorage.removeItem('demo_tasks');
       localStorage.removeItem('demo_hours');
       
       playSuccess();
-      
-      // 🎉 CELEBRATION! Show success animation
       setIsSuccess(true);
-      
-      // Wait for celebration animation, then redirect
-      setTimeout(() => {
-        router.push('/dashboard');
-      }, 1500);
+      setTimeout(() => router.push('/dashboard'), 1500);
     } catch (err: any) {
       playError();
-      setError(err.response?.data?.message || 'Login failed');
+      setError(err.message || err.response?.data?.message || 'Login failed');
       setIsLoading(false);
     }
   };
@@ -162,15 +118,17 @@ export default function LoginForm() {
     setError('');
     
     try {
-      const { data } = await api.post('/auth/login', { 
-        email: 'visitor@enactus.com', 
-        password: 'visitor2025' 
+      const supabase = createClient();
+      const { error: authError } = await supabase.auth.signInWithPassword({
+        email: 'visitor@enactus.com',
+        password: 'visitor2025',
       });
-      
-      sessionStorage.setItem('token', data.token);
-      sessionStorage.setItem('user', JSON.stringify(data));
+
+      if (authError) throw authError;
+
+      const { data: profile } = await (await import('@/lib/api')).default.get('/auth/me');
+      sessionStorage.setItem('user', JSON.stringify(profile));
       sessionStorage.removeItem('isDemo');
-      
       localStorage.removeItem('demo_users');
       localStorage.removeItem('demo_tasks');
       localStorage.removeItem('demo_hours');
@@ -198,49 +156,14 @@ export default function LoginForm() {
           className="w-full max-w-5xl"
         >
           <div className="bg-card/95 backdrop-blur-sm border-2 border-primary rounded-lg shadow-2xl shadow-purple-900/50 overflow-hidden pixel-corners">
-            {/* Two Column Grid - Vertical on mobile */}
-            <div className="grid md:grid-cols-2 gap-0">
-              {/* LEFT SIDE - Mascot Section */}
+            {/* Single Column Layout (Removed Mascot) */}
+            <div className="flex justify-center items-center w-full">
+              {/* Login Form Container */}
               <motion.div
-                initial={{ opacity: 0, x: -30 }}
-                animate={{ opacity: 1, x: 0 }}
+                initial={{ opacity: 0, y: 30 }}
+                animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.2, duration: 0.4 }}
-                className="flex flex-col items-center justify-center p-8 md:p-12 bg-card/50 border-b md:border-b-0 md:border-r border-primary/20"
-              >
-                {/* Mascot Container */}
-                <div className="w-full max-w-xs h-80 mb-6 mascot-container">
-                  <AnimatedMascot
-                    isPasswordVisible={showPassword}
-                    hasError={!!(error || emailError || passwordError)}
-                    mousePosition={mousePosition}
-                    isTyping={isTypingEmail}
-                    focusedField={focusedField}
-                    isSuccess={isSuccess}
-                  />
-                </div>
-                
-                {/* Welcome Message - Pixel Font */}
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.4, duration: 0.4 }}
-                  className="text-center"
-                >
-                  <h2 className="text-2xl md:text-3xl pixel-font bg-gradient-to-r from-secondary to-accent bg-clip-text text-transparent mb-2">
-                    WELCOME BACK!
-                  </h2>
-                  <p className="text-sm text-muted-foreground font-mono">
-                    Your digital companion is here to help
-                  </p>
-                </motion.div>
-              </motion.div>
-
-              {/* RIGHT SIDE - Login Form */}
-              <motion.div
-                initial={{ opacity: 0, x: 30 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.3, duration: 0.4 }}
-                className="p-8 md:p-12"
+                className="p-8 md:p-12 w-full max-w-lg"
               >
                 <div className="max-w-md mx-auto">
                   {/* Header */}
@@ -273,11 +196,9 @@ export default function LoginForm() {
                           }}
                           onFocus={() => {
                             setIsTypingEmail(true);
-                            setFocusedField('email');
                           }}
                           onBlur={() => {
                             setIsTypingEmail(false);
-                            setFocusedField(null);
                             validateEmail(email);
                           }}
                           required
@@ -312,9 +233,7 @@ export default function LoginForm() {
                             setPasswordError('');
                             setError('');
                           }}
-                          onFocus={() => setFocusedField('password')}
                           onBlur={() => {
-                            setFocusedField(null);
                             validatePassword(password);
                           }}
                           required
@@ -379,6 +298,23 @@ export default function LoginForm() {
                         <span className="absolute bottom-0 left-0 h-1 bg-yellow-400 animate-pixel-load" />
                       )}
                     </Button>
+                    
+                    {/* Returning User Quick-Access Button */}
+                    {hasExistingSession && (
+                      <div className="pt-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => {
+                            playClick();
+                            router.push('/dashboard');
+                          }}
+                          className="w-full h-12 pixel-corners border-2 border-accent text-accent hover:bg-accent/10 transition-colors"
+                        >
+                          <span className="pixel-font mt-1">CONTINUE TO DASHBOARD ➔</span>
+                        </Button>
+                      </div>
+                    )}
                   </form>
 
                   {/* Guest Login */}

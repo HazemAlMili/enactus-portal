@@ -16,28 +16,30 @@ const api = axios.create({
 
 // 🚀 REQUEST INTERCEPTOR
 api.interceptors.request.use(async (config: any) => {
-  // Retrieve the JWT token from sessionStorage
-  const token = typeof window !== 'undefined' ? sessionStorage.getItem('token') : null;
-  
-  // If a token exists, add it to the Authorization header as a Bearer token
+  // Retrieve the Supabase session access token
+  let token: string | null = null;
+  if (typeof window !== 'undefined') {
+    try {
+      const { createClient } = await import('@/lib/supabase');
+      const supabase = createClient();
+      const { data: { session } } = await supabase.auth.getSession();
+      token = session?.access_token || null;
+    } catch {
+      // If Supabase isn't ready, continue without token
+    }
+  }
+
   if (token) {
     config.headers = config.headers || {};
     config.headers.Authorization = `Bearer ${token}`;
   }
   
   // CACHE BUSTING: Add aggressive cache control headers
+  // Only override for specific routes where cache is disabled on the server
   config.headers = config.headers || {};
   config.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate';
   config.headers['Pragma'] = 'no-cache';
   config.headers['Expires'] = '0';
-  
-  // Add timestamp to prevent browser caching (for GET requests)
-  if (config.method === 'get') {
-    config.params = {
-      ...config.params,
-      _t: Date.now(), // Cache buster timestamp
-    };
-  }
   
   // Return the modified config
   return config;

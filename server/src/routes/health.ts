@@ -1,70 +1,48 @@
+// server/src/routes/health.ts
+// Health check using Supabase connection instead of MongoDB.
+
 import express from 'express';
-import dbConnect, { getConnectionStatus } from '../lib/dbConnect';
+import getSupabaseAdmin from '../lib/supabaseAdmin';
 
 const router = express.Router();
 
 /**
- * Health check endpoint with database status
  * GET /api/health
  */
 router.get('/', async (req, res) => {
   try {
-    const status = getConnectionStatus();
-    
-    // Try to connect if not connected
-    if (!status.isConnected) {
-      await dbConnect();
-    }
-    
-    const finalStatus = getConnectionStatus();
-    
+    // Light ping — count 1 row from profiles to verify DB is reachable
+    const supabase = getSupabaseAdmin();
+    const { error } = await supabase.from('profiles').select('id').limit(1);
+
+    if (error) throw error;
+
     res.json({
       status: 'ok',
-      database: {
-        connected: finalStatus.isConnected,
-        readyState: finalStatus.readyState,
-        name: finalStatus.name
-      },
+      database: { provider: 'Supabase PostgreSQL', connected: true },
       timestamp: new Date().toISOString(),
       uptime: process.uptime()
     });
   } catch (error) {
     res.status(500).json({
       status: 'error',
-      database: {
-        connected: false,
-        error: error instanceof Error ? error.message : String(error)
-      },
+      database: { connected: false, error: error instanceof Error ? error.message : String(error) },
       timestamp: new Date().toISOString()
     });
   }
 });
 
 /**
- * Warm up database connection
  * GET /api/health/warm
- * Use this on server start to establish connection early
  */
 router.get('/warm', async (req, res) => {
-  console.log('🔥 Warming up database connection...');
   const startTime = Date.now();
-  
   try {
-    await dbConnect();
-    const duration = Date.now() - startTime;
-    const status = getConnectionStatus();
-    
-    res.json({
-      status: 'warmed',
-      duration: `${duration}ms`,
-      database: status,
-      message: 'Connection pool ready for requests'
-    });
+    const supabase = getSupabaseAdmin();
+    await supabase.from('profiles').select('id').limit(1);
+    res.json({ status: 'warmed', duration: `${Date.now() - startTime}ms`, provider: 'Supabase PostgreSQL' });
   } catch (error) {
-    res.status(500).json({
-      status: 'failed',
-      error: error instanceof Error ? error.message : String(error)
-    });
+    res.status(500).json({ status: 'failed', error: error instanceof Error ? error.message : String(error) });
   }
 });
 

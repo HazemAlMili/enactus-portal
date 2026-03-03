@@ -7,16 +7,10 @@
  * Clear all browser cache storage
  */
 export const clearAllCache = () => {
-  // Clear sessionStorage except authentication
-  const token = sessionStorage.getItem('token');
+  // Keep user profile data, clear the rest
   const user = sessionStorage.getItem('user');
-  
   sessionStorage.clear();
-  
-  // Restore authentication
-  if (token) sessionStorage.setItem('token', token);
   if (user) sessionStorage.setItem('user', user);
-  
   console.log('✅ Cache cleared successfully');
 };
 

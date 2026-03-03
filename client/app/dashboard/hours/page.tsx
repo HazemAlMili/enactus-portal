@@ -42,7 +42,7 @@ export default function HoursPage() {
   );
 
   const handleUserSelect = (u: any) => {
-    setTargetUserId(u._id);
+    setTargetUserId(u.id);
     setSearchQuery(u.name);
     setShowResults(false);
   };
@@ -92,7 +92,6 @@ export default function HoursPage() {
   // Fetch hours logs from backend
   const fetchHours = async (dept?: string) => {
     try {
-      const token = sessionStorage.getItem('token');
       // Construct URL with query param if dept is provided
       const url = dept && dept !== 'All' ? `/hours?department=${dept}` : '/hours';
       const { data } = await api.get(url);
@@ -121,7 +120,6 @@ export default function HoursPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const token = sessionStorage.getItem('token');
       // POST to /hours
       await api.post('/hours', 
         { amount: Number(amount), description, targetUserId: targetUserId || undefined }
@@ -141,7 +139,6 @@ export default function HoursPage() {
   // Handler for Heads/HR to approve hours
   const handleApprove = async (id: string) => {
     try {
-      const token = sessionStorage.getItem('token');
       // PUT request to update status to 'Approved'
       await api.put(`/hours/${id}`, 
         { status: 'Approved' }
@@ -199,7 +196,7 @@ export default function HoursPage() {
                        {filteredUsers.length > 0 ? (
                          filteredUsers.map(u => (
                            <div 
-                             key={u._id} 
+                             key={u.id} 
                              className="p-2 hover:bg-primary/20 cursor-pointer text-sm font-mono text-white border-b border-primary/10 last:border-0"
                              onClick={() => handleUserSelect(u)}
                            >
@@ -319,7 +316,7 @@ export default function HoursPage() {
             </TableHeader>
             <TableBody>
               {hours.map((log) => (
-                <TableRow key={log._id} className="hover:bg-secondary/10 border-b border-secondary/10 font-mono text-xs">
+                <TableRow key={log.id} className="hover:bg-secondary/10 border-b border-secondary/10 font-mono text-xs">
                   <TableCell className="text-white">{new Date(log.createdAt).toLocaleDateString()}</TableCell>
                   <TableCell className="text-white">{log.user?.name}</TableCell>
                   <TableCell className="text-white">{log.description}</TableCell>
@@ -332,7 +329,7 @@ export default function HoursPage() {
                   {/* Approve Button for HR only */}
                   {canGrant && log.status === 'Pending' && (
                     <TableCell>
-                      <Button size="sm" onClick={() => handleApprove(log._id)} className="bg-green-600 hover:bg-green-500 pixel-corners h-6 text-[10px] pixel-font">
+                      <Button size="sm" onClick={() => handleApprove(log.id)} className="bg-green-600 hover:bg-green-500 pixel-corners h-6 text-[10px] pixel-font">
                         VALIDATE
                       </Button>
                     </TableCell>

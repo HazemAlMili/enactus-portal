@@ -11,7 +11,7 @@ import api from '@/lib/api';
 export const dynamic = 'force-dynamic';
 
 interface UserProfile {
-  _id: string;
+  id: string;
   name: string;
   email: string;
   role: string;
@@ -42,49 +42,17 @@ export default function ProfilePage() {
   useEffect(() => {
     const fetchProfile = async () => {
       try {
-        // Check sessionStorage first
-        const token = sessionStorage.getItem('token');
-        const userStr = sessionStorage.getItem('user');
-        
-        console.log('🔍 Profile page - Checking auth...');
-        console.log('Token exists:', !!token);
-        console.log('User in storage:', !!userStr);
-        
-        if (!token) {
-          console.error('❌ No token found - redirecting to login');
-          setError('Not authenticated. Please log in.');
-          setTimeout(() => {
-            window.location.href = '/';
-          }, 2000);
-          setLoading(false);
-          return;
-        }
-
-        // Fetch fresh user data from /api/auth/me with cache-busting timestamp
-        console.log('🔄 Fetching fresh profile data...');
-        const res = await api.get(`/auth/me?_t=${Date.now()}`);
-        console.log('✅ Profile data loaded successfully:', {
-          name: res.data.name,
-          role: res.data.role,
-          department: res.data.department
-        });
+        // Fetch fresh user data from /api/auth/me
+        const res = await api.get('/auth/me');
         setProfile(res.data);
         setError(null);
       } catch (err: any) {
         console.error("❌ Failed to fetch profile:", err);
-        console.error("Error response:", err.response?.data);
-        console.error("Error status:", err.response?.status);
-        
         const errorMessage = err.response?.data?.message || err.message || 'Failed to load profile';
         setError(errorMessage);
-        
-        // If 401 or 403, redirect to login
         if (err.response?.status === 401 || err.response?.status === 403) {
-          console.error('🚨 Auth error - clearing session and redirecting');
           sessionStorage.clear();
-          setTimeout(() => {
-            window.location.href = '/';
-          }, 2000);
+          setTimeout(() => { router.push('/'); }, 2000);
         }
       } finally {
         setLoading(false);
@@ -92,6 +60,7 @@ export default function ProfilePage() {
     };
     fetchProfile();
   }, []);
+
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -190,7 +159,7 @@ export default function ProfilePage() {
                 Debug Info:
               </p>
               <p className="text-xs font-mono text-white/80">
-                • Token: {sessionStorage.getItem('token') ? 'Present' : 'Missing'}
+                • Token: {sessionStorage.getItem('user') ? 'Session: Present' : 'Session: Missing'}
               </p>
               <p className="text-xs font-mono text-white/80">
                 • User Storage: {sessionStorage.getItem('user') ? 'Present' : 'Missing'}
@@ -203,7 +172,7 @@ export default function ProfilePage() {
               Redirecting to login in 2 seconds...
             </p>
             <button
-              onClick={() => window.location.href = '/'}
+              onClick={() => router.push('/')}
               className="w-full pixel-corners bg-primary hover:bg-primary/80 text-white px-4 py-2 pixel-font text-xs"
             >
               GO TO LOGIN NOW
@@ -247,7 +216,7 @@ export default function ProfilePage() {
         </div>
         <div className="min-w-0">
             <h1 className="text-xl sm:text-2xl pixel-font text-white glow-text truncate">OPERATIVE PROFILE</h1>
-            <p className="text-gray-500 font-mono text-[10px] sm:text-xs truncate">PERSONNEL FILE #{profile._id.slice(-6).toUpperCase()}</p>
+            <p className="text-gray-500 font-mono text-[10px] sm:text-xs truncate">PERSONNEL FILE #{profile.id.slice(-6).toUpperCase()}</p>
         </div>
       </div>
 
