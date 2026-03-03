@@ -49,6 +49,7 @@ export default async function proxy(request: NextRequest) {
 }
 
 export const config = {
+  regions: ['fra1'], // ⚡ Force to Frankfurt to fix Dubai (dxb1) build restriction
   matcher: [
     // Run on all routes except static files, images, and API routes
     '/((?!_next/static|_next/image|favicon.ico|api/).*)',
