@@ -119,7 +119,7 @@ export function Sidebar({ user, className }: { user: any, className?: string }) 
       {/* Footer / Logout Section */}
       <div className="p-4">
         <Button variant="destructive" className="w-full" onClick={() => {
-          playLoss(); // � Game over sound
+          playLoss(); //  Game over sound
           handleLogout();
         }}>
           <LogOut className="mr-2 h-4 w-4" />

@@ -15,7 +15,7 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { useNotification } from '@/components/ui/notification';
-import { playWin, playError } from '@/lib/sounds';
+
 
 // Force dynamic rendering - disable Next.js caching
 export const dynamic = 'force-dynamic';
@@ -205,13 +205,13 @@ export default function UsersPage() {
       }
 
       await api.post('/users', payload);
-      playWin(); // 🏆 Victory fanfare!
+
       setIsOpen(false);
       fetchUsers();
       showNotification('USER RECRUITED SUCCESSFULLY!', 'success');
     } catch (error: any) {
       console.error(error);
-      playError(); // ❌ Error buzz
+
       const msg = error.response?.data?.message || 'Failed to recruit player.';
       showNotification(`RECRUITMENT ERROR: ${msg}`, 'error');
     }

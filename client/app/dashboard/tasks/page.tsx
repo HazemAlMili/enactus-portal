@@ -12,7 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { CheckCircle2, XCircle, Clock, AlertCircle, Link as LinkIcon, Upload } from 'lucide-react';
 import { useTaskNotifications } from '@/hooks/useTaskNotifications';
 import { useNotification } from '@/components/ui/notification';
-import { playClick, playSuccess, playError, playWin } from '@/lib/sounds';
+
 
 // Force dynamic rendering - disable Next.js caching
 export const dynamic = 'force-dynamic';
@@ -81,7 +81,7 @@ export default function TasksPage() {
       if (targetPosition) taskData.targetPosition = targetPosition;
       
       await api.post('/tasks', taskData);
-      playWin(); // 🏆 Task deployed!
+
       // Reset form
       setTitle('');
       setDescription('');
@@ -95,7 +95,7 @@ export default function TasksPage() {
     } catch (err: any) { 
         console.error('Task creation error:', err);
         console.error('Error response:', err.response?.data);
-        playError(); // ❌ Error buzz
+
         const msg = err.response?.data?.message || 'Failed to deploy mission.';
         const errors = err.response?.data?.errors;
         if (errors) {
@@ -152,11 +152,11 @@ export default function TasksPage() {
       
       // 🔊 Play sound based on status
       if (status === 'Submitted') {
-        playClick(); // 📤 Task submitted
+
       } else if (status === 'Completed') {
-        playSuccess(); // ✅ Task approved
+
       } else if (status === 'Rejected') {
-        playError(); // ❌ Task rejected
+
       }
       
       setIsDialogOpen(false); // Close dialog on success
@@ -171,7 +171,7 @@ export default function TasksPage() {
       }
     } catch (err: any) { 
         console.error('Task update error:', err);
-        playError(); 
+
         const msg = err.response?.data?.message || 'Failed to update task status.';
         const errors = err.response?.data?.errors;
         if (errors) {
@@ -223,11 +223,11 @@ export default function TasksPage() {
   const handleEditTask = async (taskId: string, updates: any) => {
     try {
       await api.put(`/tasks/${taskId}/edit`, updates);
-      playSuccess();
+
       showNotification('Task updated successfully!', 'success');
       fetchTasks();
     } catch (error) {
-      playError();
+
       showNotification('Failed to update task', 'error');
       console.error(error);
     }
@@ -237,11 +237,11 @@ export default function TasksPage() {
   const handleDeleteTask = async (taskId: string) => {
     try {
       await api.delete(`/tasks/${taskId}`);
-      playSuccess();
+
       showNotification('Task deleted successfully!', 'success');
       fetchTasks();
     } catch (error) {
-      playError();
+
       showNotification('Failed to delete task', 'error');
       console.error(error);
     }

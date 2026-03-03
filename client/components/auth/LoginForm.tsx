@@ -26,15 +26,7 @@ export default function LoginForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [isTypingEmail, setIsTypingEmail] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
-  const [hasExistingSession, setHasExistingSession] = useState(false);
   const router = useRouter();
-
-  // Global session check
-  useEffect(() => {
-    if (sessionStorage.getItem('user')) {
-      setHasExistingSession(true);
-    }
-  }, []); // No dependencies - always track
 
   // Validate email domain
   const validateEmail = (email: string) => {
@@ -150,34 +142,34 @@ export default function LoginForm() {
       <div className="relative flex items-center justify-center min-h-screen p-4">
         {/* Main Login Card - matching portal theme */}
         <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
+          initial={{ opacity: 0, scale: 0.97 }}
           animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.4 }}
-          className="w-full max-w-5xl"
+          transition={{ duration: 0.15 }}
+          className="w-full max-w-md"
         >
           <div className="bg-card/95 backdrop-blur-sm border-2 border-primary rounded-lg shadow-2xl shadow-purple-900/50 overflow-hidden pixel-corners">
             {/* Single Column Layout (Removed Mascot) */}
             <div className="flex justify-center items-center w-full">
               {/* Login Form Container */}
               <motion.div
-                initial={{ opacity: 0, y: 30 }}
+                initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.2, duration: 0.4 }}
-                className="p-8 md:p-12 w-full max-w-lg"
+                transition={{ delay: 0.05, duration: 0.15 }}
+                className="p-8 w-full"
               >
                 <div className="max-w-md mx-auto">
                   {/* Header */}
-                  <div className="mb-8">
-                    <h1 className="text-3xl md:text-4xl pixel-font bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent mb-2">
+                  <div className="mb-6">
+                    <h1 className="text-xl pixel-font bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent mb-1">
                       ENACTUS PORTAL
                     </h1>
-                    <p className="text-muted-foreground text-sm font-mono">
+                    <p className="text-muted-foreground text-xs font-mono">
                       Enter your credentials to access the portal
                     </p>
                   </div>
 
                   {/* Form */}
-                  <form onSubmit={handleLogin} className="space-y-5">
+                  <form onSubmit={handleLogin} className="space-y-4">
                     {/* Email Input */}
                     <div className="space-y-2">
                       <Label htmlFor="email" className="pixel-font text-xs text-primary">
@@ -299,22 +291,6 @@ export default function LoginForm() {
                       )}
                     </Button>
                     
-                    {/* Returning User Quick-Access Button */}
-                    {hasExistingSession && (
-                      <div className="pt-2">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={() => {
-                            playClick();
-                            router.push('/dashboard');
-                          }}
-                          className="w-full h-12 pixel-corners border-2 border-accent text-accent hover:bg-accent/10 transition-colors"
-                        >
-                          <span className="pixel-font mt-1">CONTINUE TO DASHBOARD ➔</span>
-                        </Button>
-                      </div>
-                    )}
                   </form>
 
                   {/* Guest Login */}
