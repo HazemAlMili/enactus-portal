@@ -4,6 +4,7 @@
 import { useState, useEffect } from 'react';
 import api from '@/lib/api';
 import { useRouter } from 'next/navigation';
+import { useNotification } from '@/components/ui/notification';
 // Import UI components
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -11,6 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Trash2, RefreshCcw, AlertTriangle } from 'lucide-react';
 
 // Force dynamic rendering - disable Next.js caching
 export const dynamic = 'force-dynamic';
@@ -18,6 +20,7 @@ export const dynamic = 'force-dynamic';
 // Define HoursPage Component
 export default function HoursPage() {
   const router = useRouter();
+  const { showNotification, showConfirm } = useNotification();
   // State for hours list
   const [hours, setHours] = useState<any[]>([]);
   // State for form inputs
@@ -35,6 +38,11 @@ export default function HoursPage() {
   // State for search (Autocomplete)
   const [searchQuery, setSearchQuery] = useState('');
   const [showResults, setShowResults] = useState(false);
+  
+  // State for deduct mode (HR only)
+  const [isDeduct, setIsDeduct] = useState(false);
+  // State for recalculation loading
+  const [isRecalculating, setIsRecalculating] = useState(false);
 
   // Filter users based on search query
   const filteredUsers = assignableUsers.filter(u => 
@@ -116,27 +124,107 @@ export default function HoursPage() {
     fetchHours(value);
   };
 
-  // Handler to submit new hours
+  // Handler to submit new hours (or deduct if isDeduct)
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Client-side guards before hitting the server
+    const numAmount = Number(amount);
+    if (!amount || isNaN(numAmount) || numAmount <= 0) {
+      showNotification('Please enter a valid hours amount (greater than 0).', 'error');
+      return;
+    }
+    if (!description || description.trim().length < 3) {
+      showNotification('Please enter a description (at least 3 characters).', 'error');
+      return;
+    }
+    if (canGrant && !targetUserId) {
+      showNotification('Please select a member first.', 'error');
+      return;
+    }
+
     try {
-      // POST to /hours
+      // POST to /hours — send negative amount for deductions
+      const finalAmount = isDeduct ? -numAmount : numAmount;
       await api.post('/hours', 
-        { amount: Number(amount), description, targetUserId: targetUserId || undefined }
+        { amount: finalAmount, description: description.trim(), targetUserId: targetUserId || undefined }
       );
       // Reset form fields
       setAmount('');
       setDescription('');
       setTargetUserId(''); // Reset selection
       setSearchQuery(''); // Reset search query
+      setIsDeduct(false); // Reset deduct mode
       // Refresh list
       fetchHours(selectedDept);
-    } catch (error) {
-      console.error(error);
+    } catch (error: any) {
+      // Log the full server response to see exactly which field failed
+      console.error('Hours submit error:', error);
+      console.error('Server response:', JSON.stringify(error.response?.data, null, 2));
+      const respData = error.response?.data;
+      if (respData?.errors && Array.isArray(respData.errors)) {
+        const msg = respData.errors.map((e: any) => `${e.field ? e.field + ': ' : ''}${e.message}`).join(' | ');
+        showNotification(`Error: ${msg}`, 'error');
+      } else {
+        showNotification(`Error: ${respData?.message || 'Failed to submit hours.'}`, 'error');
+      }
     }
   };
 
-  // Handler for Heads/HR to approve hours
+  // 🗑️ DELETE LOG
+  const handleDelete = async (id: string) => {
+    showConfirm({
+      title: 'DELETE LOG',
+      message: 'Are you sure you want to delete this log? This will update the player\'s total hours permanently.',
+      confirmText: 'YES, DELETE',
+      cancelText: 'ABORT',
+      onConfirm: async () => {
+        try {
+          await api.delete(`/hours/${id}`);
+          fetchHours(selectedDept);
+          showNotification('Log deleted successfully', 'success');
+        } catch (error) {
+           console.error(error);
+           showNotification('Failed to delete log', 'error');
+        }
+      }
+    });
+  };
+
+  // 🔄 RECALCULATE TOTALS
+  const handleRecalculate = async () => {
+    if (!targetUserId) {
+      showNotification('Please select a player to recalculate first.', 'error');
+      return;
+    }
+    
+    setIsRecalculating(true);
+    try {
+      const { data } = await api.post('/hours/recalculate/sync', { userId: targetUserId });
+      showNotification(`Recalculation complete! Total: ${data.totalHours} hrs | ${data.tasksCompleted} missions`, 'success');
+      
+      // 🧬 If we recalculated OURSELVES, update local session storage immediately
+      if (user && targetUserId === user.id) {
+          const updatedUser = { 
+            ...user, 
+            hoursApproved: data.totalHours, 
+            tasksCompleted: data.tasksCompleted, 
+            points: data.totalPoints 
+          };
+          sessionStorage.setItem('user', JSON.stringify(updatedUser));
+          // We can't easily force-refresh the Navbar/Sidebar from here, 
+          // but clicking back to Dashboard will fetch fresh anyway.
+      }
+
+      fetchHours(selectedDept);
+    } catch (error) {
+       console.error(error);
+       showNotification('Recalculation failed', 'error');
+    } finally {
+      setIsRecalculating(false);
+    }
+  };
+
   const handleApprove = async (id: string) => {
     try {
       // PUT request to update status to 'Approved'
@@ -171,13 +259,29 @@ export default function HoursPage() {
           </CardTitle>
         </CardHeader>
         <CardContent className="pt-4">
-          <form onSubmit={handleSubmit} className="flex flex-col md:flex-row gap-4 items-end">
+          <form onSubmit={handleSubmit} className="flex flex-col lg:flex-row flex-wrap gap-4 lg:items-end">
             
 
             {/* User Search for HR (Autocomplete Input) */}
             {canGrant && (
-              <div className="w-full md:w-64 space-y-2 relative">
-                <label className="text-xs text-primary pixel-font">PLAYER SEARCH</label>
+              <div className="w-full lg:w-64 space-y-2 relative">
+                <div className="flex justify-between items-center">
+                  <label className="text-xs text-primary pixel-font">PLAYER SEARCH</label>
+                  {/* Recalculate Button for HR/Board */}
+                  {canGrant && targetUserId && (
+                    <Button 
+                      onClick={handleRecalculate}
+                      disabled={isRecalculating}
+                      variant="ghost" 
+                      size="sm"
+                      className="h-6 px-2 text-[10px] pixel-font text-yellow-400 hover:text-yellow-300 hover:bg-yellow-400/10 gap-1.5"
+                      title="Fix total hours by re-summing all approved logs"
+                    >
+                      <RefreshCcw className={`w-3 h-3 ${isRecalculating ? 'animate-spin' : ''}`} />
+                      {isRecalculating ? 'SYNCING...' : 'RECALC TOTAL'}
+                    </Button>
+                  )}
+                </div>
                 <div className="relative">
                   <Input 
                     value={searchQuery}
@@ -223,23 +327,47 @@ export default function HoursPage() {
                 className="pixel-corners bg-background/50 border-primary font-mono text-sm"
               />
             </div>
-            <div className="w-full md:w-32 space-y-2">
+            <div className="w-full sm:w-32 space-y-2">
               <label className="text-xs text-primary pixel-font">HOURS</label>
               <Input 
                 type="number" 
                 value={amount} 
                 onChange={(e) => setAmount(e.target.value)} 
                 placeholder="0" 
+                min="0"
+                step="0.5"
                 className="pixel-corners bg-background/50 border-primary font-mono text-sm"
               />
             </div>
-            <Button 
-              type="submit" 
-              disabled={canGrant && !targetUserId}
-              className="w-full md:w-auto bg-accent hover:bg-accent/80 pixel-corners pixel-font disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {canGrant ? 'GRANT REWARDS' : 'SAVE PROGRESS'}
-            </Button>
+            {/* Deduct toggle and submit — side by side */}
+            <div className="flex gap-2 items-end">
+              {canGrant && (
+                <div className="flex flex-col gap-2 items-center justify-center shrink-0">
+                  <label className="text-xs text-primary pixel-font">{isDeduct ? 'DEDUCT' : 'ADD'}</label>
+                  <button
+                    type="button"
+                    onClick={() => setIsDeduct(!isDeduct)}
+                    className="relative w-16 h-8 bg-black/40 border-2 border-primary pixel-corners cursor-pointer outline-none transition-colors"
+                    title={isDeduct ? 'Switch to Add mode' : 'Switch to Deduct mode'}
+                  >
+                    <div className={`absolute top-1/2 -translate-y-1/2 w-5 h-5 transition-all duration-300 pixel-corners ${
+                      isDeduct ? 'left-9 bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.6)]' : 'left-1 bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.6)]'
+                    }`}></div>
+                  </button>
+                </div>
+              )}
+              <Button 
+                type="submit" 
+                disabled={canGrant && !targetUserId}
+                className={`flex-1 sm:flex-none h-[42px] px-6 pixel-corners pixel-font disabled:opacity-50 disabled:cursor-not-allowed ${
+                  canGrant && isDeduct
+                    ? 'bg-red-600 hover:bg-red-500'
+                    : 'bg-accent hover:bg-accent/80'
+                }`}
+              >
+                {canGrant ? (isDeduct ? 'DEDUCT HOURS' : 'GRANT REWARDS') : 'SAVE PROGRESS'}
+              </Button>
+            </div>
           </form>
         </CardContent>
       </Card>
@@ -308,9 +436,9 @@ export default function HoursPage() {
                 <TableHead className="text-secondary pixel-font text-xs">ACTIVITY</TableHead>
                 <TableHead className="text-secondary pixel-font text-xs">TIME</TableHead>
                 <TableHead className="text-secondary pixel-font text-xs">STATUS</TableHead>
-                {/* Show Action column only for HR */}
+                {/* Show Action column for HR (Validate / Delete) */}
                 {canGrant && (
-                  <TableHead className="text-secondary pixel-font text-xs">ACTION</TableHead>
+                  <TableHead className="text-secondary pixel-font text-xs text-right">ACTIONS</TableHead>
                 )}
               </TableRow>
             </TableHeader>
@@ -320,18 +448,37 @@ export default function HoursPage() {
                   <TableCell className="text-white">{new Date(log.createdAt).toLocaleDateString()}</TableCell>
                   <TableCell className="text-white">{log.user?.name}</TableCell>
                   <TableCell className="text-white">{log.description}</TableCell>
-                  <TableCell className="text-white">{log.amount} HRS</TableCell>
+                  <TableCell className={log.amount < 0 ? 'text-red-500 font-bold' : 'text-white'}>
+                    {log.amount < 0 ? '' : '+'}{log.amount} HRS
+                  </TableCell>
                   <TableCell>
                     <Badge variant={log.status === 'Approved' ? 'default' : 'secondary'} className="pixel-corners text-[10px]">
                       {log.status.toUpperCase()}
                     </Badge>
                   </TableCell>
-                  {/* Approve Button for HR only */}
-                  {canGrant && log.status === 'Pending' && (
-                    <TableCell>
-                      <Button size="sm" onClick={() => handleApprove(log.id)} className="bg-green-600 hover:bg-green-500 pixel-corners h-6 text-[10px] pixel-font">
-                        VALIDATE
-                      </Button>
+                  {/* Action Buttons for HR only */}
+                  {canGrant && (
+                    <TableCell className="text-right">
+                      <div className="flex justify-end items-center gap-2">
+                        {log.status === 'Pending' && (
+                          <Button 
+                            size="sm" 
+                            onClick={() => handleApprove(log.id)} 
+                            className="bg-green-600 hover:bg-green-500 pixel-corners h-7 px-3 text-[10px] pixel-font"
+                          >
+                            VALIDATE
+                          </Button>
+                        )}
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleDelete(log.id)}
+                          className="h-7 w-7 p-0 pixel-corners text-red-500 hover:text-red-400 hover:bg-red-500/10"
+                          title="Delete log and update player total"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
                     </TableCell>
                   )}
                 </TableRow>

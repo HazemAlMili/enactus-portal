@@ -59,6 +59,7 @@ export const getLeaderboard = async (req: Request, res: Response) => {
       .select('id, name, hours_approved, department')
       .eq('role', 'Member')
       .eq('is_highboard', false)
+      .not('department', 'is', null)
       .order('hours_approved', { ascending: false })
       .limit(10);
 
@@ -232,10 +233,10 @@ export const createUser = async (req: Request, res: Response) => {
 
     const newUserId = authData.user.id;
 
-    // Insert profile
+    // Upsert profile — Supabase Auth trigger may have already created a skeleton row
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
-      .insert({
+      .upsert({
         id: newUserId,
         name,
         email: email.toLowerCase().trim(),
@@ -246,7 +247,7 @@ export const createUser = async (req: Request, res: Response) => {
         responsible_departments: position === 'Team Leader' && responsibleDepartments ? responsibleDepartments : [],
         title: title || null,
         is_test: currentUser?.is_test || false,
-      })
+      }, { onConflict: 'id' })
       .select()
       .single();
 
@@ -290,9 +291,14 @@ export const createUser = async (req: Request, res: Response) => {
     }
 
     res.status(201).json({ id: profile.id, name: profile.name, email: profile.email, role: profile.role });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Create user error:', error);
-    res.status(500).json({ message: 'Server Error', error: error instanceof Error ? error.message : String(error) });
+    // Log Supabase-specific error details if available
+    if (error?.message) console.error('Error message:', error.message);
+    if (error?.status) console.error('Supabase status:', error.status);
+    if (error?.code) console.error('Supabase code:', error.code);
+    const errMsg = error instanceof Error ? error.message : (error?.message || String(error));
+    res.status(500).json({ message: 'Server Error', error: errMsg });
   }
 };
 
@@ -439,6 +445,72 @@ export const addWarning = async (req: Request, res: Response) => {
     if (updateError) throw updateError;
 
     res.json({ message: 'Warning issued successfully.', warnings: updated.warnings });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server Error' });
+  }
+};
+
+/**
+ * DELETE /api/users/:id/warning/:index
+ */
+export const deleteWarning = async (req: Request, res: Response) => {
+  try {
+    const targetUserId = req.params.id;
+    const warningIndex = parseInt(req.params.index);
+    const currentUser = (req as any).user;
+    const supabase = getSupabaseAdmin();
+
+    const isHRCoordinator = currentUser.role === 'Member' && currentUser.department === 'HR' && currentUser.title?.startsWith('HR Coordinator');
+
+    const isAuthorized = (
+      currentUser.role === 'HR' || currentUser.role === 'Head' || currentUser.role === 'Vice Head' ||
+      currentUser.department === 'HR' || currentUser.role === 'General President' || isHRCoordinator
+    );
+
+    if (!isAuthorized) {
+      return res.status(403).json({ message: 'Only HR can delete warnings.' });
+    }
+
+    const { data: targetUser, error: fetchError } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', targetUserId)
+      .single();
+
+    if (fetchError || !targetUser) return res.status(404).json({ message: 'User not found' });
+    if (currentUser?.is_test && !targetUser.is_test) return res.status(403).json({ message: 'Test accounts can only manage other test accounts.' });
+
+    if (isHRCoordinator) {
+      const coordDept = currentUser.title.split(' - ')[1];
+      if (coordDept && targetUser.department !== coordDept) {
+        return res.status(403).json({ message: `You are authorized to manage members of the ${coordDept} department only.` });
+      }
+    }
+
+    const isHRHead = (currentUser.role === 'Head' || currentUser.role === 'Vice Head') && currentUser.department === 'HR';
+    if (isHRHead && targetUser.department !== 'HR') {
+      return res.status(403).json({ message: 'HR Head/Vice Head can only manage HR department members.' });
+    }
+
+    // Remove from warnings array
+    const currentWarnings: any[] = targetUser.warnings || [];
+    if (warningIndex < 0 || warningIndex >= currentWarnings.length) {
+      return res.status(400).json({ message: 'Invalid warning index.' });
+    }
+    
+    const updatedWarnings = currentWarnings.filter((_, i) => i !== warningIndex);
+
+    const { data: updated, error: updateError } = await supabase
+      .from('profiles')
+      .update({ warnings: updatedWarnings })
+      .eq('id', targetUserId)
+      .select()
+      .single();
+
+    if (updateError) throw updateError;
+
+    res.json({ message: 'Warning deleted successfully.', warnings: updated.warnings });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server Error' });

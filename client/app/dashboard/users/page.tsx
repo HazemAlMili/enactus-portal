@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Trash2, UserPlus, AlertTriangle } from 'lucide-react';
+import { Trash2, UserPlus, AlertTriangle, XCircle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
@@ -146,14 +146,39 @@ export default function UsersPage() {
   const issueWarning = async () => {
       if (!warningTarget) return;
       try {
-          await api.post(`/users/${warningTarget.id}/warning`, { reason: warningReason });
+          const { data } = await api.post(`/users/${warningTarget.id}/warning`, { reason: warningReason });
+          // Update the target in State to reflect new warnings
+          setWarningTarget(data.user || { ...warningTarget, warnings: data.warnings });
+          
+          // Refresh main user list
+          const { data: updatedUsers } = await api.get('/users');
+          setUsers(updatedUsers);
+
           showNotification(`USER WARNED: ${warningTarget.name}`, 'success');
-          setWarningTarget(null);
           setWarningReason('');
       } catch (err: any) {
           console.error(err);
           const msg = err.response?.data?.message || "Failed to issue warning.";
           showNotification(`WARNING ERROR: ${msg}`, 'error');
+      }
+  };
+
+  const deleteWarning = async (index: number) => {
+      if (!warningTarget) return;
+      try {
+          const { data } = await api.delete(`/users/${warningTarget.id}/warning/${index}`);
+          // Update the target in State
+          setWarningTarget(data.user || { ...warningTarget, warnings: data.warnings });
+          
+          // Refresh main user list
+          const { data: updatedUsers } = await api.get('/users');
+          setUsers(updatedUsers);
+
+          showNotification(`WARNING REMOVED`, 'success');
+      } catch (err: any) {
+          console.error(err);
+          const msg = err.response?.data?.message || "Failed to delete warning.";
+          showNotification(`ERROR: ${msg}`, 'error');
       }
   };
 
@@ -212,8 +237,16 @@ export default function UsersPage() {
     } catch (error: any) {
       console.error(error);
 
-      const msg = error.response?.data?.message || 'Failed to recruit player.';
-      showNotification(`RECRUITMENT ERROR: ${msg}`, 'error');
+      const respData = error.response?.data;
+      // If the server returned field-level validation errors (400), format them clearly
+      if (respData?.errors && Array.isArray(respData.errors) && respData.errors.length > 0) {
+        const fieldErrors = respData.errors.map((e: any) => `${e.field ? e.field + ': ' : ''}${e.message}`).join(' | ');
+        showNotification(`RECRUIT ERROR: ${fieldErrors}`, 'error');
+      } else {
+        // For 500 errors, show the actual Supabase/server error (stored in respData.error)
+        const msg = respData?.error || respData?.message || 'Failed to recruit player.';
+        showNotification(`RECRUIT ERROR: ${msg}`, 'error');
+      }
     }
   };
 
@@ -716,8 +749,33 @@ export default function UsersPage() {
                   <div className="p-3 bg-yellow-500/10 border border-yellow-500/30 pixel-corners text-sm text-yellow-200 font-mono">
                       TARGET: <span className="font-bold">{warningTarget?.name}</span> ({warningTarget?.department})
                   </div>
+
+                  {/* Existing Warnings List */}
+                  {warningTarget?.warnings && warningTarget.warnings.length > 0 && (
+                    <div className="space-y-2">
+                      <Label className="pixel-font text-[10px] text-yellow-500/70">EXISTING WARNINGS</Label>
+                      <div className="max-h-32 overflow-y-auto space-y-2 pr-1">
+                        {warningTarget.warnings.map((w: any, idx: number) => (
+                          <div key={idx} className="bg-black/40 border border-yellow-500/20 p-2 pixel-corners flex justify-between items-start gap-2">
+                            <div className="flex-1">
+                              <p className="text-[10px] text-white/90 leading-tight font-mono">{w.reason}</p>
+                              <p className="text-[8px] text-white/40 font-mono mt-1">{new Date(w.date).toLocaleDateString()}</p>
+                            </div>
+                            <button 
+                              onClick={() => deleteWarning(idx)}
+                              className="text-red-500 hover:text-red-400 p-1 hover:bg-red-500/10 pixel-corners transition-colors"
+                              title="Delete this warning"
+                            >
+                              <XCircle className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   <div className="space-y-2">
-                      <Label className="pixel-font text-xs">REASON FOR WARNING</Label>
+                      <Label className="pixel-font text-xs">NEW WARNING REASON</Label>
                       <Input 
                         value={warningReason}
                         onChange={e => setWarningReason(e.target.value)}
@@ -726,7 +784,7 @@ export default function UsersPage() {
                       />
                   </div>
                   <Button onClick={issueWarning} className="w-full bg-yellow-600 hover:bg-yellow-500 text-black pixel-corners pixel-font font-bold">
-                      CONFIRM WARNING
+                      CONFIRM NEW WARNING
                   </Button>
               </div>
           </DialogContent>

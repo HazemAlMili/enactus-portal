@@ -52,8 +52,6 @@ export default function Dashboard() {
     const fetchUserData = async () => {
       try {
         const { data } = await api.get('/auth/me');
-        console.log('📊 Fetched user data:', data);
-        console.log('⚠️ Warnings:', data.warnings);
         setUser(data);
         // Optionally update session storage
         sessionStorage.setItem('user', JSON.stringify(data));

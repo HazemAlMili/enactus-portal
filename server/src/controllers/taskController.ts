@@ -112,14 +112,28 @@ export const getTasks = async (req: Request, res: Response) => {
       .order('created_at', { ascending: false });
 
     // Role-based filtering
-    if (currentUser.department === 'HR' && currentUser.position === 'Team Leader' && currentUser.responsible_departments?.length > 0) {
-      const visibleDepts = [...(currentUser.responsible_departments || []), currentUser.department];
-      query = query.in('department', visibleDepts);
-    } else if (currentUser.department === 'HR' && currentUser.title?.startsWith('HR Coordinator')) {
-      const coordDept = currentUser.title.split(' - ')[1];
-      if (coordDept) {
-        query = query.or(`department.eq.${coordDept},assigned_to.eq.${userId}`);
+    const viewMode = req.query.view;
+
+    const isHRMember = currentUser.department === 'HR' && currentUser.role === 'Member';
+    const isHRTeamLeader = isHRMember && currentUser.position === 'Team Leader' && (currentUser.responsible_departments?.length > 0);
+    const isHRCoordinator = isHRMember && !isHRTeamLeader; // All other HR Members (Coordinators, regular HR members)
+
+    if (isHRTeamLeader) {
+      if (viewMode === 'responsible') {
+        // MISSIONS tab: show tasks from responsible depts only
+        query = query.in('department', currentUser.responsible_departments);
       } else {
+        // Main tasks page: ONLY their personal assigned tasks
+        query = query.eq('assigned_to', userId);
+      }
+    } else if (isHRCoordinator) {
+      if (viewMode === 'responsible') {
+        // MISSIONS tab: show their responsible dept tasks (extracted from title if set)
+        const coordDept = currentUser.title?.split(' - ')[1];
+        if (coordDept) query = query.eq('department', coordDept);
+        else query = query.eq('assigned_to', userId); // fallback: no dept set in title
+      } else {
+        // Main tasks page: ONLY their personal assigned tasks
         query = query.eq('assigned_to', userId);
       }
     } else if (userRole === 'Member') {
@@ -221,31 +235,25 @@ export const updateTask = async (req: Request, res: Response) => {
     const updateData: any = {};
 
     if (req.body.status) {
-      updateData.status = req.body.status;
+      const newStatus = req.body.status;
+      const oldStatus = task.status;
 
-      // Auto-reward logic when task is Completed
-      if (req.body.status === 'Completed' && task.status !== 'Completed') {
-        // Get current member stats
-        const { data: member } = await supabase
-          .from('profiles')
-          .select('hours_approved, points, tasks_completed')
-          .eq('id', task.assigned_to)
-          .single();
+      updateData.status = newStatus;
 
+      // 📈 Case A: Pending/Rejected -> Completed (Increment Stats)
+      if (newStatus === 'Completed' && oldStatus !== 'Completed') {
+        const { data: member } = await supabase.from('profiles').select('hours_approved, points, tasks_completed').eq('id', task.assigned_to).single();
         if (member) {
-          const hoursToReward = task.task_hours || 0;
-          const newHours = (member.hours_approved || 0) + hoursToReward;
-          // Points: task hours * 10 + flat score value
-          const newPoints = (member.points || 0) + (hoursToReward * 10) + (task.score_value || 0);
-          const newTasksCompleted = (member.tasks_completed || 0) + 1;
-
-          await supabase
-            .from('profiles')
-            .update({ hours_approved: newHours, points: newPoints, tasks_completed: newTasksCompleted })
-            .eq('id', task.assigned_to);
+          const hoursToReward = Number(task.task_hours) || 0;
+          const scoreValue = Number(task.score_value) || 0;
+          
+          await supabase.from('profiles').update({ 
+            hours_approved: (member.hours_approved || 0) + hoursToReward, 
+            points: (member.points || 0) + (hoursToReward * 10) + scoreValue, 
+            tasks_completed: (member.tasks_completed || 0) + 1 
+          }).eq('id', task.assigned_to);
 
           if (hoursToReward > 0) {
-            // Create automatic hour log entry
             await supabase.from('hour_logs').insert({
               user_id: task.assigned_to,
               amount: hoursToReward,
@@ -255,8 +263,26 @@ export const updateTask = async (req: Request, res: Response) => {
               date: new Date().toISOString(),
               is_test: task.is_test || false,
             });
-            console.log(`✅ Auto-rewarded ${hoursToReward} hours for task: ${task.title}`);
           }
+        }
+      } 
+      // 📉 Case B: Completed -> Pending/Rejected (Decrement Stats)
+      else if (newStatus !== 'Completed' && oldStatus === 'Completed') {
+        const { data: member } = await supabase.from('profiles').select('hours_approved, points, tasks_completed').eq('id', task.assigned_to).single();
+        if (member) {
+          const hoursToDeduct = Number(task.task_hours) || 0;
+          const scoreValue = Number(task.score_value) || 0;
+
+          await supabase.from('profiles').update({ 
+            hours_approved: Math.max(0, (member.hours_approved || 0) - hoursToDeduct), 
+            points: Math.max(0, (member.points || 0) - (hoursToDeduct * 10) - scoreValue), 
+            tasks_completed: Math.max(0, (member.tasks_completed || 0) - 1) 
+          }).eq('id', task.assigned_to);
+
+          // Remove the auto-generated log
+          await supabase.from('hour_logs').delete()
+            .eq('user_id', task.assigned_to)
+            .eq('description', `${task.title} - Task completed`);
         }
       }
     }
@@ -297,33 +323,100 @@ export const editTask = async (req: Request, res: Response) => {
       return res.status(403).json({ message: 'Security Breach: Isolation mismatch.' });
     }
 
-    if (task.assigned_by !== currentUser.id) {
-      return res.status(403).json({ message: 'Only the task creator can edit this task.' });
+    // Authorization: creator OR HR Coordinator/Team Leader with dept authority
+    const isCreator = task.assigned_by === currentUser.id;
+    const isHRCoordinator = currentUser.role === 'Member' && currentUser.department === 'HR' && currentUser.title?.startsWith('HR Coordinator');
+    const isTeamLeader = currentUser.role === 'Member' && currentUser.department === 'HR' && currentUser.position === 'Team Leader' && currentUser.responsible_departments?.length > 0;
+    const isHead = currentUser.role === 'Head' || currentUser.role === 'Vice Head';
+
+    let hasAuthority = isCreator || isHead;
+
+    if (isHRCoordinator) {
+      const coordDept = currentUser.title.split(' - ')[1];
+      if (coordDept && task.department === coordDept) hasAuthority = true;
+    }
+    if (isTeamLeader && currentUser.responsible_departments?.includes(task.department)) {
+      hasAuthority = true;
     }
 
-    const { title, description, resourcesLink, deadline, taskHours, team } = req.body;
+    if (!hasAuthority) {
+      return res.status(403).json({ message: 'You are not authorized to edit this task.' });
+    }
+
+    const { title, description, resourcesLink, deadline, taskHours, team, applyToAll = true } = req.body;
     const updateData: any = {};
     if (title !== undefined) updateData.title = title;
     if (description !== undefined) updateData.description = description;
     if (resourcesLink !== undefined) updateData.resources_link = resourcesLink;
     if (deadline !== undefined) updateData.deadline = deadline;
-    if (taskHours !== undefined) updateData.task_hours = taskHours;
+    if (taskHours !== undefined) updateData.task_hours = Number(taskHours);
     if (team !== undefined) updateData.team = team;
 
-    const { data: updated, error } = await supabase
+    // Fetch all siblings if grouped and applyToAll is true
+    let siblingsQuery = supabase.from('tasks').select('*');
+    if (applyToAll !== false && task.task_group_id) {
+       siblingsQuery = siblingsQuery.eq('task_group_id', task.task_group_id);
+    } else {
+       siblingsQuery = siblingsQuery.eq('id', task.id);
+    }
+    const { data: siblings } = await siblingsQuery;
+
+    // Apply hourly difference to already Completed tasks
+    const newTaskHours = taskHours !== undefined ? Number(taskHours) : Number(task.task_hours || 0);
+    const hourDiff = newTaskHours - Number(task.task_hours || 0);
+
+    if (hourDiff !== 0 && siblings && siblings.length > 0) {
+      for (const sibling of siblings) {
+        if (sibling.status === 'Completed' && sibling.assigned_to) {
+          const { data: member } = await supabase.from('profiles').select('hours_approved, points').eq('id', sibling.assigned_to).single();
+          if (member) {
+            await supabase.from('profiles').update({
+              hours_approved: Math.max(0, (member.hours_approved || 0) + hourDiff),
+              points: Math.max(0, (member.points || 0) + (hourDiff * 10))
+            }).eq('id', sibling.assigned_to);
+
+            // Update hour logs if possible
+            const { data: log } = await supabase.from('hour_logs')
+              .select('*')
+              .eq('user_id', sibling.assigned_to)
+              .eq('description', `${sibling.title} - Task completed`)
+              .single();
+            if (log) {
+              await supabase.from('hour_logs').update({
+                amount: Math.max(0, Number(log.amount) + hourDiff)
+              }).eq('id', log.id);
+            }
+          }
+        }
+      }
+    }
+
+    // Update the task(s)
+    let updateQuery = supabase.from('tasks').update(updateData);
+    if (applyToAll !== false && task.task_group_id) {
+       updateQuery = updateQuery.eq('task_group_id', task.task_group_id);
+    } else {
+       updateQuery = updateQuery.eq('id', task.id);
+    }
+    
+    const { error: updateError } = await updateQuery;
+    if (updateError) throw updateError;
+
+    // Fetch the updated task to return it
+    const { data: updated, error: selectError } = await supabase
       .from('tasks')
-      .update(updateData)
-      .eq('id', req.params.id)
-      .select()
+      .select('*')
+      .eq('id', task.id)
       .single();
 
-    if (error) throw error;
+    if (selectError) throw selectError;
     res.json(updated);
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server Error' });
   }
 };
+
 
 /**
  * DELETE /api/tasks/:id
@@ -345,11 +438,70 @@ export const deleteTask = async (req: Request, res: Response) => {
       return res.status(403).json({ message: 'Security Breach: Isolation mismatch.' });
     }
 
-    if (task.assigned_by !== currentUser.id) {
-      return res.status(403).json({ message: 'Only the task creator can delete this task.' });
+    // Authorization: creator OR HR Coordinator/Team Leader with dept authority
+    const isCreator = task.assigned_by === currentUser.id;
+    const isHRCoordinator = currentUser.role === 'Member' && currentUser.department === 'HR' && currentUser.title?.startsWith('HR Coordinator');
+    const isTeamLeader = currentUser.role === 'Member' && currentUser.department === 'HR' && currentUser.position === 'Team Leader' && currentUser.responsible_departments?.length > 0;
+    const isHead = currentUser.role === 'Head' || currentUser.role === 'Vice Head';
+
+    let hasAuthority = isCreator || isHead;
+
+    if (isHRCoordinator) {
+      const coordDept = currentUser.title.split(' - ')[1];
+      if (coordDept && task.department === coordDept) hasAuthority = true;
+    }
+    if (isTeamLeader && currentUser.responsible_departments?.includes(task.department)) {
+      hasAuthority = true;
     }
 
-    const { error } = await supabase.from('tasks').delete().eq('id', req.params.id);
+    if (!hasAuthority) {
+      return res.status(403).json({ message: 'You are not authorized to delete this task.' });
+    }
+
+    // Fetch all siblings
+    let siblingsQuery = supabase.from('tasks').select('*');
+    if (task.task_group_id) {
+       siblingsQuery = siblingsQuery.eq('task_group_id', task.task_group_id);
+    } else {
+       siblingsQuery = siblingsQuery.eq('id', task.id);
+    }
+    const { data: siblings } = await siblingsQuery;
+
+    // Deduct hours and mission count for any completed tasks
+    if (siblings && siblings.length > 0) {
+      for (const sibling of siblings) {
+        if (sibling.status === 'Completed' && sibling.assigned_to) {
+          const { data: member } = await supabase.from('profiles').select('hours_approved, points, tasks_completed').eq('id', sibling.assigned_to).single();
+          if (member) {
+            const taskHours = Number(sibling.task_hours) || 0;
+            const scoreValue = Number(sibling.score_value) || 0;
+            
+            await supabase.from('profiles').update({
+              hours_approved: Math.max(0, (member.hours_approved || 0) - taskHours),
+              points: Math.max(0, (member.points || 0) - (taskHours * 10) - scoreValue),
+              tasks_completed: Math.max(0, (member.tasks_completed || 0) - 1)
+            }).eq('id', sibling.assigned_to);
+
+            // Delete the hour log for this task if it exists (only if hours > 0)
+            if (taskHours > 0) {
+              await supabase.from('hour_logs').delete()
+                .eq('user_id', sibling.assigned_to)
+                .eq('description', `${sibling.title} - Task completed`);
+            }
+          }
+        }
+      }
+    }
+
+    // Delete the task(s)
+    let deleteQuery = supabase.from('tasks').delete();
+    if (task.task_group_id) {
+       deleteQuery = deleteQuery.eq('task_group_id', task.task_group_id);
+    } else {
+       deleteQuery = deleteQuery.eq('id', task.id);
+    }
+    const { error } = await deleteQuery;
+    
     if (error) throw error;
 
     res.json({ message: 'Task deleted successfully' });

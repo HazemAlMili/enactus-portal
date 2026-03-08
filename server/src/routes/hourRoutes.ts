@@ -1,7 +1,7 @@
 // Import Express
 import express from 'express';
 // Import Controllers
-import { submitHours, getHours, updateHourStatus } from '../controllers/hourController';
+import { submitHours, getHours, updateHourStatus, deleteHourLog, recalculateUserHours } from '../controllers/hourController';
 // Import Auth Middleware
 import { protect, authorize } from '../middleware/authMiddleware';
 
@@ -18,7 +18,12 @@ router.route('/')
 
 // Route: /api/hours/:id
 router.route('/:id')
-  .put(protect, authorize('HR', 'General President', 'Vice President', 'Operation Director', 'Creative Director', 'Head', 'Vice Head', 'Member'), updateHourStatus); // Approve/Reject hours
+  .put(protect, authorize('HR', 'General President', 'Vice President', 'Operation Director', 'Creative Director', 'Head', 'Vice Head', 'Member'), updateHourStatus) // Approve/Reject hours
+  .delete(protect, authorize('HR', 'General President', 'Vice President', 'Head', 'Vice Head'), deleteHourLog); // Delete log
+
+// Route: /api/hours/recalculate
+router.route('/recalculate/sync')
+  .post(protect, authorize('HR', 'General President', 'Vice President', 'Head', 'Vice Head'), recalculateUserHours); // Recalculate totals
 
 // Export Router
 export default router;

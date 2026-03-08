@@ -1,7 +1,7 @@
 // Import Express
 import express from 'express';
 // Import Controllers
-import { getLeaderboard, getUsers, createUser, deleteUser, updateAvatar, addWarning } from '../controllers/userController';
+import { getLeaderboard, getUsers, createUser, deleteUser, updateAvatar, addWarning, deleteWarning } from '../controllers/userController';
 // Import Auth Middleware
 import { protect, authorize, authorizeHROnly } from '../middleware/authMiddleware';
 
@@ -26,6 +26,7 @@ router.route('/')
 
 // Route: /api/users/:id/warning - ONLY HR DEPARTMENT
 router.post('/:id/warning', protect, authorizeHROnly, addWarning);
+router.delete('/:id/warning/:index', protect, authorizeHROnly, deleteWarning);
 
 // Route: /api/users/:id (Delete User) - ONLY HR DEPARTMENT
 router.route('/:id')

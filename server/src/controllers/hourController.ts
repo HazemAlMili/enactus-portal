@@ -31,9 +31,14 @@ export const submitHours = async (req: Request, res: Response) => {
       if (targetUser && currentUser.is_test !== targetUser.is_test) {
         return res.status(403).json({ message: 'Security Breach: Isolation mismatch.' });
       }
-      // HR department restriction
-      if (targetUser && targetUser.department === 'HR' && currentUser.role !== 'Head' && currentUser.department === 'HR') {
-        if (currentUser.role !== 'Head' && currentUser.role !== 'General President' && currentUser.role !== 'Vice President') {
+      // HR department restriction — allow Heads, GP, VP, HR role, and HR Coordinators/TLs assigned to HR dept
+      if (targetUser && targetUser.department === 'HR') {
+        const coordDeptForHR = isHRCoordinator ? currentUser.title.split(' - ')[1] : null;
+        const hasHRAuth = ['Head', 'Vice Head', 'General President', 'Vice President'].includes(currentUser.role)
+          || currentUser.role === 'HR'
+          || (isHRCoordinator && coordDeptForHR === 'HR')
+          || isTeamLeader;
+        if (!hasHRAuth) {
           return res.status(403).json({ message: 'Only the HR Head can add hours for HR Department members.' });
         }
       }
@@ -53,11 +58,12 @@ export const submitHours = async (req: Request, res: Response) => {
       logData.status = 'Approved';
       logData.approved_by = currentUser.id;
 
-      // Update target user stats
+      // Update target user stats (support deduction via negative amount, clamped to 0)
       if (targetUser) {
+        const numAmount = Number(amount);
         await supabase.from('profiles').update({
-          hours_approved: (targetUser.hours_approved || 0) + Number(amount),
-          points: (targetUser.points || 0) + Number(amount) * 10,
+          hours_approved: Math.max(0, (targetUser.hours_approved || 0) + numAmount),
+          points: Math.max(0, (targetUser.points || 0) + numAmount * 10),
         }).eq('id', targetUserId);
       }
     } else {
@@ -67,10 +73,11 @@ export const submitHours = async (req: Request, res: Response) => {
       if (['HR', 'General President', 'Vice President'].includes(currentUser.role)) {
         logData.status = 'Approved';
         logData.approved_by = currentUser.id;
-        // Update own stats
+        // Update own stats (clamped to 0)
+        const numAmount = Number(amount);
         await supabase.from('profiles').update({
-          hours_approved: (currentUser.hours_approved || 0) + Number(amount),
-          points: (currentUser.points || 0) + Number(amount) * 10,
+          hours_approved: Math.max(0, (currentUser.hours_approved || 0) + numAmount),
+          points: Math.max(0, (currentUser.points || 0) + numAmount * 10),
         }).eq('id', currentUser.id);
       } else {
         logData.status = 'Pending';
@@ -250,6 +257,119 @@ export const updateHourStatus = async (req: Request, res: Response) => {
     if (updateError) throw updateError;
     res.json(updated);
   } catch (error) {
+    res.status(500).json({ message: 'Server Error' });
+  }
+};
+
+/**
+ * DELETE /api/hours/:id
+ */
+export const deleteHourLog = async (req: Request, res: Response) => {
+  try {
+    const supabase = getSupabaseAdmin();
+    const currentUser = (req as any).user;
+    const logId = req.params.id;
+
+    // 1. Fetch the log
+    const { data: log, error: fetchError } = await supabase
+      .from('hour_logs')
+      .select('*')
+      .eq('id', logId)
+      .single();
+
+    if (fetchError || !log) return res.status(404).json({ message: 'Log not found' });
+
+    // 2. Permission check (Board or HR only)
+    const canDelete = ['HR', 'General President', 'Vice President', 'Head', 'Vice Head'].includes(currentUser.role) || currentUser.department === 'HR';
+    if (!canDelete) {
+      return res.status(403).json({ message: 'Not authorized to delete hour logs.' });
+    }
+
+    // 3. If approved, decrement the user's total hours/points
+    if (log.status === 'Approved') {
+      const { data: profile } = await supabase.from('profiles').select('hours_approved, points').eq('id', log.user_id).single();
+      if (profile) {
+        await supabase.from('profiles').update({
+          hours_approved: Math.max(0, (profile.hours_approved || 0) - log.amount),
+          points: Math.max(0, (profile.points || 0) - log.amount * 10),
+        }).eq('id', log.user_id);
+      }
+    }
+
+    // 4. Delete the log
+    const { error: deleteError } = await supabase.from('hour_logs').delete().eq('id', logId);
+    if (deleteError) throw deleteError;
+
+    res.json({ message: 'Hour log deleted successfully' });
+  } catch (error) {
+    console.error('Delete hour log error:', error);
+    res.status(500).json({ message: 'Server Error' });
+  }
+};
+
+/**
+ * POST /api/hours/recalculate
+ */
+export const recalculateUserHours = async (req: Request, res: Response) => {
+  try {
+    const supabase = getSupabaseAdmin();
+    const currentUser = (req as any).user;
+    const { userId } = req.body;
+
+    // Permission check (Board or HR only)
+    const canRecalculate = ['HR', 'General President', 'Vice President'].includes(currentUser.role) || (currentUser.department === 'HR' && ['Head', 'Vice Head'].includes(currentUser.role));
+    if (!canRecalculate) {
+      return res.status(403).json({ message: 'Not authorized to recalculate hours.' });
+    }
+
+    if (!userId) {
+      return res.status(400).json({ message: 'User ID is required.' });
+    }
+
+    // 1. Fetch all approved logs for this user
+    const { data: logs, error: logsError } = await supabase
+      .from('hour_logs')
+      .select('amount')
+      .eq('user_id', userId)
+      .eq('status', 'Approved');
+
+    if (logsError) throw logsError;
+
+    // 2. Fetch all completed tasks for this user
+    const { data: tasks, error: tasksError } = await supabase
+      .from('tasks')
+      .select('score_value, task_hours')
+      .eq('assigned_to', userId)
+      .eq('status', 'Completed');
+
+    if (tasksError) throw tasksError;
+
+    // 3. Sum hours from logs
+    const totalHours = (logs || []).reduce((sum, log) => sum + (log.amount || 0), 0);
+    
+    // 4. Sum points from tasks + hour-based points
+    // Points = (hours * 10) + sum(task score values)
+    const taskPoints = (tasks || []).reduce((sum, t) => sum + (Number(t.score_value) || 0), 0);
+    const totalPoints = (totalHours * 10) + taskPoints;
+    const tasksCompleted = (tasks || []).length;
+
+    // 5. Update the profile
+    const { error: updateError } = await supabase.from('profiles').update({
+      hours_approved: Math.max(0, totalHours),
+      points: Math.max(0, totalPoints),
+      tasks_completed: Math.max(0, tasksCompleted)
+    }).eq('id', userId);
+
+    if (updateError) throw updateError;
+
+    res.json({ 
+      message: 'User profile synchronized successfully', 
+      totalHours, 
+      tasksCompleted, 
+      totalPoints 
+    });
+  } catch (error) {
+    console.error('Recalculate hours error:', error);
     res.status(500).json({ message: 'Server Error' });
   }
 };

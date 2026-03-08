@@ -78,8 +78,8 @@ export const createUserSchema = credentialsSchema.extend({
 
 // ✅ Hour Log Validation
 export const createHourLogSchema = z.object({
-  amount: z.number().min(0.5, "Minimum 0.5 hours").max(24, "Maximum 24 hours per entry"),
-  description: z.string().min(10, "Description must be at least 10 characters").max(500, "Description too long"),
+  amount: z.number().min(-24, "Maximum deduction is 24 hours").max(24, "Maximum 24 hours per entry").refine(v => v !== 0, "Amount cannot be zero"),
+  description: z.string().min(3, "Description must be at least 3 characters").max(500, "Description too long"),
 });
 
 /**

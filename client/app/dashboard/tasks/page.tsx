@@ -40,9 +40,6 @@ export default function TasksPage() {
   // Selected Task for Details
   const [selectedTask, setSelectedTask] = useState<any>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-
-  // Submission State - Multiple links
-  const [submissionLinks, setSubmissionLinks] = useState<string[]>(['']);
   
   useEffect(() => {
     const u = JSON.parse(sessionStorage.getItem('user') || '{}');
@@ -62,7 +59,7 @@ export default function TasksPage() {
     }
   };
 
-  const handleCreateTask = async (e: React.FormEvent) => {
+  const handleCreateTask = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     setIsCreating(true);
     try {
@@ -108,7 +105,7 @@ export default function TasksPage() {
     } finally {
         setIsCreating(false);
     }
-  };
+  }, [description, title, resourceLinks, deadline, taskHours, team, targetPosition, showNotification]);
 
   // Helper functions for managing resource links
   const addResourceLink = () => {
@@ -140,7 +137,7 @@ export default function TasksPage() {
     }
   };
 
-  const updateStatus = async (id: string, status: string, links?: string[]) => {
+  const updateStatus = useCallback(async (id: string, status: string, links?: string[]) => {
     try {
       // Filter out empty links
       const filteredLinks = links?.filter(link => link.trim() !== '') || [];
@@ -160,7 +157,6 @@ export default function TasksPage() {
       }
       
       setIsDialogOpen(false); // Close dialog on success
-      setSubmissionLinks(['']); // Reset to one empty field
       await fetchTasks(); // Wait for fetch to complete before resolving
       showNotification(status === 'Submitted' ? 'TRANSMISSION SENT' : `STATUS UPDATED: ${status}`, 'success');
       
@@ -181,46 +177,10 @@ export default function TasksPage() {
           showNotification(`❌ ERROR: ${msg}`, 'error');
         }
     }
-  };
-
-  // Helper functions for managing submission links
-  const addSubmissionLink = () => {
-    setSubmissionLinks([...submissionLinks, '']);
-  };
-
-  const removeSubmissionLink = (index: number) => {
-    if (submissionLinks.length > 1) {
-      setSubmissionLinks(submissionLinks.filter((_, i) => i !== index));
-    }
-  };
-
-  const updateSubmissionLink = (index: number, value: string) => {
-    const newLinks = [...submissionLinks];
-    newLinks[index] = value;
-    
-    // Auto-remove if emptied (except last field) - INSTANT removal
-    if (value.trim() === '' && submissionLinks.length > 1 && index !== submissionLinks.length - 1) {
-      // Remove this field immediately
-      setSubmissionLinks(submissionLinks.filter((_, i) => i !== index));
-      return; // Don't set the value, just remove
-    }
-    
-    setSubmissionLinks(newLinks);
-    
-    // Auto-add new field if last field is filled
-    if (index === submissionLinks.length - 1 && value.trim() !== '') {
-      setSubmissionLinks([...newLinks, '']);
-    }
-  };
-
-  // No longer needed - removal is instant on onChange
-  // Keeping for backward compatibility if needed elsewhere
-  const handleSubmissionLinkBlur = (index: number) => {
-    // This function is now optional/deprecated
-  };
+  }, [fetchTasks, refreshNotifications, showNotification]);
 
   // ✏️ EDIT TASK
-  const handleEditTask = async (taskId: string, updates: any) => {
+  const handleEditTask = useCallback(async (taskId: string, updates: any) => {
     try {
       await api.put(`/tasks/${taskId}/edit`, updates);
 
@@ -231,10 +191,10 @@ export default function TasksPage() {
       showNotification('Failed to update task', 'error');
       console.error(error);
     }
-  };
+  }, [fetchTasks, showNotification]);
 
   // 🗑️ DELETE TASK
-  const handleDeleteTask = async (taskId: string) => {
+  const handleDeleteTask = useCallback(async (taskId: string) => {
     try {
       await api.delete(`/tasks/${taskId}`);
 
@@ -245,16 +205,22 @@ export default function TasksPage() {
       showNotification('Failed to delete task', 'error');
       console.error(error);
     }
-  };
+  }, [fetchTasks, showNotification]);
 
-  const boardRoles = ['General President', 'Vice President']; // Directors NOT included - read-only
-  const directorRoles = ['Operation Director', 'Creative Director']; // Directors for view-only logic
-  const isTeamLeader = user && user.department === 'HR' && user.position === 'Team Leader'; // Removed strict 'Member' role check to support 'HR' role TLs
+  const boardRoles = ['General President', 'Vice President'];
+  const directorRoles = ['Operation Director', 'Creative Director'];
+  
+  // Any Member in HR dept who isn't a Team Leader is treated as HR Coordinator
+  const isTeamLeader = user && user.department === 'HR' && user.role === 'Member' && user.position === 'Team Leader';
+  const isHRCoordinator = user && user.role === 'Member' && user.department === 'HR' && !isTeamLeader;
+  
+  // canManage: all HR dept Members (Coordinators + Team Leaders)
+  const canManage = isTeamLeader || isHRCoordinator;
   
   const canCreate = user && (['Head', 'Vice Head', 'HR'].includes(user.role) || boardRoles.includes(user.role));
-  const isHeadView = user && (['Head', 'Vice Head'].includes(user.role) || boardRoles.includes(user.role) || directorRoles.includes(user.role) || isTeamLeader); // Directors see head view but can't create
+  const isHeadView = user && (['Head', 'Vice Head'].includes(user.role) || boardRoles.includes(user.role) || directorRoles.includes(user.role));
   const isMember = user && ['Member', 'HR'].includes(user.role); 
-  const isStrictMember = user && user.role === 'Member'; // For gamification/messages only
+  const isStrictMember = user && user.role === 'Member';
   
   // ⚡ MEMOIZED - Prevents recreation on every render
   const getStatusColor = useCallback((status: string) => {
@@ -272,23 +238,28 @@ export default function TasksPage() {
   const processedTasks = useMemo(() => {
       if (!user) return [];
 
+      // For HR Coordinators / Team Leaders on the main Tasks page:
+      // Only show tasks that belong to THEIR OWN department (HR).
+      // Their responsible dept tasks are in the Departments → MISSIONS tab.
+      let filteredTasks = tasks;
+      if (canManage) {
+        filteredTasks = tasks.filter(t => t.department === user.department);
+      }
+
       // For Heads/Directors: Group by taskGroupId AND status
       if (isHeadView) {
         const grouped = new Map();
         
-        tasks.forEach(task => {
-          // Create unique key combining groupId and status
-          // This creates separate cards for different statuses
+        filteredTasks.forEach(task => {
           const groupId = task.taskGroupId || task.id;
-          const groupKey = `${groupId}-${task.status}`; // KEY CHANGE: Group by status too!
+          const groupKey = groupId; // Fix duplication: Group by taskGroupId ONLY
           
           if (!grouped.has(groupKey)) {
-            // First task in this status group
             grouped.set(groupKey, {
               ...task,
-              assignedToList: [task.assignedTo], // Store all assigned members with this status
-              individualTasks: [task], // Store all individual tasks with this status
-              taskGroupId: groupId, // Keep original group ID
+              assignedToList: [task.assignedTo],
+              individualTasks: [task],
+              taskGroupId: groupId,
               statusCounts: {
                 [task.status]: 1,
                 Submitted: task.status === 'Submitted' ? 1 : 0,
@@ -298,37 +269,46 @@ export default function TasksPage() {
               }
             });
           } else {
-            // Add this member to the existing status group
             const existing = grouped.get(groupKey);
             existing.assignedToList.push(task.assignedTo);
             existing.individualTasks.push(task);
-            existing.statusCounts[task.status]++;
+            if (existing.statusCounts[task.status] !== undefined) {
+              existing.statusCounts[task.status]++;
+            } else {
+              existing.statusCounts[task.status] = 1;
+            }
+
+            // Overall group status priority:
+            // 1. If ANY member is Submitted -> Group is Submitted (moves to Incoming for review)
+            // 2. Else if ANY member is Pending -> Group is Pending (stays in Active Deployments)
+            // 3. Else if ANY member is Rejected -> Group is Rejected
+            // 4. Else ALL are Completed -> Group is Completed (moves to History)
+            const s = existing.statusCounts;
+            if (s.Submitted > 0) existing.status = 'Submitted';
+            else if (s.Pending > 0) existing.status = 'Pending';
+            else if (s.Rejected > 0) existing.status = 'Rejected';
+            else existing.status = 'Completed';
           }
         });
         
-        // Return all groups sorted by status priority
         return Array.from(grouped.values()).sort((a, b) => {
-          // Prioritize: Submitted > Pending > Rejected > Completed
           const priority: any = { Submitted: 1, Pending: 2, Rejected: 3, Completed: 4 };
           return priority[a.status] - priority[b.status];
         });
       }
 
       // For Members: Show individual tasks
-      const myWork = tasks.filter(t => t.assignedTo?.id === user.id || t.assignedTo === user.id);
-      const othersWork = tasks.filter(t => t.assignedTo?.id !== user.id && t.assignedTo !== user.id);
+      const myWork = filteredTasks.filter(t => t.assignedTo?.id === user.id || t.assignedTo === user.id);
+      const othersWork = filteredTasks.filter(t => t.assignedTo?.id !== user.id && t.assignedTo !== user.id);
 
-      // NO GROUPING for members - Show each task individually
-      // Sort: My Work first, then others by status priority
       return [
           ...myWork,
           ...othersWork.sort((a, b) => {
-              // Prioritize: Submitted > Pending > Rejected > Completed
               const priority: any = { Submitted: 1, Pending: 2, Rejected: 3, Completed: 4 };
               return priority[a.status] - priority[b.status];
           })
       ];
-  }, [tasks, user, isHeadView]);
+  }, [tasks, user, isHeadView, canManage]);
 
   // Helper to check overdue
   const isOverdue = (t: any) => t.deadline && new Date() > new Date(t.deadline) && ['Pending', 'Rejected'].includes(t.status);
@@ -446,7 +426,7 @@ export default function TasksPage() {
                        </div>
 
                       {/* Deadline */}
-                      <div className="space-y-1.5 w-36">
+                      <div className="space-y-1.5 w-full md:w-36">
                         <Label htmlFor="deadline" className="pixel-font text-[10px] text-red-400 flex items-center gap-1.5">
                            <Clock className="w-2.5 h-2.5" />
                            DEADLINE
@@ -456,12 +436,12 @@ export default function TasksPage() {
                           type="date"
                           value={deadline}
                           onChange={e => setDeadline(e.target.value)}
-                          className="bg-black/20 border-red-500/30 focus:border-red-500 pixel-corners font-mono text-xs text-white [color-scheme:dark] h-9"
+                          className="bg-black/20 border-red-500/30 focus:border-red-500 pixel-corners font-mono text-xs text-white w-full [color-scheme:dark] h-9"
                         />
                       </div>
                       
                       {/* Auto Hours */}
-                      <div className="space-y-1.5 w-28">
+                      <div className="space-y-1.5 w-full md:w-28">
                         <Label htmlFor="taskHours" className="pixel-font text-[10px] text-accent flex items-center gap-1.5">
                            ⏰ HOURS
                         </Label>
@@ -561,7 +541,7 @@ export default function TasksPage() {
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {incomingSubmissions.map((task) => (
-                  <TaskItem key={task.id} task={task} canCreate={canCreate} isHeadView={isHeadView} isStrictMember={isStrictMember} getStatusColor={getStatusColor} user={user} updateStatus={updateStatus} selectedTask={selectedTask} setSelectedTask={setSelectedTask} submissionLinks={submissionLinks} setSubmissionLinks={setSubmissionLinks} updateSubmissionLink={updateSubmissionLink} removeSubmissionLink={removeSubmissionLink} handleSubmissionLinkBlur={handleSubmissionLinkBlur} handleEditTask={handleEditTask} handleDeleteTask={handleDeleteTask} />
+                  <TaskItem key={task.id} task={task} canCreate={canCreate} canManage={canManage} isHeadView={isHeadView} isStrictMember={isStrictMember} getStatusColor={getStatusColor} user={user} updateStatus={updateStatus} handleEditTask={handleEditTask} handleDeleteTask={handleDeleteTask} />
                 ))}
               </div>
           </div>
@@ -572,7 +552,7 @@ export default function TasksPage() {
           <h2 className="text-xl pixel-font text-blue-400 border-b border-blue-400/20 pb-2">ACTIVE DEPLOYMENTS</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {activeDeployments.map((task) => (
-               <TaskItem key={task.id} task={task} canCreate={canCreate} isHeadView={isHeadView} isStrictMember={isStrictMember} getStatusColor={getStatusColor} user={user} updateStatus={updateStatus} selectedTask={selectedTask} setSelectedTask={setSelectedTask} submissionLinks={submissionLinks} setSubmissionLinks={setSubmissionLinks} updateSubmissionLink={updateSubmissionLink} removeSubmissionLink={removeSubmissionLink} handleSubmissionLinkBlur={handleSubmissionLinkBlur} handleEditTask={handleEditTask} handleDeleteTask={handleDeleteTask} />
+               <TaskItem key={task.id} task={task} canCreate={canCreate} canManage={canManage} isHeadView={isHeadView} isStrictMember={isStrictMember} getStatusColor={getStatusColor} user={user} updateStatus={updateStatus} handleEditTask={handleEditTask} handleDeleteTask={handleDeleteTask} />
             ))}
             {activeDeployments.length === 0 && (
                 <div className="col-span-full text-center py-10 opacity-30 font-mono text-sm">
@@ -591,7 +571,7 @@ export default function TasksPage() {
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 opacity-90">
                 {expiredMissions.map((task) => (
-                  <TaskItem key={task.id} task={task} canCreate={canCreate} isHeadView={isHeadView} isStrictMember={isStrictMember} getStatusColor={getStatusColor} user={user} updateStatus={updateStatus} selectedTask={selectedTask} setSelectedTask={setSelectedTask} submissionLinks={submissionLinks} setSubmissionLinks={setSubmissionLinks} updateSubmissionLink={updateSubmissionLink} removeSubmissionLink={removeSubmissionLink} handleSubmissionLinkBlur={handleSubmissionLinkBlur} handleEditTask={handleEditTask} handleDeleteTask={handleDeleteTask} />
+                  <TaskItem key={task.id} task={task} canCreate={canCreate} canManage={canManage} isHeadView={isHeadView} isStrictMember={isStrictMember} getStatusColor={getStatusColor} user={user} updateStatus={updateStatus} handleEditTask={handleEditTask} handleDeleteTask={handleDeleteTask} />
                 ))}
               </div>
           </div>
@@ -603,7 +583,7 @@ export default function TasksPage() {
               <h2 className="text-xl pixel-font text-white/50 border-b border-white/10 pb-2">MISSION LOGS & HISTORY</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 opacity-80 hover:opacity-100 transition-opacity">
                 {missionHistory.map((task) => (
-                  <TaskItem key={task.id} task={task} canCreate={canCreate} isHeadView={isHeadView} isStrictMember={isStrictMember} getStatusColor={getStatusColor} user={user} updateStatus={updateStatus} selectedTask={selectedTask} setSelectedTask={setSelectedTask} submissionLinks={submissionLinks} setSubmissionLinks={setSubmissionLinks} updateSubmissionLink={updateSubmissionLink} removeSubmissionLink={removeSubmissionLink} handleSubmissionLinkBlur={handleSubmissionLinkBlur} handleEditTask={handleEditTask} handleDeleteTask={handleDeleteTask} />
+                  <TaskItem key={task.id} task={task} canCreate={canCreate} canManage={canManage} isHeadView={isHeadView} isStrictMember={isStrictMember} getStatusColor={getStatusColor} user={user} updateStatus={updateStatus} handleEditTask={handleEditTask} handleDeleteTask={handleDeleteTask} />
                 ))}
               </div>
           </div>
@@ -621,7 +601,7 @@ export default function TasksPage() {
 
 // Extracted Component to avoid code duplication errors and maintain structure
 // ⚡ PERFORMANCE: Memoized to prevent re-renders when list updates
-const TaskItem = memo(({ task, canCreate, isHeadView, isStrictMember, getStatusColor, user, updateStatus, selectedTask, setSelectedTask, submissionLinks, setSubmissionLinks, updateSubmissionLink, removeSubmissionLink, handleSubmissionLinkBlur, handleEditTask, handleDeleteTask }: any) => {
+const TaskItem = memo(({ task, canCreate, canManage, isHeadView, isStrictMember, getStatusColor, user, updateStatus, handleEditTask, handleDeleteTask }: any) => {
     const [open, setOpen] = useState(false);
     const [isEditMode, setIsEditMode] = useState(false);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -632,14 +612,42 @@ const TaskItem = memo(({ task, canCreate, isHeadView, isStrictMember, getStatusC
     const [editResources, setEditResources] = useState('');
     const isOverdue = task.deadline && new Date() > new Date(task.deadline) && task.status === 'Pending';
     
+    // Local Submission State
+    const [localSubmissionLinks, setLocalSubmissionLinks] = useState<string[]>(['']);
+
+    const addLocalSubmissionLink = () => {
+        setLocalSubmissionLinks([...localSubmissionLinks, '']);
+    };
+
+    const removeLocalSubmissionLink = (index: number) => {
+        if (localSubmissionLinks.length > 1) {
+            setLocalSubmissionLinks(localSubmissionLinks.filter((_, i) => i !== index));
+        }
+    };
+
+    const updateLocalSubmissionLink = (index: number, value: string) => {
+        const newLinks = [...localSubmissionLinks];
+        newLinks[index] = value;
+        
+        if (value.trim() === '' && localSubmissionLinks.length > 1 && index !== localSubmissionLinks.length - 1) {
+            setLocalSubmissionLinks(localSubmissionLinks.filter((_, i) => i !== index));
+            return;
+        }
+        
+        setLocalSubmissionLinks(newLinks);
+        
+        if (index === localSubmissionLinks.length - 1 && value.trim() !== '') {
+            setLocalSubmissionLinks([...newLinks, '']);
+        }
+    };
+
     return (
-        <Dialog open={selectedTask?.id === task.id && open} onOpenChange={(val) => { setOpen(val); if(val) setSelectedTask(task); else setSelectedTask(null); }}>
+        <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
             <Card 
                 className={`cursor-pointer group hover:border-accent transition-all duration-300 bg-card pixel-corners overflow-hidden relative
                     ${isOverdue ? 'border-red-500/80 shadow-[0_0_15px_rgba(239,68,68,0.2)]' : 'border-primary/30'}
                 `}
-                onClick={() => setSelectedTask(task)}
             >
                 <div className={`absolute top-0 left-0 w-1 h-full ${
                     task.status === 'Completed' ? 'bg-green-500' : 
@@ -692,11 +700,8 @@ const TaskItem = memo(({ task, canCreate, isHeadView, isStrictMember, getStatusC
                             <div className="px-2 py-1 bg-yellow-500/20 border border-yellow-500/50 pixel-corners flex items-center gap-1.5">
                                 <span className="text-yellow-500 pixel-font text-[10px] font-bold tracking-wider">SUBMITTED BY:</span>
                                 <span className="text-yellow-300 pixel-font text-[10px] font-bold">
-                                  {task.individualTasks 
-                                    ? task.individualTasks
-                                        .filter((t: any) => t.status === 'Submitted')
-                                        .map((t: any) => t.assignedTo?.name)
-                                        .join(', ')
+                                  {task.individualTasks
+                                    ? task.individualTasks.filter((t: any) => t.status === 'Submitted').map((t: any) => t.assignedTo?.name).join(', ')
                                     : task.assignedTo?.name}
                                 </span>
                             </div>
@@ -709,8 +714,8 @@ const TaskItem = memo(({ task, canCreate, isHeadView, isStrictMember, getStatusC
                             <div className="px-2 py-1 bg-blue-500/10 border border-blue-500/30 pixel-corners flex items-center gap-1.5">
                                 <span className="text-blue-400 pixel-font text-[10px] font-bold tracking-wider">ASSIGNED TO:</span>
                                 <span className="text-blue-300 pixel-font text-[10px] font-bold">
-                                  {task.assignedToList && task.assignedToList.length > 1 
-                                    ? 'ALL MEMBERS' 
+                                  {task.assignedToList && task.assignedToList.length > 1
+                                    ? `ALL MEMBERS (${task.assignedToList.length})`
                                     : task.assignedTo?.name}
                                 </span>
                             </div>
@@ -752,11 +757,8 @@ const TaskItem = memo(({ task, canCreate, isHeadView, isStrictMember, getStatusC
                             <div className="px-2 py-1 bg-green-500/20 border border-green-500/50 pixel-corners flex items-center gap-1.5">
                                 <span className="text-green-500 pixel-font text-[10px] font-bold tracking-wider">COMPLETED BY:</span>
                                 <span className="text-green-300 pixel-font text-[10px] font-bold">
-                                  {task.individualTasks 
-                                    ? task.individualTasks
-                                        .filter((t: any) => t.status === 'Completed')
-                                        .map((t: any) => t.assignedTo?.name)
-                                        .join(', ')
+                                  {task.individualTasks
+                                    ? task.individualTasks.filter((t: any) => t.status === 'Completed').map((t: any) => t.assignedTo?.name).join(', ')
                                     : task.assignedTo?.name}
                                 </span>
                             </div>
@@ -782,7 +784,7 @@ const TaskItem = memo(({ task, canCreate, isHeadView, isStrictMember, getStatusC
                     )}
                     <div className="flex flex-col items-end">
                         <span className="text-secondary pixel-font">{task.scoreValue} XP REWARD</span>
-                        {task.taskHours && task.taskHours > 0 && (
+                        {task.taskHours && task.taskHours > 0 && user?.role !== 'Member' && (
                             <span className="text-yellow-400 pixel-font text-xs mt-1">💎 {task.taskHours} HOURS</span>
                         )}
                     </div>
@@ -790,35 +792,50 @@ const TaskItem = memo(({ task, canCreate, isHeadView, isStrictMember, getStatusC
                 <DialogTitle className="text-2xl pixel-font text-accent mb-2">
                     {task.title || 'Mission Details'}
                 </DialogTitle>
+                {/* ADMIN CONTROLS: Edit & Delete */}
+                {(() => {
+                    const isCreator = String(task.assignedBy?.id || task.assignedBy) === String(user?.id);
+                    const isHeadOfDept = ['Head', 'Vice Head'].includes(user?.role) && user?.department === task.department;
+                    
+                    const coordDept = user?.title?.split(' - ')[1];
+                    const isHRCoordinator = user?.role === 'Member' && user?.department === 'HR' && user?.title?.startsWith('HR Coordinator');
+                    const isTeamLeader = user?.department === 'HR' && user?.role === 'Member' && user?.position === 'Team Leader';
+                    
+                    const managesThisTask = (isHRCoordinator && coordDept === task.department) || 
+                                            (isTeamLeader && user?.responsibleDepartments?.includes(task.department));
 
-                {/* ADMIN CONTROLS: Edit & Delete (Creator Only) */}
-                {canCreate && String(task.assignedBy?.id || task.assignedBy) === String(user?.id) && task.status === 'Pending' && !isEditMode && (
-                    <div className="flex gap-2 mb-4">
-                        <Button
-                            onClick={() => {
-                                setEditTitle(task.title);
-                                setEditDescription(task.description);
-                                setEditDeadline(task.deadline ? new Date(task.deadline).toISOString().split('T')[0] : '');
-                                setEditHours(task.taskHours?.toString() || '');
-                                setEditResources(task.resourcesLink || '');
-                                setIsEditMode(true);
-                            }}
-                            variant="outline"
-                            size="sm"
-                            className="pixel-corners pixel-font text-xs border-blue-500 text-blue-400 hover:bg-blue-500/10"
-                        >
-                            ✏️ EDIT
-                        </Button>
-                        <Button
-                            onClick={() => setShowDeleteConfirm(true)}
-                            variant="outline"
-                            size="sm"
-                            className="pixel-corners pixel-font text-xs border-red-500 text-red-400 hover:bg-red-500/10"
-                        >
-                            🗑️ DELETE
-                        </Button>
-                    </div>
-                )}
+                    const canEditDelete = ((canCreate && isCreator) || managesThisTask || isHeadOfDept) && !isEditMode;
+
+                    if (!canEditDelete) return null;
+
+                    return (
+                        <div className="flex gap-2 mb-4 mt-2">
+                            <Button
+                                onClick={() => {
+                                    setEditTitle(task.title);
+                                    setEditDescription(task.description);
+                                    setEditDeadline(task.deadline ? new Date(task.deadline).toISOString().split('T')[0] : '');
+                                    setEditHours(task.taskHours?.toString() || '');
+                                    setEditResources(task.resourcesLink || '');
+                                    setIsEditMode(true);
+                                }}
+                                variant="outline"
+                                size="sm"
+                                className="pixel-corners pixel-font text-xs border-blue-500 text-blue-400 hover:bg-blue-500/10"
+                            >
+                                ✏️ EDIT
+                            </Button>
+                            <Button
+                                onClick={() => setShowDeleteConfirm(true)}
+                                variant="outline"
+                                size="sm"
+                                className="pixel-corners pixel-font text-xs border-red-500 text-red-400 hover:bg-red-500/10"
+                            >
+                                🗑️ DELETE
+                            </Button>
+                        </div>
+                    );
+                })()}
 
                 {/* EDIT MODE UI */}
                 {isEditMode && (
@@ -887,7 +904,6 @@ const TaskItem = memo(({ task, canCreate, isHeadView, isStrictMember, getStatusC
                                 />
                             </div>
                         </div>
-
                         {/* Action Buttons */}
                         <div className="flex gap-2 pt-2">
                             <Button
@@ -1027,21 +1043,20 @@ const TaskItem = memo(({ task, canCreate, isHeadView, isStrictMember, getStatusC
                                 
                                 {/* Dynamic Submission Links */}
                                 <div className="space-y-2">
-                                    {submissionLinks.map((link: string, index: number) => (
+                                    {localSubmissionLinks.map((link: string, index: number) => (
                                         <div key={index} className="flex gap-2">
                                             <Input
                                                 placeholder={index === 0 ? "Paste link..." : "Additional link..."}
                                                 className="bg-background pixel-corners font-mono text-xs"
                                                 value={link}
-                                                onChange={(e) => updateSubmissionLink(index, e.target.value)}
-                                                onBlur={() => handleSubmissionLinkBlur?.(index)}
+                                                onChange={(e) => updateLocalSubmissionLink(index, e.target.value)}
                                             />
-                                            {submissionLinks.length > 1 && (
+                                            {localSubmissionLinks.length > 1 && (
                                                 <Button
                                                     type="button"
                                                     variant="ghost"
                                                     size="sm"
-                                                    onClick={() => removeSubmissionLink(index)}
+                                                    onClick={() => removeLocalSubmissionLink(index)}
                                                     className="pixel-corners text-red-400 hover:text-red-300 hover:bg-red-500/10"
                                                 >
                                                     ×
@@ -1053,11 +1068,11 @@ const TaskItem = memo(({ task, canCreate, isHeadView, isStrictMember, getStatusC
 
                                 <Button
                                     onClick={async () => {
-                                      await updateStatus(task.id, 'Submitted', submissionLinks);
+                                      await updateStatus(task.id, 'Submitted', localSubmissionLinks);
                                       setOpen(false);
                                     }}
                                     className="bg-accent hover:bg-accent/80 text-white pixel-corners pixel-font w-full"
-                                    disabled={!submissionLinks || !submissionLinks.some((link: string) => link.trim())}
+                                    disabled={!localSubmissionLinks || !localSubmissionLinks.some((link: string) => link.trim())}
                                 >
                                     SUBMIT
                                 </Button>
@@ -1075,8 +1090,8 @@ const TaskItem = memo(({ task, canCreate, isHeadView, isStrictMember, getStatusC
                     </>
                 )}
 
-                {/* Review Actions */}
-                {canCreate && task.status === 'Submitted' && (
+                {/* Review Actions - show while any individual task is still Submitted */}
+                {canCreate && (task.status === 'Submitted' || task.individualTasks?.some((t: any) => t.status === 'Submitted')) && task.individualTasks?.some((t: any) => t.status === 'Submitted') && (
                     <div className="space-y-3 pt-4 border-t border-white/10">
                         <Label className="pixel-font text-yellow-500 text-xs text-glow">PENDING APPROVAL</Label>
                         
@@ -1105,6 +1120,25 @@ const TaskItem = memo(({ task, canCreate, isHeadView, isStrictMember, getStatusC
                                   )}
                                 </div>
                                 <div className="space-y-2">
+                                  <div className="flex items-center gap-2 flex-wrap border-t border-yellow-500/20 pt-2 mb-2">
+                                    <Label className="pixel-font text-[10px] text-yellow-400">REWARD HOURS:</Label>
+                                    <Input 
+                                        type="number" step="0.5" min="0" 
+                                        defaultValue={individualTask.taskHours || 0}
+                                        id={`review-hours-${individualTask.id}`}
+                                        className="h-7 bg-background pixel-corners font-mono text-xs border-yellow-500/50 p-1 w-16 text-center"
+                                    />
+                                    <Button 
+                                        onClick={async () => {
+                                            const val = (document.getElementById(`review-hours-${individualTask.id}`) as HTMLInputElement)?.value;
+                                            await handleEditTask(individualTask.id, { taskHours: parseFloat(val || "0"), applyToAll: false });
+                                        }}
+                                        size="sm"
+                                        className="h-7 pixel-corners pixel-font text-[10px] bg-yellow-600 hover:bg-yellow-500 text-white border-0"
+                                    >
+                                        SAVE
+                                    </Button>
+                                  </div>
                                   <Button 
                                     onClick={() => updateStatus(individualTask.id, 'Completed')}
                                     size="sm"
@@ -1167,8 +1201,8 @@ const TaskItem = memo(({ task, canCreate, isHeadView, isStrictMember, getStatusC
                     </div>
                 )}
                 
-                {/* Show Completed Work for Heads */}
-                {canCreate && task.status === 'Completed' && task.individualTasks && (
+                {/* Show Completed Work for Heads — show as soon as ANY individual member is approved */}
+                {canCreate && task.individualTasks && task.individualTasks.some((t: any) => t.status === 'Completed') && (
                     <div className="space-y-3 pt-4 border-t border-white/10">
                         <Label className="pixel-font text-green-500 text-xs text-glow">COMPLETED WORK</Label>
                         
@@ -1193,6 +1227,26 @@ const TaskItem = memo(({ task, canCreate, isHeadView, isStrictMember, getStatusC
                                   ) : (
                                     <span className="text-xs text-gray-500">No links provided</span>
                                   )}
+                                </div>
+                                <div className="mt-3 border-t border-green-500/20 pt-2 flex items-center gap-2 flex-wrap">
+                                  <Label className="pixel-font text-[10px] text-yellow-400 whitespace-nowrap">REWARD HOURS:</Label>
+                                  <Input 
+                                    type="number" step="0.5" min="0" 
+                                    defaultValue={individualTask.taskHours || 0}
+                                    id={`comp-review-hours-${individualTask.id}`}
+                                    className="h-7 bg-background pixel-corners font-mono text-xs border-yellow-500/50 p-1 w-16 text-center"
+                                  />
+                                  <Button 
+                                    onClick={async () => {
+                                        const val = (document.getElementById(`comp-review-hours-${individualTask.id}`) as HTMLInputElement)?.value;
+                                        await handleEditTask(individualTask.id, { taskHours: parseFloat(val || "0"), applyToAll: false });
+                                    }}
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-7 pixel-corners pixel-font text-[10px] bg-green-600 hover:bg-green-500 text-white border-0"
+                                  >
+                                    SAVE
+                                  </Button>
                                 </div>
                               </div>
                             ))}

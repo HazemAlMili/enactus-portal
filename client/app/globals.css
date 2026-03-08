@@ -145,3 +145,11 @@
 ::-webkit-scrollbar-corner {
   background: hsl(260, 80%, 5%);
 }
+
+/* 📱 Mobile Scrollbar adjustments */
+@media (max-width: 768px) {
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+}

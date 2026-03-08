@@ -10,14 +10,12 @@ export default function Home() {
   const router = useRouter();
   
   useEffect(() => {
-    // 🧹 DEEP CLEAN: Clear any existing session or demo data when on login page
-    // This prevents state leakage between Guest and Real sessions
+    // 🧹 DEEP CLEAN: Clear ALL existing session or demo data when on login page
+    // This prevents state leakage and ensures a fresh start for every login
     sessionStorage.clear();
-    localStorage.removeItem('demo_users');
-    localStorage.removeItem('demo_tasks');
-    localStorage.removeItem('demo_hours');
+    localStorage.clear();
     
-    console.log('🧹 Session cleared for fresh login');
+    console.log('🧹 Browser storage deep-cleaned for fresh login');
   }, []);
   
   return (
