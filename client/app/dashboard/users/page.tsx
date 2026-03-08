@@ -189,8 +189,8 @@ export default function UsersPage() {
       showNotification("NAME MUST BE AT LEAST 3 CHARACTERS", 'error');
       return;
     }
-    if (!formData.email.trim().toLowerCase().endsWith('@enactus.com')) {
-      showNotification("INVALID DOMAIN: ACCOUNT MUST USE @enactus.com", 'error');
+    if (formData.email.trim().length < 3) {
+      showNotification("USERNAME MUST BE AT LEAST 3 CHARACTERS", 'error');
       return;
     }
     if (formData.password.length < 6) {
@@ -200,7 +200,8 @@ export default function UsersPage() {
 
     try {
       // POST to /users with form data
-      let payload: any = { ...formData };
+      const fullEmail = `${formData.email.trim().toLowerCase()}@enactus.com`;
+      let payload: any = { ...formData, email: fullEmail };
       
       // LOGIC: If Creating HR Member and Responsibility is set
       if (formData.department === 'HR' && formData.role !== 'Head' && formData.hrResponsibility) {
@@ -299,7 +300,17 @@ export default function UsersPage() {
           </div>
           <div className="space-y-2">
             <Label className="pixel-font text-xs">EMAIL</Label>
-            <Input className="pixel-corners bg-background/50 border-primary h-9" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
+            <div className="flex items-center h-9">
+              <Input 
+                placeholder="USERNAME"
+                className="pixel-corners bg-background/50 border-primary h-9 rounded-r-none border-r-0 flex-1" 
+                value={formData.email} 
+                onChange={e => setFormData({...formData, email: e.target.value.split('@')[0]})} 
+              />
+              <div className="h-9 px-3 bg-primary/20 border-2 border-primary border-l-0 flex items-center justify-center pixel-corners rounded-l-none text-[15px] font-mono text-primary font-bold">
+                @enactus.com
+              </div>
+            </div>
           </div>
           <div className="space-y-2">
             <Label className="pixel-font text-xs">PASSWORD</Label>
